@@ -33,6 +33,7 @@ class SerialReaderWriterThread(threading.Thread):
 
         logging.info("Thread init XYZ")
         self.data = {}
+        self.data['EPOS'] = float(0)
         self.data['ZPOS'] = float(0)
         self.data['YPOS'] = float(0)
         self.data['XPOS'] = float(0)
@@ -67,7 +68,11 @@ class SerialReaderWriterThread(threading.Thread):
                 if "TinyG" in grbl_out or "tinyG" in grbl_out or "tinyg" in grbl_out:
                     self.is_tinyg=1
                     logging.info("TinyG identified")
-                    count=count+100    
+                    count=count+100
+                if "Marlin" in grbl_out:
+                    self.is_tinyg=2
+                    logging.info("Marlin identified")
+                    count=count+100        
                 time.sleep(0.1)
                 count=count+1            
         except:
@@ -77,7 +82,12 @@ class SerialReaderWriterThread(threading.Thread):
         
         if self.is_tinyg==1:
             logging.info("setting up TinyG")
+            self.cycle_time=0.1
             self.Initialize_Tinyg()
+        if self.is_tinyg==2:
+            logging.info("setting up Marlin")
+            self.cycle_time=0.2
+            self.Initialize_Marlin()    
         else:
             logging.info("setting up grbl")
             self.cycle_time=0.1    
@@ -112,7 +122,10 @@ class SerialReaderWriterThread(threading.Thread):
 
             
             if self.killer_event.is_set():
-                self.Send_grbl_SoftReset(1)
+                if self.is_tinyg==2:
+                    self.Send_Marlin_Kill(1)
+                else:    
+                    self.Send_grbl_SoftReset(1)
                 #logging.info("Run entered 6")
             else:
                 
@@ -139,6 +152,10 @@ class SerialReaderWriterThread(threading.Thread):
         if self.is_tinyg==1:
             grbl_out = str(self.ser_port.readline())  # Wait for grbl response with carriage return                    
             self.data=self.Process_Tinyg_data(grbl_out)
+        elif self.is_tinyg==2:    
+            self.Send_Marlin_Read(0,False)         # do not report ok-> False             
+            grbl_out = self.readline_grbl()
+            self.data=self.Process_Marlin_data(grbl_out)
         else:    
             #logging.info("Run entered 9")
             self.Send_grbl_Read(0,False)         # do not report ok-> False             
@@ -152,6 +169,12 @@ class SerialReaderWriterThread(threading.Thread):
         self.ser_port.write(str.encode("$posz\n"))
         self.Read_Actual_Config()
 
+    def Initialize_Marlin(self):
+        self.ser_port.write(str.encode("M117 Marlin connected :)\n")) # Firmware info
+        self.ser_port.write(str.encode("M115\n")) # Firmware info
+        self.ser_port.write(str.encode("M114\n"))
+        #self.ser_port.write(str.encode("M503\n")) # Report settings
+        #self.Read_Actual_Config()
 
     def Initialize_Grbl(self):
         self.Read_Actual_Config()
@@ -215,7 +238,10 @@ class SerialReaderWriterThread(threading.Thread):
                     linebuff.append(ccc)
                 if ccc == '\n':
                     line=''.join(linebuff)
-                    
+                    if "Unknown command:" in line:
+                        self.is_tinyg=2
+                        logging.info('Marlin identified! ')
+                        showlog=0
                     if showlog==1:
                         logging.info('Config Read: '+ line)                     
                     if (line):
@@ -346,22 +372,41 @@ class SerialReaderWriterThread(threading.Thread):
         if not self.grbl_event_hold.is_set():
             self.grbl_event_hold.set()
         if sendcmd==1:
-            self.ser_port.write(str('!'+'\n').encode())
-            logging.info("grbl on hold!")
+            if self.is_tinyg==2:
+                self.ser_port.write(str('M0 Hold event Set'+'\n').encode())    
+                logging.info("Marlin on Hold!")
+            else:
+                self.ser_port.write(str('!'+'\n').encode())
+                logging.info("grbl on hold!")
+
+    def Send_Marlin_Kill(self,sendcmd):
+        if not self.grbl_event_softreset.is_set():
+            self.grbl_event_softreset.set()
+        if sendcmd==1:
+            self.ser_port.write(str('M112'+'\n').encode())
+            logging.info("Marlin Kill sent!")
 
     def Send_grbl_SoftReset(self,sendcmd):
         if not self.grbl_event_softreset.is_set():
             self.grbl_event_softreset.set()
         if sendcmd==1:
-            self.ser_port.write(str('^X'+'\n').encode())
-            logging.info("grbl softreset sent!")
+            if self.is_tinyg==2:
+                self.ser_port.write(str('M999'+'\n').encode())    
+                logging.info("Marlin Reset!")
+            else:    
+                self.ser_port.write(str('^X'+'\n').encode())
+                logging.info("grbl softreset sent!")
 
     def Send_grbl_Start(self,sendcmd):  
         if not self.grbl_event_start.is_set():  
             self.grbl_event_start.set()
         if sendcmd==1:    
-            self.ser_port.write(str('~'+'\n').encode())
-            logging.info("grbl start!")
+            if self.is_tinyg==2:
+                self.ser_port.write(str('M108'+'\n').encode())    
+                logging.info("Marlin start!")
+            else:    
+                self.ser_port.write(str('~'+'\n').encode())
+                logging.info("grbl start!")
         if self.grbl_event_hold.is_set():
             self.grbl_event_hold.clear()
             logging.info("grbl hold flag clear!")
@@ -384,14 +429,98 @@ class SerialReaderWriterThread(threading.Thread):
             if count>128:
                 return line
                           
-    def Send_grbl_Read(self,waittime,showlog=True):       
-        if  self.grbl_event_status.is_set(): 
-            self.ser_port.write(str('?'+'\n').encode())
-            grbl_out = self.readline_grbl()                
-            self.data=self.Process_grbl_data(grbl_out,showlog)
-            time.sleep(waittime)                        
+    def Send_grbl_Read(self,waittime,showlog=True):    
+        if self.is_tinyg==2:
+           self.Send_Marlin_Read(waittime,showlog)
+        else:       
+            if  self.grbl_event_status.is_set(): 
+                self.ser_port.write(str('?'+'\n').encode())
+                grbl_out = self.readline_grbl()                
+                self.data=self.Process_grbl_data(grbl_out,showlog)
+                time.sleep(waittime)                        
         return self.data
+    
+    def Send_Marlin_Read(self,waittime,showlog=True):       
+        if  self.grbl_event_status.is_set(): 
+            #self.ser_port.write(str('M114'+'\n').encode())
+            self.ser_port.write(str(''+'\n').encode())
+            grbl_out = self.readline_grbl()                
+            self.data=self.Process_Marlin_data(grbl_out,showlog)
+            time.sleep(waittime)                        
+        return self.data    
         
+    def Process_Marlin_data(self,grbl_out,showok=False):
+        #X:0.00 Y:0.00 Z:0.00 E:0.00 Count X:0 Y:0 Z:12000
+        if (grbl_out):
+            #logging.info("-----Received ->>>>"+grbl_out)
+            #print( grbl_out.strip() )
+            if "ok" in grbl_out:
+                self.data['STATUS']='ok'
+                if showok==True:
+                    logging.info(self.data['STATUS'])
+            if "error" in grbl_out:                
+                self.data['STATUS']=grbl_out
+                logging.info(self.data['STATUS'])
+            if "ALARM" in grbl_out:
+                self.data['STATUS']=grbl_out
+            if "echo:" in grbl_out:
+                self.data['STATUS']=grbl_out    
+                logging.info(self.data['STATUS'])
+            if "action" in grbl_out:
+                self.data['STATUS']=grbl_out    
+                logging.info(self.data['STATUS'])    
+            if "[" in grbl_out and "]" in grbl_out:
+                self.data['STATUS']=grbl_out     
+                logging.info(self.data['STATUS'])
+            if  "S_XYZ:" in grbl_out: 
+                self.data['STATUS']=grbl_out   
+                logging.info(self.data['STATUS'])
+            if  "X:" in grbl_out:  
+                try:
+                    isotherformat=False                                
+                    m = re.search('X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)', grbl_out)
+
+                    #self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
+                    self.data['MXPOS'] = int(m.group(5))
+                    self.data['MYPOS'] = int(m.group(6))                
+                    self.data['MZPOS'] = int(m.group(7))
+                    self.data['XPOS'] = float(m.group(1))
+                    self.data['YPOS'] = float(m.group(2))                
+                    self.data['ZPOS'] = float(m.group(3))
+                    self.data['EPOS'] = float(m.group(4))
+
+                except:
+                    isotherformat=True
+                    pass
+                if isotherformat==True:
+                    try:                                
+                        m = re.search('<(\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})>', grbl_out)
+
+                        self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
+                        self.data['MXPOS'] = float(m.group(2))
+                        self.data['MYPOS'] = float(m.group(3))                
+                        self.data['MZPOS'] = float(m.group(4))
+                        self.data['MAPOS'] = float(m.group(5))
+                        self.data['XPOS'] = float(m.group(6))
+                        self.data['YPOS'] = float(m.group(7))                
+                        self.data['ZPOS'] = float(m.group(8))
+                        self.data['APOS'] = float(m.group(9))
+                        self.data['CTL'] = float(m.group(10))
+                    except:                        
+                        logging.info("No read: "+grbl_out)
+                
+                #self.data['STATE_XYZ']=0
+                self.Set_StateXYZ_from_Status() 
+                #if self.grbl_event_status.is_set():
+                if self.Compare_Hasdatachanged(self.olddata)==True:
+                    logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                for aaa in self.data:         
+                    self.olddata[aaa]=self.data[aaa]              
+                #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
+                #logging.info('WXPOS=' + str(self.data['WXPOS'])+',WYPOS=' + str(self.data['WYPOS'])+',WZPOS=' + str(self.data['WZPOS'])+' '+ str(self.data['STATE_XYZ']) )
+            self.Set_StateXYZ_from_Status()    
+        return self.data     
+
     def Process_grbl_data(self,grbl_out,showok=False):
         #<Idle,MPos:0.000,0.000,0.000,WPos:0.000,0.000,0.000> if (grbl_out):
         if (grbl_out):
@@ -536,7 +665,9 @@ class SerialReaderWriterThread(threading.Thread):
 
     def Send_Homing(self):
         if self.is_tinyg==1:  
-            cmd="G28.2 X0 Y0 Z0"+'\n' # tiny g code for homing            
+            cmd="G28.2 X0 Y0 Z0"+'\n' # tiny g code for homing   
+        if self.is_tinyg==2:
+            cmd="G28"+'\n'             
         else:
             cmd="$H"+'\n'
         self.rx_queue.put(cmd)    
@@ -569,31 +700,34 @@ class XYZGrbl:
         self.ser_read_thread.start()
 
     def home_offset(self, x, z):
-        self.srl_cmd_queue.put('g92 x' + str(x) + ' z' + str(z) + '\n')
+        self.srl_cmd_queue.put('G92 X' + str(x) + ' Y' + str(z) + '\n')
         
     def home_offset_xyz(self, x, y, z):
-        self.srl_cmd_queue.put('g92 x' + str(x) + ' y' + str(y)+ ' z' + str(z) + '\n')
+        self.srl_cmd_queue.put('G92 X' + str(x) + ' Y' + str(y)+ ' Z' + str(z) + '\n')
 
     def goto_xz(self, x, z):
-        self.srl_cmd_queue.put('g0 x' + str(x) + ' z' + str(z) + '\n')
+        self.srl_cmd_queue.put('G0 X' + str(x) + ' Z' + str(z) + '\n')
     
     def goto_xy(self, x, y):
-        self.srl_cmd_queue.put('g0 x' + str(x) + ' y' + str(y) + '\n')
+        self.srl_cmd_queue.put('G0 X' + str(x) + ' Y' + str(y) + '\n')
         
     def goto_yz(self, y, z):
-        self.srl_cmd_queue.put('g0 z' + str(z) + ' y' + str(y) + '\n')
+        self.srl_cmd_queue.put('G0 Z' + str(z) + ' Y' + str(y) + '\n')
     
     def goto_xyz(self, x,y,z):
-        self.srl_cmd_queue.put('g0 x' + str(x) + ' y' + str(y)+' z' + str(z) + '\n')
+        self.srl_cmd_queue.put('G0 X' + str(x) + ' Y' + str(y)+' Z' + str(z) + '\n')
+    
+    def goto_xyzf(self, x,y,z,f):
+        self.srl_cmd_queue.put('G1 X' + str(x) + ' Y' + str(y)+' Z' + str(z) +' F' + str(f) + '\n')
 
     def goto_x(self, x):
-        self.srl_cmd_queue.put('g0 x' + str(x) + '\n')
+        self.srl_cmd_queue.put('G0 X' + str(x) + '\n')
 
     def goto_z(self, z):
-        self.srl_cmd_queue.put('g0 z' + str(z) + '\n')	
+        self.srl_cmd_queue.put('G0 Z' + str(z) + '\n')	
     
     def goto_y(self, y):
-        self.srl_cmd_queue.put('g0 y' + str(y) + '\n')	
+        self.srl_cmd_queue.put('G0 Y' + str(y) + '\n')	
     
     def clear_state(self):   
         if self.ser_read_thread.is_tinyg==1:

@@ -625,6 +625,7 @@ class Ui_MainWindow(object):
         self.comboBox_ConnSpeed.addItem("57600")
         self.comboBox_ConnSpeed.addItem("91600")
         self.comboBox_ConnSpeed.addItem("115200")
+        self.comboBox_ConnSpeed.addItem("250000")
         #Set default
         self.COMBaudRate="115200"
         index= self.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFixedString)
@@ -761,6 +762,7 @@ class Ui_MainWindow(object):
         self.killer_event = threading.Event()  
         self.killer_event.clear() 
         self.XYZRobot_com_port ='COM10'
+        self.Version ='2.0.1'
         self.x_pos = 0
         self.y_pos = 0
         self.z_pos = 0
@@ -1551,6 +1553,7 @@ class XYZ_Gcode_Stream(threading.Thread):
         self.stoping_event=stoping_event        
         self.cycle_time=0.1               
         self.state_xyz=0
+        self.oldstate_xyz=0
         self.istext2stream=False
         self.text_queue = queue.Queue()
 
