@@ -17,7 +17,7 @@ class SerialReaderWriterThread(threading.Thread):
         A thread class to control XYZ read/write
     """
 
-    def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_start,grbl_event_status,grbl_event_softreset):
+    def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_start,grbl_event_status,grbl_event_softreset,grbl_event_stop):
         threading.Thread.__init__(self, name="XYZ thread")
         self.rx_queue = rx_queue
         self.killer_event = kill_event
@@ -25,11 +25,13 @@ class SerialReaderWriterThread(threading.Thread):
         self.grbl_event_start=grbl_event_start
         self.grbl_event_status=grbl_event_status
         self.grbl_event_softreset=grbl_event_softreset
+        self.grbl_event_stop=grbl_event_stop
         self.port = port
         self.baudrate=baudrate
         self.cycle_time = 0.1
         self.is_tinyg=1
         self.xyzsetupready=False
+        self.wasrunningbeforepause=False
 
         logging.info("Thread init XYZ")
         self.data = {}
@@ -48,14 +50,7 @@ class SerialReaderWriterThread(threading.Thread):
             self.olddata[aaa]=self.data[aaa]              
 
         logging.info("Thread Opening serial port")
-        try:            
-            #str(self.baudrate).encode('utf-8')
-            self.ser_port = serial.Serial(self.port, self.baudrate, timeout=0)            
-            self.ser_port.flushInput()  # Flush startup text in serial input
-        except Exception as eee:
-            logging.error(eee)
-            logging.error("SerialReaderWriterThread: Failed to open serial port " + self.port)
-            raise
+        self.trytoopen_serial_port()
         # identify grbl
         try:
             count=1
@@ -92,7 +87,15 @@ class SerialReaderWriterThread(threading.Thread):
             logging.info("setting up grbl")
             self.cycle_time=0.1    
             self.Initialize_Grbl()
-
+    def trytoopen_serial_port(self):
+        try:            
+            #str(self.baudrate).encode('utf-8')
+            self.ser_port = serial.Serial(self.port, self.baudrate, timeout=0)            
+            self.ser_port.flushInput()  # Flush startup text in serial input
+        except Exception as eee:
+            logging.error(eee)
+            logging.error("SerialReaderWriterThread: Failed to open serial port " + self.port)
+            raise
     def run(self):        
         #logging.info("Run entered")
         self.xyzsetupready=True
@@ -102,7 +105,7 @@ class SerialReaderWriterThread(threading.Thread):
             #logging.info("Run entered 1")
             
             if  self.grbl_event_hold.is_set():
-                self.Send_grbl_Hold(1)
+                self.Send_grbl_Hold(1) #clears start flag
                 logging.info("Holding !!")
                 while not self.grbl_event_start.is_set() and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
                     self.Run_Read_Values()
@@ -111,13 +114,43 @@ class SerialReaderWriterThread(threading.Thread):
                 if self.grbl_event_start.is_set():
                     self.Send_grbl_Start(1) #clears hold flag   
                     logging.info("Run Started!")
+                    self.grbl_event_start.clear() #clear start flag
+
             if  self.grbl_event_softreset.is_set():
                 logging.info("Reseting!!")
-                self.Send_grbl_SoftReset(1)                        
+                self.Send_grbl_SoftReset(1)
+                time.sleep(1.5)   #Marlin blocks incoming data for 1 sec after M410 stop                     
                 self.grbl_event_softreset.clear()
                 #Clean queue
                 with self.rx_queue.mutex:
                     self.rx_queue.queue.clear()
+            
+            if  self.grbl_event_stop.is_set():
+                logging.info("Stopping!!")
+                self.Send_Marlin_Stop(1)
+                while self.grbl_event_stop.is_set() and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
+                    try:
+                        #self.ser_port.xonxoff=False
+                        time.sleep(5)
+                        #self.ser_port.xonxoff=True
+                        #self.ser_port.send_break(10) #send information after 10 secs
+                        
+                        logging.info("Stopping try loop!!")
+                        
+                        if self.ser_port._checkClosed():
+                            self.ser_port._close()
+                            self.trytoopen_serial_port()
+                        self.ser_port.write(str('M114'+'\n').encode())
+                        #self.Run_Read_Values()
+                        #time.sleep(self.cycle_time)
+                        self.grbl_event_stop.clear()
+                    except:                         
+                        pass
+                #Marlin blocks incoming data for 1 sec after M410 stop so makes error when comms try to reach                                   
+                # Clean queue
+                with self.rx_queue.mutex:
+                    self.rx_queue.queue.clear()
+                    
                 
 
             
@@ -369,15 +402,25 @@ class SerialReaderWriterThread(threading.Thread):
         return self.data        
 
     def Send_grbl_Hold(self,sendcmd):
-        if not self.grbl_event_hold.is_set():
-            self.grbl_event_hold.set()
+        #if not self.grbl_event_hold.is_set():
+        self.grbl_event_hold.set()
+        self.grbl_event_start.clear()
         if sendcmd==1:
             if self.is_tinyg==2:
-                self.ser_port.write(str('M0 Hold event Set'+'\n').encode())    
+                if self.data['STATE_XYZ']==3:
+                    self.wasrunningbeforepause=False
+                    self.ser_port.write(str('M0 Hold event Set'+'\n').encode())
+                else:
+                    self.wasrunningbeforepause=True
+                    self.ser_port.write(str('P000'+'\n').encode())        
                 logging.info("Marlin on Hold!")
+            elif self.is_tinyg==1:
+                self.ser_port.write(str('!'+'\n').encode())
+                logging.info("TinyG on hold!")                    
             else:
                 self.ser_port.write(str('!'+'\n').encode())
                 logging.info("grbl on hold!")
+            time.sleep(0.2) # wait after command    
 
     def Send_Marlin_Kill(self,sendcmd):
         if not self.grbl_event_softreset.is_set():
@@ -385,6 +428,23 @@ class SerialReaderWriterThread(threading.Thread):
         if sendcmd==1:
             self.ser_port.write(str('M112'+'\n').encode())
             logging.info("Marlin Kill sent!")
+            time.sleep(0.2) # wait after command
+    
+    def Send_Marlin_Stop(self,sendcmd):
+        if not self.grbl_event_stop.is_set():
+            self.grbl_event_stop.set()
+        if sendcmd==1:
+            if self.is_tinyg==2:
+                self.ser_port.write(str('M410'+'\n').encode())
+                logging.info("Marlin Stop sent!")
+            elif self.is_tinyg==0:
+                self.Send_grbl_Hold(1)    
+                self.Send_grbl_SoftReset(1)
+                logging.info("grbl hold->reset sent!") #should keep the position while halted then reset
+            else:
+                self.Send_grbl_Hold(1)    
+                self.ser_port.write(str('M0'+'\n').encode()) #M1 should work too
+                logging.info("TinyG Stop sent!")                
 
     def Send_grbl_SoftReset(self,sendcmd):
         if not self.grbl_event_softreset.is_set():
@@ -398,18 +458,25 @@ class SerialReaderWriterThread(threading.Thread):
                 logging.info("grbl softreset sent!")
 
     def Send_grbl_Start(self,sendcmd):  
-        if not self.grbl_event_start.is_set():  
-            self.grbl_event_start.set()
+        #if not self.grbl_event_start.is_set():  
+        #    
+        self.grbl_event_start.set()
+        self.grbl_event_hold.clear()
         if sendcmd==1:    
             if self.is_tinyg==2:
-                self.ser_port.write(str('M108'+'\n').encode())    
+                if self.wasrunningbeforepause==False:
+                    self.ser_port.write(str('M108'+'\n').encode())
+                else:    
+                    self.ser_port.write(str('R000'+'\n').encode())    
                 logging.info("Marlin start!")
             else:    
                 self.ser_port.write(str('~'+'\n').encode())
                 logging.info("grbl start!")
-        if self.grbl_event_hold.is_set():
-            self.grbl_event_hold.clear()
-            logging.info("grbl hold flag clear!")
+        time.sleep(0.2) # wait after command
+        #if self.grbl_event_hold.is_set():
+        #    self.grbl_event_hold.clear()
+        #    logging.info("grbl hold flag clear!")
+
     
     def readline_grbl(self):
         line=''
@@ -441,9 +508,10 @@ class SerialReaderWriterThread(threading.Thread):
         return self.data
     
     def Send_Marlin_Read(self,waittime,showlog=True):       
-        if  self.grbl_event_status.is_set(): 
-            #self.ser_port.write(str('M114'+'\n').encode())
-            self.ser_port.write(str(''+'\n').encode())
+        if  self.grbl_event_status.is_set() and not self.grbl_event_softreset.is_set(): 
+            #self.ser_port.write(str('S000'+'\n').encode())
+            #if not self.grbl_event_softreset.is_set():
+            #    self.ser_port.write(str(''+'\n').encode())
             grbl_out = self.readline_grbl()                
             self.data=self.Process_Marlin_data(grbl_out,showlog)
             time.sleep(waittime)                        
@@ -464,17 +532,30 @@ class SerialReaderWriterThread(threading.Thread):
             if "ALARM" in grbl_out:
                 self.data['STATUS']=grbl_out
             if "echo:" in grbl_out:
-                self.data['STATUS']=grbl_out    
-                logging.info(self.data['STATUS'])
+                if "busy: processing" not in grbl_out:
+                    self.data['STATUS']=grbl_out    
+                    logging.info(self.data['STATUS'])
             if "action" in grbl_out:
                 self.data['STATUS']=grbl_out    
                 logging.info(self.data['STATUS'])    
+                    
             if "[" in grbl_out and "]" in grbl_out:
                 self.data['STATUS']=grbl_out     
                 logging.info(self.data['STATUS'])
             if  "S_XYZ:" in grbl_out: 
                 self.data['STATUS']=grbl_out   
-                logging.info(self.data['STATUS'])
+                try:                                
+                    m = re.search('S_XYZ:([0-9]+)', grbl_out)
+                    self.data['STATE_XYZ']= int(m.group(1))
+                    if self.Compare_Hasdatachanged(self.olddata)==True:
+                        if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
+                            logging.info('S_XYZ from '+ str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATE_XYZ']))          
+                            self.olddata['STATE_XYZ']=self.data['STATE_XYZ']              
+                            self.Set_Status_from_StateXYZ()
+                            self.olddata['STATUS']=self.data['STATUS']
+
+                except:                        
+                    logging.info("No read State: " + grbl_out)    
             if  "X:" in grbl_out:  
                 try:
                     isotherformat=False                                
@@ -686,12 +767,14 @@ class XYZGrbl:
         self.grbl_event_hold= threading.Event()
         self.grbl_event_start= threading.Event()
         self.grbl_event_status= threading.Event()
-        self.grbl_event_softreset= threading.Event()  
+        self.grbl_event_softreset= threading.Event()
+        self.grbl_event_stop= threading.Event()  
         self.grbl_event_hold.clear()
         self.grbl_event_start.clear()
         self.grbl_event_status.clear()
         self.grbl_event_softreset.clear()     
-        self.ser_read_thread = SerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_start,self.grbl_event_status,self.grbl_event_softreset)
+        self.grbl_event_stop.clear()
+        self.ser_read_thread = SerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_start,self.grbl_event_status,self.grbl_event_softreset,self.grbl_event_stop)
 
     def join(self):
         self.ser_read_thread.join()
@@ -752,7 +835,10 @@ class XYZGrbl:
         return self.ser_read_thread.read()
 
     def grbl_gcode_cmd(self,gcode_cmd):
-        self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
+        if self.ser_read_thread.is_tinyg==2 and gcode_cmd=='M410':
+            self.ser_read_thread.grbl_event_stop.set()
+        else:
+            self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
     
     def grbl_feed_hold(self):
         self.grbl_event_hold.set()
@@ -762,6 +848,9 @@ class XYZGrbl:
 
     def grbl_softreset(self):
         self.grbl_event_softreset.set()    
+    
+    def grbl_stop(self):
+        self.grbl_event_stop.set() # grbl makes hold -> soft reset 
     
     def grbl_status(self):
         self.grbl_event_status.set()

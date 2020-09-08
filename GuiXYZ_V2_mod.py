@@ -337,13 +337,13 @@ class Ui_MainWindow(object):
         self.pushButton_Go.setIcon(icon9)
         self.pushButton_Go.setIconSize(QtCore.QSize(50, 50))
         self.pushButton_Go.setObjectName("pushButton_Go")
-        self.pushButton_Stop = QtWidgets.QPushButton(self.groupBox_XYZ)
-        self.pushButton_Stop.setGeometry(QtCore.QRect(290, 240, 91, 81))
+        self.pushButton_Pause_Resume = QtWidgets.QPushButton(self.groupBox_XYZ)
+        self.pushButton_Pause_Resume.setGeometry(QtCore.QRect(290, 240, 91, 81))
         icon10 = QtGui.QIcon()
         icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.pushButton_Stop.setIcon(icon10)
-        self.pushButton_Stop.setIconSize(QtCore.QSize(50, 50))
-        self.pushButton_Stop.setObjectName("pushButton_Stop")
+        self.pushButton_Pause_Resume.setIcon(icon10)
+        self.pushButton_Pause_Resume.setIconSize(QtCore.QSize(50, 50))
+        self.pushButton_Pause_Resume.setObjectName("pushButton_Pause_Resume")
         self.pushButton_Home = QtWidgets.QPushButton(self.groupBox_XYZ)
         self.pushButton_Home.setGeometry(QtCore.QRect(440, 270, 91, 23))
         icon11 = QtGui.QIcon()
@@ -643,6 +643,14 @@ class Ui_MainWindow(object):
         self.Set_Icons_Status_OnOFF(False)
         
         self.Fill_Deltas()
+        #try to get initial position from the machine
+        self.Get_Actual_Pos()
+        # by setting the text to nothing will use .xpos instead of .X variables
+        #self.lineEdit_X.setText('')
+        #self.lineEdit_Y.setText('')
+        #self.lineEdit_Z.setText('')
+        #self.lineEdit_Feedrate.setText('')
+        
         self.PB_Set_Position()
     
     def retranslateUi(self, MainWindow):
@@ -663,7 +671,7 @@ class Ui_MainWindow(object):
         self.label_YactPos.setText(_translate("MainWindow", "Y=  NA"))
         self.label_XactPos.setText(_translate("MainWindow", "X=  NA"))
         self.pushButton_Go.setText(_translate("MainWindow", "GO"))
-        self.pushButton_Stop.setText(_translate("MainWindow", "Hold"))
+        self.pushButton_Pause_Resume.setText(_translate("MainWindow", "Hold"))
         self.pushButton_Home.setText(_translate("MainWindow", "Home"))
         self.pushButton_Reset.setText(_translate("MainWindow", "Reset Signal"))
         self.groupBox_DeltaMove.setTitle(_translate("MainWindow", "Delta"))
@@ -687,7 +695,7 @@ class Ui_MainWindow(object):
         self.PushButton_RunGcodeScript.setText(_translate("MainWindow", "Run Gcode"))
         self.checkBox_Gcode.setText(_translate("MainWindow", "Check Gcode"))
         self.pushButton_SaveGcode.setText(_translate("MainWindow", "Save Gcode"))
-        self.pushButton_Hold_Start_Gcode.setText(_translate("MainWindow", "Pause"))
+        self.pushButton_Hold_Start_Gcode.setText(_translate("MainWindow", "Hold"))
         self.pushButton_StopGcode.setText(_translate("MainWindow", "STOP"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("MainWindow", "Gcode"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
@@ -705,7 +713,10 @@ class Ui_MainWindow(object):
         self.pushButton_SetPos.clicked.connect(self.PB_Set_Position)
         self.pushButton_Reset.clicked.connect(self.PB_Reset_Signal)
         self.pushButton_Go.clicked.connect(self.PB_Go)
-        self.pushButton_Stop.clicked.connect(self.PB_Stop)
+        self.pushButton_Pause_Resume.clicked.connect(self.PB_Pause_Resume)
+        self.pushButton_Hold_Start_Gcode.clicked.connect(self.PB_Pause_Resume)
+        self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
+
         self.actionSave_Config.triggered.connect(self.Save_config_to_file)
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
@@ -779,6 +790,7 @@ class Ui_MainWindow(object):
     
     def PB_StopGcode(self):
         self.stream_event_stop.set()
+        self.xyz_thread.grbl_stop()
 
     def PB_RunGcodeScript(self):
         if self.checkBox_Gcode.isChecked()==True or self.isoncheckedstate_checkbox==True:
@@ -894,8 +906,10 @@ class Ui_MainWindow(object):
         #self.Fill_Deltas()    
 
     def Move_Delta(self,DeltaX,DeltaY,DeltaZ):    
-        self.pushButton_Stop.setIcon(self.Icon_stop)
-        self.pushButton_Stop.setText("STOP")
+        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
+        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
+        self.pushButton_Pause_Resume.setText("Hold")
+        self.pushButton_Hold_Start_Gcode.setText("Hold")
         self.Get_Actual_Pos()
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         self.end_pos=[self.ini_pos[0]+DeltaX,self.ini_pos[1]+DeltaY,self.ini_pos[2]+DeltaZ]               
@@ -986,7 +1000,7 @@ class Ui_MainWindow(object):
             Baudrate=int(self.COMBaudRate)
             self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event)
             self.xyz_thread.start()
-            self.xyz_update_thread=XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Stop,self.frame_GcodePauseStop)
+            self.xyz_update_thread=XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
             self.xyz_update_thread.setName("XYZ Update") 
             self.xyz_update_thread.start()
             self.stream_event_stop= threading.Event()
@@ -1232,54 +1246,63 @@ class Ui_MainWindow(object):
     def PB_Refresh(self):
         self.Fill_COM_Combo()
 
-    def PB_Stop(self):
+    def PB_Pause_Resume(self):
         if self.XYZRobot_found==1:
             self.data_LastPos= self.xyz_thread.read() #get last known value
-            if self.data_LastPos['STATE_XYZ']==6:
-                self.PB_Start()
-                self.pushButton_Stop.setIcon(self.Icon_stop)
-                self.pushButton_Stop.setText("STOP")
+            if self.data_LastPos['STATE_XYZ']==6: # on Hold
+                logging.info("Resuming XYZRobot")
+                self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
+                self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
+                self.pushButton_Pause_Resume.setText("Hold")
+                self.pushButton_Hold_Start_Gcode.setText("Hold")
+                self.PB_Resume()
             else:    
-                logging.info("Stopping XYZRobot")
-
-                self.pushButton_Stop.setIcon(self.Icon_start)
-                self.pushButton_Stop.setText("Start")
-                self.pushButton_Stop.setEnabled(False)    
-                #time.sleep(0.3)          
-                self.pushButton_Stop.setEnabled(True)
-                
-                #self.XYZRobot_port.write(str.encode(chr(24)))
-                
+                logging.info("Pausing XYZRobot")
+                self.pushButton_Pause_Resume.setIcon(self.Icon_start)
+                self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_start)
+                self.pushButton_Pause_Resume.setText("Start")
+                self.pushButton_Hold_Start_Gcode.setText("Start")
                 self.xyz_thread.grbl_feed_hold()
                 #time.sleep(2)
                 self.x_pos=self.data_LastPos['XPOS']
                 self.y_pos=self.data_LastPos['YPOS']
                 self.z_pos=self.data_LastPos['ZPOS']
                 self.Set_Actual_Position_Values(self.x_pos,self.y_pos,self.z_pos)
+                
+                self.pushButton_Pause_Resume.setEnabled(False)
+                self.pushButton_Hold_Start_Gcode.setEnabled(False)    
+                time.sleep(0.3)          
+                self.pushButton_Pause_Resume.setEnabled(True)
+                self.pushButton_Hold_Start_Gcode.setEnabled(True)
+                
         else:
             if self.data_LastPos['STATE_XYZ']==6:
-                logging.info("XYZ Robot Not Found for Start") 
+                logging.info("XYZ Robot Not Found for Starting") 
             else:
-                logging.info("XYZ Robot Not Found for Stop") 
+                logging.info("XYZ Robot Not Found for Holding") 
     
-    def PB_Start(self):
-        if self.XYZRobot_found==1:            
-            #self.XYZRobot_port.write(str.encode(chr(24)))
-            #Last_Data= self.xyz_thread.read() #get last known value
+    def PB_Resume(self):
+        if self.XYZRobot_found==1:
+            time.sleep(0.3)
+            Last_Data= self.xyz_thread.read() #get last known value
             Last_Data= self.data_LastPos
             #logging.info("Starting XYZRobot--->" +str(Last_Data['STATE_XYZ']))
             if Last_Data['STATE_XYZ']==6:
                 logging.info("Starting XYZRobot")
                 self.xyz_thread.grbl_feed_start()      
-            self.pushButton_Stop.setEnabled(False)    
-            time.sleep(0.1)          
-            self.pushButton_Stop.setEnabled(True)
+            self.pushButton_Pause_Resume.setEnabled(False) 
+            self.pushButton_Hold_Start_Gcode.setEnabled(False)   
+            time.sleep(0.3)          
+            self.pushButton_Pause_Resume.setEnabled(True)
+            self.pushButton_Hold_Start_Gcode.setEnabled(True)
         else:
             logging.info("XYZ Robot Not Found for Starting") 
 
     def PB_Reset_Signal(self):
-        self.pushButton_Stop.setIcon(self.Icon_stop)
-        self.pushButton_Stop.setText("STOP")
+        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
+        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
+        self.pushButton_Pause_Resume.setText("Hold")
+        self.pushButton_Hold_Start_Gcode.setText("Hold")
         if self.XYZRobot_found==1:
             logging.info("Reseting XYZRobot")
             #self.XYZRobot_port.write(str.encode(chr(24)))
@@ -1327,8 +1350,10 @@ class Ui_MainWindow(object):
         #    logging.info("Calibrating Error!")    
 
     def PB_Go(self):  
-        self.pushButton_Stop.setIcon(self.Icon_stop)
-        self.pushButton_Stop.setText("STOP")
+        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
+        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
+        self.pushButton_Pause_Resume.setText("Hold")
+        self.pushButton_Hold_Start_Gcode.setText("Hold")
         self.Read_Input_xyz()   
         self.end_pos=[self.X,self.Y,self.Z]               
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
@@ -1502,7 +1527,7 @@ class XYZ_Update(threading.Thread):
         return self.data
 
     def Enable_Disable_Hold_Start(self):
-        #1=reset, 2=alarm, 3=stop, 4=end, 5=run, 6=hold, 7=probe, 9=homing
+         #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
         if self.state_xyz==1:
             self.button_hold_start_1.setEnabled(False) 
             self.frame_hold_stop.setEnabled(False) 
@@ -1522,8 +1547,11 @@ class XYZ_Update(threading.Thread):
             self.button_hold_start_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)
         elif self.state_xyz==7:
-            self.button_hold_start_1.setEnabled(False) 
-            self.frame_hold_stop.setEnabled(False) 
+            self.button_hold_start_1.setEnabled(True) 
+            self.frame_hold_stop.setEnabled(True)
+        elif self.state_xyz==8:
+            self.button_hold_start_1.setEnabled(True) 
+            self.frame_hold_stop.setEnabled(True)     
         elif self.state_xyz==9:
             self.button_hold_start_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)  

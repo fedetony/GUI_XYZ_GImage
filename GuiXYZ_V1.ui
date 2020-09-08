@@ -478,7 +478,7 @@
         </size>
        </property>
       </widget>
-      <widget class="QPushButton" name="pushButton_Stop">
+      <widget class="QPushButton" name="pushButton_Pause_Resume">
        <property name="geometry">
         <rect>
          <x>290</x>
@@ -1199,7 +1199,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Pause</string>
+         <string>Hold</string>
         </property>
         <property name="icon">
          <iconset>
