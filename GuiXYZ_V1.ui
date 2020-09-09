@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>564</width>
+    <width>567</width>
     <height>618</height>
    </rect>
   </property>
@@ -169,6 +169,12 @@
         <width>551</width>
         <height>341</height>
        </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
       <property name="title">
        <string>XYZ Mover</string>
@@ -1226,6 +1232,167 @@
       </widget>
      </widget>
     </widget>
+    <widget class="QWidget" name="tab_4">
+     <attribute name="title">
+      <string>Gimage</string>
+     </attribute>
+     <widget class="QGroupBox" name="groupBox_Image_Select">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>271</width>
+        <height>441</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Image Select</string>
+      </property>
+      <widget class="QPushButton" name="pushButton_Open_Image">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>20</y>
+         <width>75</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Open Image</string>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="comboBox_Image_Process">
+       <property name="geometry">
+        <rect>
+         <x>110</x>
+         <y>60</y>
+         <width>151</width>
+         <height>22</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_Image_Process">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>60</y>
+         <width>71</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Image Process</string>
+       </property>
+      </widget>
+      <widget class="QTableWidget" name="tableWidget_Image_Config">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>130</y>
+         <width>251</width>
+         <height>192</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton_Load_Image_Config">
+       <property name="geometry">
+        <rect>
+         <x>134</x>
+         <y>340</y>
+         <width>121</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Load Image Config</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton_Save_Image_Config">
+       <property name="geometry">
+        <rect>
+         <x>134</x>
+         <y>370</y>
+         <width>121</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Save Image Config</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton_Set_Changes_Image_Config">
+       <property name="geometry">
+        <rect>
+         <x>190</x>
+         <y>260</y>
+         <width>71</width>
+         <height>41</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Set Changes</string>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_Image_Preview">
+      <property name="geometry">
+       <rect>
+        <x>280</x>
+        <y>10</y>
+        <width>271</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Image Preview</string>
+      </property>
+      <widget class="QLabel" name="label_Image_Preview">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>261</width>
+         <height>181</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="scaledContents">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_Image_Preview_Processed">
+      <property name="geometry">
+       <rect>
+        <x>280</x>
+        <y>210</y>
+        <width>271</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Processed Image Preview</string>
+      </property>
+      <widget class="QLabel" name="label_Image_Preview_Processed">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>261</width>
+         <height>181</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="scaledContents">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </widget>
+    </widget>
    </widget>
    <widget class="QPushButton" name="pushButton_Emergency">
     <property name="geometry">
@@ -1259,7 +1426,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>564</width>
+     <width>567</width>
      <height>21</height>
     </rect>
    </property>

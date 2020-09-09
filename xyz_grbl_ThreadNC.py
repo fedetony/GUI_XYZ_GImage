@@ -836,7 +836,7 @@ class XYZGrbl:
 
     def grbl_gcode_cmd(self,gcode_cmd):
         if self.ser_read_thread.is_tinyg==2 and gcode_cmd=='M410':
-            self.ser_read_thread.grbl_event_stop.set()
+            self.grbl_stop()          
         else:
             self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
     

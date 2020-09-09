@@ -33,12 +33,48 @@ import queue
 
 import threading
 from xyz_grbl_ThreadNC import XYZGrbl
+from Gimage_V1 import Image_Gcode_Stream 
+from Gimage_V1 import GImage 
 import GuiXYZ_V1
 #import atexit
 #import keyboard for keyboard inputs
 
 
+class MainWindowevents(QtWidgets.QMainWindow,GuiXYZ_V1.Ui_MainWindow):
+    def __init__(self, parent=None):
+        super(MainWindowevents, self).__init__(parent)
+        self.setupUi(self)
+        self.flag = 0        
+        # this ensures the label can also re-size downwards
+        self.label_Image_Preview.setMinimumSize(1, 1)
+        # get resize events for the label
+        self.label_Image_Preview.installEventFilter(self)
+        self.label_Image_Preview.setAlignment(QtCore.Qt.AlignCenter)
 
+    def eventFilter(self, source, event):
+        if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.Resize):
+            # re-scale the pixmap when the label resizes
+            print("Event resize!")
+            self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
+                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
+
+        if (source is self.label_Image_Preview_Processed and event.type() == QtCore.QEvent.Resize):
+            # re-scale the pixmap when the label resizes
+            print("Event resize Processed!")
+            self.label_Image_Preview_Processed.setPixmap(self.the_pixmap.scaled(
+                self.label_Image_Preview_Processed.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))        
+        
+        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview:
+            print("Image on FocusIn")
+            self.flag = 0
+
+        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview_Processed:
+            print("Image on FocusIn")
+            self.flag = 1
+
+        return super(MainWindowevents, self).eventFilter(source, event)
 
 
 class QLineNumberArea(QWidget):
@@ -221,17 +257,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_ConnSpeed.addItem("91600")
         self.comboBox_ConnSpeed.addItem("115200")
         self.comboBox_ConnSpeed.addItem("250000")
+        
         #Set default
         self.COMBaudRate="115200"
         index= self.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFixedString)
         self.comboBox_ConnSpeed.setCurrentIndex(index)
-
         self.Fill_COM_Combo()
-        
         self.Connect_Actions()
-        
-        
-
         self.init_Values()
         
         # Set Icons and status off
@@ -247,6 +279,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         #self.lineEdit_Feedrate.setText('')
         
         self.PB_Set_Position()
+        # ---------GImage Init
+        self.Fill_Image_Config_Table()
+        
     
     #No More retranslate in this class-> inherits from GuiXYZ_V1
 
@@ -299,6 +334,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Emergency.clicked.connect(self.PB_Emergency)
 
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
+
+        self.pushButton_Open_Image.clicked.connect(self.PB_Open_Image)
+        self.pushButton_Load_Image_Config.clicked.connect(self.PB_Open_Image_Config)
+        self.pushButton_Save_Image_Config.clicked.connect(self.PB_Save_Image_Config)
+        self.pushButton_Set_Changes_Image_Config.clicked.connect(self.PB_Set_Changes_Image_Config)
         """
         for i,self.tabWidget in enumerate(bars):
             tabbar.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -306,6 +346,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             renameAction.triggered.connect(lambda x: self.renameTabSlot(i))
             tabbar.addAction(renameAction)
         """    
+        
         #self.lineEdit_DeltaX.textChanged['QString'].connect(self.Set_DeltaX_Value)
         
         #self.label_XactPos.textChanged['QString'].connect(self.Set_actX_Value)
@@ -328,7 +369,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Config_Table_NumRows=0
         self.Config_Table_NumCols=0
         self.isoncheckedstate_checkbox=False
+        self.G_Image=GImage() #Class instance initialization
     
+    def PB_Set_Changes_Image_Config(self):
+        data=self.Get_data_from_Image_Config_Table()
+        self.Set_Data_in_Image_Config(data)
+
     def PB_Emergency(self):
         self.killer_event.set()
     
@@ -386,8 +432,47 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             except Exception as e:
                 logging.error(e)
                 logging.info("File was not Written!")
+    
 
+    def Show_Image_Preview(self):
+        if self.G_Image.Isimagetoprint == True:
+            self.the_pixmap=QtGui.QPixmap(self.G_Image.imagefilename)
+            #self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(self.G_Image.Get_image()))
+            self.label_Image_Preview.setPixmap(self.the_pixmap)
+            self.label_Image_Preview.setScaledContents(True)
+           
+    def PB_Save_Image_Config(self):
+        self.Save_Image_config_to_file()
 
+    def PB_Open_Image_Config(self):    
+        data=self.Load_Image_config_from_file()
+        self.Set_Data_in_Image_Config(data)
+    
+    def Set_Data_in_Image_Config(self,data):
+        if type(data) != 'NoneType':
+            try:
+                for ccc in data:
+                    for aaa in self.G_Image.Image_Config_Data:
+                        if aaa==ccc:
+                            self.G_Image.Image_Config_Data[aaa]=data[ccc]
+                            break                
+            except:
+                pass    
+        self.Fill_Image_Config_Table()    
+
+    def PB_Open_Image(self):
+        filename=aDialog.openFileNameDialog(1) #1 Images
+        
+        if filename is not None:
+            logging.info('Opening:'+filename)
+            try:    
+                            
+                self.G_Image.open_image(filename)                
+                #self.G_Image.show_image()
+                self.Show_Image_Preview()
+            except Exception as e:
+                logging.error(e)
+                logging.info("Could not open Image!")
     
 
     def Set_Icons_Status_OnOFF(self,Is_on):
@@ -537,6 +622,19 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.textEdit_Logger.setFontWeight(QtGui.QFont.Normal)
         self.textEdit_Logger.append(sss)
 
+    def Start_Image_Thread(self):
+        try:
+            
+            self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
+            self.xyz_gimagestream_thread.setName("Gimage Stream") 
+            self.xyz_gimagestream_thread.start()
+            logging.info("SUCCESS: Image to Gcode thread Initialized :)")   
+            
+        except Exception as e:               
+            #logging.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
+            logging.error(e)
+            logging.error("Failed to initialise Image thread :( -> No Image to Gcode")
+            
     def Start_XYZ_Thread(self):            
         try:
             XYZRobot_port=self.COMPort            
@@ -552,6 +650,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.xyz_gcodestream_thread=XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
             self.xyz_gcodestream_thread.setName("XYZ Gcode Stream") 
             self.xyz_gcodestream_thread.start()
+            self.Start_Image_Thread()
+            
 
             logging.info("First Run Calibrating to: X = " + str(self.x_pos) + ", Y = " + str(self.y_pos) + ", Z = " + str(self.z_pos))
             self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)
@@ -610,6 +710,32 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 if not '_Info' in ccc and not '_Type' in ccc:
                     self.comboBox_ConfigItem.addItem(ccc) 
             self.Fill_Config_Table()        
+    
+    def Fill_Image_Config_Table(self):  
+        #logging.info("Filling Gimage Configuration!")
+        self.tableWidget_Image_Config.clear()  
+        config=self.G_Image.Get_Image_Config_Data()
+        Num_Items=0
+        for ccc in config:
+            if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:                                
+                Num_Items=Num_Items+1
+        #logging.info("Filling Gimage Configuration! Items found "+ str(Num_Items))        
+        self.Image_Config_Table_NumRows=Num_Items        
+        self.Image_Config_Table_NumCols=5
+        self.tableWidget_Image_Config.setRowCount(self.Image_Config_Table_NumRows)
+        self.tableWidget_Image_Config.setColumnCount(self.Image_Config_Table_NumCols)
+        self.tableWidget_Image_Config.setHorizontalHeaderLabels(["Id", "Value","Unit", "Info", "Type"])
+        self.tableWidget_Image_Config.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)            
+        iii=0
+        for ccc in config:
+            if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:                
+                self.tableWidget_Image_Config.setItem(iii,0, QTableWidgetItem(ccc))
+                self.tableWidget_Image_Config.setItem(iii,1, QTableWidgetItem(str(config[ccc])))
+                self.tableWidget_Image_Config.setItem(iii,2, QTableWidgetItem(str(config[ccc+'_Unit'])))
+                self.tableWidget_Image_Config.setItem(iii,3, QTableWidgetItem(str(config[ccc+'_Info'])))
+                self.tableWidget_Image_Config.setItem(iii,4, QTableWidgetItem(str(config[ccc+'_Type'])))
+                iii=iii+1
+        self.tableWidget_Image_Config.resizeColumnsToContents()
 
     def Fill_Config_Table(self):
         if self.XYZRobot_found==1:       
@@ -685,7 +811,36 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                             time.sleep(0.2)
                             logging.info("Stuck here?")
                         #logging.info(self.xyz_thread.Read_Config_Parameter(Param))
-              
+    def Get_data_from_Image_Config_Table(self):   
+        data={}             
+        for row in range(self.Image_Config_Table_NumRows):                        
+            hhh    =self.tableWidget_Image_Config.item(row, 0).text()                        
+            hhhval =self.tableWidget_Image_Config.item(row, 1).text()  
+            hhhunit=self.tableWidget_Image_Config.item(row, 2).text()  
+            hhhinfo=self.tableWidget_Image_Config.item(row, 3).text()  
+            hhhtype=self.tableWidget_Image_Config.item(row, 4).text()  
+            if hhhtype =='int':
+                Value=int(hhhval)
+            elif hhhtype == 'float':
+                Value=float(hhhval)
+            else:
+                Value=str(hhhval)                    
+            for ccc in list(self.G_Image.Image_Config_Data):
+                if ccc == hhh:
+                    data[ccc]=Value
+                    data[ccc+'_Unit']=hhhunit
+                    data[ccc+'_Info']=hhhinfo
+                    data[ccc+'_Type']=hhhtype
+        return data            
+
+
+
+    def Is_Image_Config_Table_Empty(self):
+        #logging.info('Numrows->'+str(self.Config_Table_NumRows))
+        if self.Image_Config_Table_NumRows==0:
+            return True
+        else:
+            return False          
 
     def Is_Config_Table_Empty(self):
         #logging.info('Numrows->'+str(self.Config_Table_NumRows))
@@ -703,7 +858,97 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.Fill_Config_Table()
         else:
             logging.info("No Configuration Changes found")
+    
+    def Load_Image_config_from_file(self):
+        filename=aDialog.openFileNameDialog(2) #0 gcode, 1 Images 2 txt else all 
+        data={}
+        if filename is not None:
             
+            logging.info('Opening:'+filename)
+            try:
+                self.plaintextEdit_GcodeScript.clear()
+                with open(filename, 'r') as yourFile:
+                    #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
+                    linelist=yourFile.readlines() #makes list of lines  
+                data=self.Get_Config_Data_From_List(linelist)                                                
+                yourFile.close()                
+            except Exception as e:
+                logging.error(e)
+                logging.info("File was not read!")
+        return data        
+
+    
+    def Get_Config_Data_From_List(self,linelist):
+        data={}
+        for line in linelist:
+            #logging.info(line)
+            try:                           
+                mf = re.search('<(.*)>_<([+-]?\d*[\.,]?\d*?)>_<(.*)>_<(.*)>_<(.*)>',line)                               
+            except:
+                mf = None
+            try:
+                if mf is not None: #any type
+                    #logging.info('storing float')
+                    #logging.info('mf ->'+str(mf.groups()))
+                    if mf.group(5):    
+                        data[str(mf.group(1))+'_Type']=str(mf.group(5))
+                    else:
+                        data[str(mf.group(1))+'_Type']=''
+                    if  str(mf.group(5))=='float':   
+                        data[str(mf.group(1))]=float(mf.group(2))
+                    elif  str(mf.group(5))=='int':   
+                        data[str(mf.group(1))]=int(mf.group(2))                    
+                    else:
+                        data[str(mf.group(1))]=str(mf.group(2))      
+
+                    if mf.group(3):
+                        data[str(mf.group(1))+'_Unit']=str(mf.group(3))
+                    else:
+                        data[str(mf.group(1))+'_Unit']=''    
+                    if mf.group(4):    
+                        data[str(mf.group(1))+'_Info']=str(mf.group(4))
+                    else:
+                        data[str(mf.group(1))+'_Info']=''
+                        
+            except:
+                logging.error('Bad format for Image Config Read!')
+                pass
+        return data    
+
+
+    def Save_Image_config_to_file(self):
+        if self.Is_Image_Config_Table_Empty()==False: 
+            fileName = "Image_Config_"
+            ext='.txt'
+            now = datetime.datetime.now()
+            fileName = now.strftime("%Y-%m-%d_%H-%M")+'_'+fileName+ext
+
+            fileName=aDialog.saveFileDialog(2) #2 is txt
+            if fileName is not None:
+                try:
+                    
+                    mfile=re.search('(\.txt$)',fileName)
+                    try:
+                        if mfile.group(1)!='.txt': 
+                            fileName=fileName+'.txt'
+                    except:
+                        fileName=fileName+'.txt'        
+                    file = open(fileName,'w')   
+                    logging.info('Saving:'+fileName)      
+                    Tabledata=[]            
+                    for row in range(self.Image_Config_Table_NumRows):  
+                        Tabledata.append('<')                                                  
+                        for col in range(self.Image_Config_Table_NumCols):
+                            Tabledata.append(self.tableWidget_Image_Config.item(row, col).text())
+                            if col<self.Image_Config_Table_NumCols-1:
+                                Tabledata.append('>_<')                                        
+                        Tabledata.append('>\n')                
+                    file.writelines(Tabledata)    
+                    logging.info("File Saved as:" + fileName)
+                    file.close()
+                except Exception as e:
+                    logging.error(e)
+                    logging.info("File was not Written!")        
 
     def Save_config_to_file(self):
         if self.Is_Config_Table_Empty()==False: 
@@ -957,7 +1202,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.killer_event.set()
         if self.XYZRobot_found==1:
             self.xyz_update_thread.join()
-            self.xyz_thread.join()
+            self.xyz_thread.join()            
             self.XYZRobot_found=0
         self.xyz_thread=None 
         self.xyz_update_thread=None    
@@ -1235,6 +1480,7 @@ if __name__ == "__main__":
     ui = Ui_MainWindow_V2()
     ui.setupUi(MainWindow)
     ui.setupUi2(MainWindow)
+    aevent=MainWindowevents(MainWindow)
     handler = ConsolePanelHandler(ui)
     log.addHandler(handler)
     handler.setFormatter(logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s'))        
