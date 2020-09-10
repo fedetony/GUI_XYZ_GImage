@@ -10,12 +10,12 @@ Python 3.7 pyQt5
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox,QAction
+from PyQt5.QtWidgets import QMessageBox,QAction,QLabel
 from PyQt5.QtWidgets import QTableWidget,QTableWidgetItem
 from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QRect, QSize
-from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QTextEdit
+from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QTextEdit, QSizePolicy
 from PyQt5.QtGui import QColor, QPainter, QTextFormat
 
 import sys
@@ -39,17 +39,12 @@ import GuiXYZ_V1
 #import atexit
 #import keyboard for keyboard inputs
 
-
+'''
 class MainWindowevents(QtWidgets.QMainWindow,GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, parent=None):
-        super(MainWindowevents, self).__init__(parent)
-        self.setupUi(self)
+        super(MainWindowevents, self).__init__(parent)        
         self.flag = 0        
-        # this ensures the label can also re-size downwards
-        self.label_Image_Preview.setMinimumSize(1, 1)
-        # get resize events for the label
-        self.label_Image_Preview.installEventFilter(self)
-        self.label_Image_Preview.setAlignment(QtCore.Qt.AlignCenter)
+        
 
     def eventFilter(self, source, event):
         if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.Resize):
@@ -75,7 +70,7 @@ class MainWindowevents(QtWidgets.QMainWindow,GuiXYZ_V1.Ui_MainWindow):
             self.flag = 1
 
         return super(MainWindowevents, self).eventFilter(source, event)
-
+'''
 
 class QLineNumberArea(QWidget):
     def __init__(self, editor):
@@ -175,6 +170,8 @@ class MyWindow(QtWidgets.QMainWindow):
             #ui.App_Close_Event()
             ui.killer_event.set()
             event.accept()
+    
+            
 
 class Dialogs(QWidget):
     def __init__(self):
@@ -228,8 +225,36 @@ class Dialogs(QWidget):
 
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
-        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)
+        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)      
+        self.flag = 0        
+                
+    def eventFilter(self, source, event):
+        print ('Got an event')
+        if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.Resize):
+            # re-scale the pixmap when the label resizes
+            event.accept()
+            print("Event resize!")
+            self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
+                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
+
+        if (source is self.label_Image_Preview_Processed and event.type() == QtCore.QEvent.Resize):
+            # re-scale the pixmap when the label resizes
+            print("Event resize Processed!")
+            self.label_Image_Preview_Processed.setPixmap(self.the_pixmap.scaled(
+                self.label_Image_Preview_Processed.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))        
         
+        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview:
+            event.accept()
+            print("Image on FocusIn")
+            self.flag = 0
+
+        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview_Processed:
+            print("Image on FocusIn")
+            self.flag = 1
+
+        return super(Ui_MainWindow_V2, self).eventFilter(source, event)    
 
     def setupUi2(self, MainWindow):   
         # Before you copy -paste here all Object code, now is called directly from GuiXYZ_V1.py
@@ -243,8 +268,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Icon_start=icon10a
         #--------------------------------------------------------        
         self.plaintextEdit_GcodeScript = QCodeEditor(self.groupBox_GcodeScript)        
-        self.plaintextEdit_GcodeScript.setGeometry(QtCore.QRect(10, 20, 431, 351))
+        #self.plaintextEdit_GcodeScript.setGeometry(QtCore.QRect(10, 20, 431, 351))
         self.plaintextEdit_GcodeScript.setObjectName("plaintextEdit_GcodeScript")
+        self.gridLayout_7.addWidget(self.plaintextEdit_GcodeScript, 0, 0, 1, 1)
 
         #
         #Combobox Fill
@@ -369,7 +395,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Config_Table_NumRows=0
         self.Config_Table_NumCols=0
         self.isoncheckedstate_checkbox=False
+        #------------
         self.G_Image=GImage() #Class instance initialization
+        # this ensures the label can also re-size downwards
+        self.label_Image_Preview.setMinimumSize(1, 1)
+        # get resize events for the label
+        self.label_Image_Preview.installEventFilter(MainWindow)
+        self.label_Image_Preview.setAlignment(QtCore.Qt.AlignCenter)
+        #self.setCentralWidget(self.label_Image_Preview)
+        #self.tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.tabWidget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        QtWidgets.QApplication.instance().processEvents()        
+        #self.label_Image_Preview.adjustSize()
+
+
     
     def PB_Set_Changes_Image_Config(self):
         data=self.Get_data_from_Image_Config_Table()
@@ -439,7 +478,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.the_pixmap=QtGui.QPixmap(self.G_Image.imagefilename)
             #self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(self.G_Image.Get_image()))
             self.label_Image_Preview.setPixmap(self.the_pixmap)
-            self.label_Image_Preview.setScaledContents(True)
+            self.label_Image_Preview.setScaledContents(True)            
+            #self.label_Image_Preview.adjustSize()
+            #self.groupBox_Image_Preview.adjustSize()
+            #self.tab_4.adjustSize()
+
            
     def PB_Save_Image_Config(self):
         self.Save_Image_config_to_file()
@@ -1480,7 +1523,7 @@ if __name__ == "__main__":
     ui = Ui_MainWindow_V2()
     ui.setupUi(MainWindow)
     ui.setupUi2(MainWindow)
-    aevent=MainWindowevents(MainWindow)
+    #aevent=MainWindowevents(MainWindow)
     handler = ConsolePanelHandler(ui)
     log.addHandler(handler)
     handler.setFormatter(logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s'))        
