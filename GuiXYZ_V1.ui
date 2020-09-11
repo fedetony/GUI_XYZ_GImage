@@ -28,7 +28,7 @@
         </size>
        </property>
        <property name="currentIndex">
-        <number>3</number>
+        <number>4</number>
        </property>
        <widget class="QWidget" name="tab_5">
         <attribute name="title">
@@ -1171,11 +1171,26 @@
                 <layout class="QGridLayout" name="gridLayout_10">
                  <item row="0" column="0">
                   <widget class="QLabel" name="label_Image_Preview">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="focusPolicy">
+                    <enum>Qt::ClickFocus</enum>
+                   </property>
+                   <property name="toolTip">
+                    <string>Double Click to Open Image</string>
+                   </property>
                    <property name="text">
                     <string/>
                    </property>
                    <property name="scaledContents">
                     <bool>true</bool>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>
@@ -1188,11 +1203,26 @@
                 <layout class="QGridLayout" name="gridLayout_11">
                  <item row="0" column="0">
                   <widget class="QLabel" name="label_Image_Preview_Processed">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="focusPolicy">
+                    <enum>Qt::ClickFocus</enum>
+                   </property>
+                   <property name="toolTip">
+                    <string>Double Click to Open Image</string>
+                   </property>
                    <property name="text">
                     <string/>
                    </property>
                    <property name="scaledContents">
                     <bool>true</bool>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
                    </property>
                   </widget>
                  </item>

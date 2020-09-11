@@ -8,15 +8,20 @@ Python 3.7 pyQt5
 #
 # Created by: PyQt5 UI code generator 5.13.0
 
-
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox,QAction,QLabel
-from PyQt5.QtWidgets import QTableWidget,QTableWidgetItem
-from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QRect, QSize
-from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QTextEdit, QSizePolicy
-from PyQt5.QtGui import QColor, QPainter, QTextFormat
+
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+
+
+#from PyQt5.QtWidgets import QMessageBox,QAction,QLabel
+#from PyQt5.QtWidgets import QTableWidget,QTableWidgetItem
+#from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog
+#from PyQt5.QtGui import QIcon
+#from PyQt5.QtCore import Qt, QRect, QSize
+#from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QTextEdit, QSizePolicy
+#from PyQt5.QtGui import QColor, QPainter, QTextFormat
 
 import sys
 import glob
@@ -39,20 +44,73 @@ import GuiXYZ_V1
 #import atexit
 #import keyboard for keyboard inputs
 
+class QLabel_altered(QLabel):
+    
+    resize=pyqtSignal()
+    
+    #clicked=pyqtSignal()
+    #def __init__(self, parent=None):
+    #    QLabel.__init__(self, parent)
+    #    self.last = ""
+
+    #def mousePressEvent(self, ev):        
+    #    self.clicked.emit()    
+      
+    left_clicked= QtCore.pyqtSignal(int)
+    right_clicked = QtCore.pyqtSignal(int)
+
+    def __init__(self, *args, **kwargs):
+        QLabel.__init__(self, *args, **kwargs)
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(250)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timeout)
+        self.left_click_count = self.right_click_count = 0
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.left_click_count += 1
+            if not self.timer.isActive():
+                self.timer.start()
+        if event.button() == QtCore.Qt.RightButton:
+            self.right_click_count += 1
+            if not self.timer.isActive():
+                self.timer.start()
+
+    def timeout(self):
+        if self.left_click_count >= self.right_click_count:
+            self.left_clicked.emit(self.left_click_count)
+        else:
+            self.right_clicked.emit(self.right_click_count)
+        self.left_click_count = self.right_click_count = 0
+
+    def resizeEvent(self, ev):
+        self.resize.emit()                       
 '''
-class MainWindowevents(QtWidgets.QMainWindow,GuiXYZ_V1.Ui_MainWindow):
+class MainWindowevents(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
-        super(MainWindowevents, self).__init__(parent)        
-        self.flag = 0        
-        
+        super(MainWindowevents, self).__init__(parent)    
+        self.parent=parent    
+        self.flag = 0    
+        self.label_Image_Preview=ui.label_Image_Preview
+        self.label_Image_Preview_Processed=ui.label_Image_Preview_Processed
+        self.label_Image_Preview.installEventFilter(MainWindow)
+        self.label_Image_Preview_Processed.installEventFilter(MainWindow)      
+        logging.info("Event Handler initialized!")                     
 
     def eventFilter(self, source, event):
+        logging.info("Event Happened! :)") 
         if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.Resize):
             # re-scale the pixmap when the label resizes
             print("Event resize!")
             self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
                 self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
                 QtCore.Qt.SmoothTransformation))
+        
+        if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.clicked):
+            # re-scale the pixmap when the label resizes
+            event.accept()
+            logging.info("Event Click on image!")
 
         if (source is self.label_Image_Preview_Processed and event.type() == QtCore.QEvent.Resize):
             # re-scale the pixmap when the label resizes
@@ -225,36 +283,7 @@ class Dialogs(QWidget):
 
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
-        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)      
-        self.flag = 0        
-                
-    def eventFilter(self, source, event):
-        print ('Got an event')
-        if (source is self.label_Image_Preview and event.type() == QtCore.QEvent.Resize):
-            # re-scale the pixmap when the label resizes
-            event.accept()
-            print("Event resize!")
-            self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
-                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))
-
-        if (source is self.label_Image_Preview_Processed and event.type() == QtCore.QEvent.Resize):
-            # re-scale the pixmap when the label resizes
-            print("Event resize Processed!")
-            self.label_Image_Preview_Processed.setPixmap(self.the_pixmap.scaled(
-                self.label_Image_Preview_Processed.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))        
-        
-        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview:
-            event.accept()
-            print("Image on FocusIn")
-            self.flag = 0
-
-        if event.type() == QtCore.QEvent.FocusIn and source is self.label_Image_Preview_Processed:
-            print("Image on FocusIn")
-            self.flag = 1
-
-        return super(Ui_MainWindow_V2, self).eventFilter(source, event)    
+        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)                                     
 
     def setupUi2(self, MainWindow):   
         # Before you copy -paste here all Object code, now is called directly from GuiXYZ_V1.py
@@ -365,16 +394,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Load_Image_Config.clicked.connect(self.PB_Open_Image_Config)
         self.pushButton_Save_Image_Config.clicked.connect(self.PB_Save_Image_Config)
         self.pushButton_Set_Changes_Image_Config.clicked.connect(self.PB_Set_Changes_Image_Config)
+
+
         """
         for i,self.tabWidget in enumerate(bars):
             tabbar.setContextMenuPolicy(Qt.ActionsContextMenu)
             renameAction = QtGui.QAction("Rename",tabbar)
             renameAction.triggered.connect(lambda x: self.renameTabSlot(i))
             tabbar.addAction(renameAction)
-        """    
-        
+        """            
         #self.lineEdit_DeltaX.textChanged['QString'].connect(self.Set_DeltaX_Value)
-        
         #self.label_XactPos.textChanged['QString'].connect(self.Set_actX_Value)
         #self.label_YactPos.textChanged['QString'].connect(self.Set_actY_Value)
         #self.label_ZactPos.textChanged['QString'].connect(self.Set_actZ_Value)
@@ -399,14 +428,59 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.G_Image=GImage() #Class instance initialization
         # this ensures the label can also re-size downwards
         self.label_Image_Preview.setMinimumSize(1, 1)
-        # get resize events for the label
-        self.label_Image_Preview.installEventFilter(MainWindow)
+        # get resize events for the label        
         self.label_Image_Preview.setAlignment(QtCore.Qt.AlignCenter)
         #self.setCentralWidget(self.label_Image_Preview)
         #self.tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.tabWidget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         QtWidgets.QApplication.instance().processEvents()        
         #self.label_Image_Preview.adjustSize()
+        self.label_Image_Preview = QLabel_altered(self.groupBox_Image_Preview)
+        self.gridLayout_10.addWidget(self.label_Image_Preview, 0, 0, 1, 1)
+        self.label_Image_Preview.setToolTip("Double Click to Open Image")   
+        self.label_Image_Preview_Processed = QLabel_altered(self.groupBox_Image_Preview_Processed)
+        self.gridLayout_11.addWidget(self.label_Image_Preview_Processed, 0, 0, 1, 1)
+        self.label_Image_Preview_Processed.setToolTip("Double Click to Open Image")
+        self.connect_label_actions()
+
+    def connect_label_actions(self):    
+        #self.label_Image_Preview.clicked.connect(self.Image_Preview_Clicked) 
+        self.label_Image_Preview.resize.connect(self.Image_Preview_Resized) 
+        #self.label_Image_Preview_Processed.clicked.connect(self.Image_Preview_Clicked) 
+        self.label_Image_Preview_Processed.resize.connect(self.Image_Preview_Resized)        
+        self.label_Image_Preview.left_clicked[int].connect(self.left_click)
+        self.label_Image_Preview.right_clicked[int].connect(self.right_click)
+        self.label_Image_Preview_Processed.left_clicked[int].connect(self.left_click_P)
+        self.label_Image_Preview_Processed.right_clicked[int].connect(self.right_click_P)
+        
+
+    def left_click(self, nb):
+        if nb == 1: 
+            print('Single left click')
+        else: 
+            self.G_Image.show_image() #print('Double left click')
+
+    def right_click(self, nb):
+        if nb == 1: print('Single right click')
+        else: print('Double right click')
+
+    def left_click_P(self, nb):
+        if nb == 1: print('Single left click')
+        else: print('Double left click')
+
+    def right_click_P(self, nb):
+        if nb == 1: print('Single right click')
+        else: print('Double right click')
+
+    def Image_Preview_Clicked(self):
+        print("Image clicked!!!!! ")
+        
+    def Image_Preview_Resized(self):
+        #print("Image resized!!!!!") 
+        if self.G_Image.Isimagetoprint == True:
+            self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
+                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
 
 
     
@@ -472,16 +546,24 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 logging.error(e)
                 logging.info("File was not Written!")
     
+    def setImage(self, image):
+        self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
+                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
+    def setPixmap(self, aPixmap):
+        self.label_Image_Preview.setPixmap(aPixmap.scaled(
+                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
+        #self.label_Image_Preview.setPixmap(aPixmap)    
 
     def Show_Image_Preview(self):
         if self.G_Image.Isimagetoprint == True:
             self.the_pixmap=QtGui.QPixmap(self.G_Image.imagefilename)
             #self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(self.G_Image.Get_image()))
-            self.label_Image_Preview.setPixmap(self.the_pixmap)
-            self.label_Image_Preview.setScaledContents(True)            
-            #self.label_Image_Preview.adjustSize()
-            #self.groupBox_Image_Preview.adjustSize()
-            #self.tab_4.adjustSize()
+            #self.label_Image_Preview.setPixmap(self.the_pixmap)
+            self.setPixmap(self.the_pixmap)
+            #self.label_Image_Preview.setScaledContents(True)            
+            
 
            
     def PB_Save_Image_Config(self):
@@ -779,6 +861,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 self.tableWidget_Image_Config.setItem(iii,4, QTableWidgetItem(str(config[ccc+'_Type'])))
                 iii=iii+1
         self.tableWidget_Image_Config.resizeColumnsToContents()
+        self.tableWidget_Image_Config.adjustSize()
+        self.groupBox_Image_Select.adjustSize()
 
     def Fill_Config_Table(self):
         if self.XYZRobot_found==1:       
@@ -1522,8 +1606,8 @@ if __name__ == "__main__":
     MainWindow = MyWindow()#QtWidgets.QMainWindow()
     ui = Ui_MainWindow_V2()
     ui.setupUi(MainWindow)
-    ui.setupUi2(MainWindow)
-    #aevent=MainWindowevents(MainWindow)
+    ui.setupUi2(MainWindow)    
+    #aeventhandler=MainWindowevents(MainWindow)
     handler = ConsolePanelHandler(ui)
     log.addHandler(handler)
     handler.setFormatter(logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s'))        
