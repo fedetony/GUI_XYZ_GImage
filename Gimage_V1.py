@@ -44,7 +44,6 @@ class GImage:
         else:
             return 0
 
-
     def show_image(self):
         if self.Isimagetoprint==True:
             self.im.show() # load an image from the hard drive    
@@ -80,19 +79,160 @@ class GImage:
             #if Technique=='circulism':
             #if Technique=='squares':
     
-    def Set_Initial_Image_Config_Data(self):            
-        self.Image_Config_Data_names=['Img_Height','Img_Width']
-        self.Image_Config_Data={}
-        self.Image_Config_Data['Img_Height']=float(210.0)
-        self.Image_Config_Data['Img_Height_Unit']='mm'
-        self.Image_Config_Data['Img_Height_Type']='float'
-        self.Image_Config_Data['Img_Height_Info']='Image Height'
-
-        self.Image_Config_Data['Img_Width']=float(210.0)
-        self.Image_Config_Data['Img_Width_Unit']='mm'
-        self.Image_Config_Data['Img_Width_Type']='float'
-        self.Image_Config_Data['Img_Width_Info']='Image Width'
     
+    
+    def Set_Initial_Image_Config_Data(self):            
+        #self.Image_Config_Data_names=['Img_Height','Img_Width']
+        self.Image_Config_Data={}              
+        #All with----------------
+        CUnit='mm'
+        CType='float'
+        #----------------
+        
+        ConfVar='Canvas_Height'        
+        CValue=float(210.0)        
+        CInfo='Canvas or paper total Height (Y)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+        
+        ConfVar='Canvas_Width'        
+        CValue=float(210.0)
+        CInfo='Canvas or paper total Width (X)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Img_Height'
+        Cvalue=float(200.0)
+        CInfo='Image Height (Y)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Img_Width'
+        CValue=float(200.0)
+        CInfo='Image Width (X)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Img_Resolution'
+        CValue=float(0.1)
+        CInfo='Image Resolution in [mm/pixel]' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        #---------------------------------
+        CUnit='mm'
+        CType='vector'
+        
+        ConfVar='Robot_XYZ'
+        CValue='1 2.1 3'
+        CInfo='(X,Y,Z) Origin point XYZ of Robot for canvas coordinate (0,0) tool touching the canvas.'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Img_ini_pos'
+        CValue='10 10'
+        CInfo='Origin point XY of Image wrt to canvas(0,0)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+        #Set Default values
+        self.Default_Image_Config_Data={}
+        self.Set_actualConfig_as_new_Defaults()
+
+    def Set_actualConfig_as_new_Defaults(self):    
+        for ccc in self.Image_Config_Data:
+            self.Default_Image_Config_Data[ccc]=self.Image_Config_Data[ccc]
+    
+    def Set_To_Default_Conf_Var(self,ConfVar,Cval=1,Cunit=1,Ctype=1,Cinfo=0):
+        if Cval==1:
+            self.Image_Config_Data[ConfVar]=self.Default_Image_Config_Data[ConfVar]
+        if Cunit==1:    
+            self.Image_Config_Data[ConfVar+'_Unit']=self.Default_Image_Config_Data[ConfVar+'_Unit']
+        if Ctype==1:    
+            self.Image_Config_Data[ConfVar+'_Type']=self.Default_Image_Config_Data[ConfVar+'_Type']    
+        if Cinfo==1:            
+            self.Image_Config_Data[ConfVar+'_Info']=self.Default_Image_Config_Data[ConfVar+'_Info']     
+    
+    def Get_List_of_Image_Config_Names(self):
+        ConfVarlist=[]
+        for ccc in self.Image_Config_Data:
+            if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:   
+                ConfVarlist.append(ccc)
+        return ConfVarlist
+
+    def Check_Image_Config_Data(self):
+        ConfVarlist=self.Get_List_of_Image_Config_Names()        
+        for ConfVar in ConfVarlist:        
+            if self.Get_Variable_from_Image_Config_Data(ConfVar)==None:
+                self.Set_To_Default_Conf_Var(ConfVar)
+            #else:
+            #   print(str(self.Get_Variable_from_Image_Config_Data(ConfVar))+', Stored:'+str(self.Image_Config_Data[ConfVar]))     
+                
+        ConfVar='Robot_XYZ'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)!=3:
+            self.Set_To_Default_Conf_Var(ConfVar)
+
+        ConfVar='Img_ini_pos'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        print(str(Varvect)+'-->'+str(len(Varvect)))
+        if len(Varvect)!=2:
+            self.Set_To_Default_Conf_Var(ConfVar)                
+            print("Default set:"+str(self.Image_Config_Data[ConfVar]))
+        
+        #set checked changes as new default
+        self.Set_actualConfig_as_new_Defaults()
+
+
+          
+
+    def Get_Variable_from_Image_Config_Data(self,Variable):
+        if Variable in self.Image_Config_Data:
+            if '_Info' in Variable:
+                return self.Image_Config_Data[Variable]
+            elif '_Unit' in Variable:
+                return self.Image_Config_Data[Variable]    
+            elif '_Type' in Variable:
+                return self.Image_Config_Data[Variable]    
+            else:
+                try:
+                    thetype=self.Image_Config_Data[Variable+'_Type']
+                    if thetype=='int':
+                        return int(self.Image_Config_Data[Variable])
+                    if thetype=='float':
+                        return float(self.Image_Config_Data[Variable])    
+                    if thetype=='string':
+                        return str(self.Image_Config_Data[Variable])    
+                    if thetype=='bool':
+                        return bool(self.Image_Config_Data[Variable])    
+                    if thetype=='vector':
+                        alist=[]
+                        try:                          
+                            line=str(self.Image_Config_Data[Variable]) 
+                            mf =re.split(r'\s',line)                               
+                        except:
+                            mf = None
+                        try:
+                            if mf is not None:   
+                                numitems=len(mf)
+                                for item in mf:                                   
+                                    #print("Inside vector->"+str(item))
+                                    alist.append(float(item))
+                                  
+                        except Exception as e:
+                            logging.error('Bad vector format in '+ Variable)
+                            logging.error(e)                        
+                            alist=[]
+                            pass
+                        return alist    
+                    #Other formats return string                
+                    return str(self.Image_Config_Data[Variable])
+                except:
+                    logging.error('Bad format in '+Variable)
+                    return None
+        else:
+            return None
+    
+
+    def Set_ConfVar(self,CData,ConfVar,CValue,CUnit,CType,CInfo):        
+        CData[ConfVar]=CValue
+        CData[ConfVar+'_Unit']=CUnit
+        CData[ConfVar+'_Type']=CType
+        CData[ConfVar+'_Info']=CInfo
+        return CData
+
     def Get_Image_Config_Data(self):        
         return self.Image_Config_Data
 

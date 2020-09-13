@@ -426,6 +426,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.isoncheckedstate_checkbox=False
         #------------
         self.G_Image=GImage() #Class instance initialization
+        #self.G_Image.Set_Initial_Image_Config_Data() # Setup Variables
         # this ensures the label can also re-size downwards
         self.label_Image_Preview.setMinimumSize(1, 1)
         # get resize events for the label        
@@ -487,6 +488,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def PB_Set_Changes_Image_Config(self):
         data=self.Get_data_from_Image_Config_Table()
         self.Set_Data_in_Image_Config(data)
+        
 
     def PB_Emergency(self):
         self.killer_event.set()
@@ -583,6 +585,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                             break                
             except:
                 pass    
+        self.G_Image.Check_Image_Config_Data()
         self.Fill_Image_Config_Table()    
 
     def PB_Open_Image(self):
@@ -946,18 +949,23 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             hhhunit=self.tableWidget_Image_Config.item(row, 2).text()  
             hhhinfo=self.tableWidget_Image_Config.item(row, 3).text()  
             hhhtype=self.tableWidget_Image_Config.item(row, 4).text()  
-            if hhhtype =='int':
-                Value=int(hhhval)
-            elif hhhtype == 'float':
-                Value=float(hhhval)
-            else:
-                Value=str(hhhval)                    
+            try:
+                if hhhtype =='int':
+                    Value=int(hhhval)
+                elif hhhtype == 'float':
+                    Value=float(hhhval)
+                else:
+                    Value=str(hhhval)  
+            except:                          
+                Value=self.G_Image.Get_Variable_from_Image_Config_Data(hhh) #Revert to last value           
             for ccc in list(self.G_Image.Image_Config_Data):
                 if ccc == hhh:
                     data[ccc]=Value
                     data[ccc+'_Unit']=hhhunit
                     data[ccc+'_Info']=hhhinfo
                     data[ccc+'_Type']=hhhtype
+        
+                
         return data            
 
 
