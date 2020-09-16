@@ -1,10 +1,14 @@
 from PIL import Image, ImageFilter  # imports the library
+from PIL.ImageQt import ImageQt
+
 import threading
 import queue
 import re
 import logging
 import time
 from common import *
+from dataclasses import dataclass, field
+from typing import List
 
 # install pySerial NOT serial!!!
 import serial
@@ -12,6 +16,18 @@ import serial
 logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 
+@dataclass
+class Struct_Process_Data:
+    Isimagetoprint: bool = False
+    Process: str = ''
+    OImg_Size_px: List[int] = field(default_factory=list)             
+    PImg_Proportional_Scale: bool = True
+    PImg_Size_mm: List[float] = field(default_factory=list)                                     
+    pix_per_mm_width: int = 1
+    pix_per_mm_height: int = 1
+    PImg_Size_px: List[int] = field(default_factory=list)    
+    PImg_Resolution: float = 0.1
+    PImg_Number_of_Colors: int = 256         
 
 class GImage:
     def __init__(self):
@@ -22,7 +38,15 @@ class GImage:
         self.im_height=0 # pixels
         self.point_resolution=0.1 # mm
         self.Isimagetoprint=False
+        self.IsProcessedimagetoprint=False
         self.Set_Initial_Image_Config_Data()
+        self.Set_Initial_Image_Tool_List()
+        self.Set_Initial_Technique_List()
+        self.Set_Initial_Image_Process()
+        
+
+
+
 
     def open_image(self,imagefilename):
         self.imagefilename=imagefilename
@@ -31,7 +55,8 @@ class GImage:
             self.im = Image.open(imagefilename) # load an image from the hard drive
             self.im_width=self.im.width
             self.im_height=self.im.height   
-            self.Isimagetoprint=True         
+            self.Isimagetoprint=True       
+              
         except:
             self.Set_Image_end_size(0,0)
             self.im_width=0
@@ -43,43 +68,121 @@ class GImage:
             return self.im    
         else:
             return 0
+    def Get_Process_Data(self):
+        Process_Data=Struct_Process_Data()
+        Process_Data.Process=self.Selected_Image_Process
+        if self.Isimagetoprint==True:
+            Process_Data.PImg_Number_of_Colors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
+            Process_Data.Process=self.Selected_Image_Process
+            Process_Data.OImg_Size_px=self.im.size
+            Process_Data.PImg_Resolution=self.Get_Variable_from_Image_Config_Data('Img_Resolution')
+            #Get new size
+            Process_Data.PImg_Proportional_Scale=bool(self.Get_Variable_from_Image_Config_Data('Is_Proportional'))
+            Process_Data.PImg_Size_mm=[self.Get_Variable_from_Image_Config_Data('Img_Width'),self.Get_Variable_from_Image_Config_Data('Img_Height')]
+            print(str(Process_Data.PImg_Size_mm))
+            if self.im.width > 0 and self.im.height > 0:
+                Process_Data.pix_per_mm_width=int(Process_Data.PImg_Size_mm[0]/self.im.width)
+                Process_Data.pix_per_mm_height=int(Process_Data.PImg_Size_mm[1]/self.im.height)                        
+            Process_Data.PImg_Size_px=[Process_Data.pix_per_mm_width*Process_Data.PImg_Size_mm[0],Process_Data.pix_per_mm_width*Process_Data.PImg_Size_mm[1]]
+
+        return Process_Data
+
+    def Process_Image(self):
+        if self.Isimagetoprint==True:
+            Process_Data=self.Get_Process_Data()
+            self.Create_Processed_Image(Process_Data)
+            self.appply_process_to_imp(Process_Data)
+            logging.info('Image Process Done')
+            print(str(self.IsProcessedimagetoprint))
+            #Show image
+
 
     def show_image(self):
         if self.Isimagetoprint==True:
             self.im.show() # load an image from the hard drive    
         else:
             logging.info("NO IMAGE")      
-
-    def Set_Image_end_size(self,prnt_width,prnt_height):    
-        self.prnt_height=prnt_height
-        self.prnt_width=prnt_height
-        if self.im_width > 0 and self.im_height > 0:
-            self.pix_per_mm_width=int(self.prnt_width/self.im_width)
-            self.pix_per_mm_height=int(self.prnt_height/self.im_height)            
-        else:
-            self.pix_per_mm_width=0
-            self.pix_per_mm_height=0
-            self.Isimagetoprint=False
     
-    def Resize_to_print_size(self):
-        if self.im_width > 0 and self.im_height > 0:
-            newsize=(int(self.prnt_width/point_resolution),int(self.prnt_height/point_resolution))
-            self.imtoprint=self.im.resize(newsize)    #puts the image to the end size for value in each pixel
-            self.Isimagetoprint=True
-    
-    def Image_to_gcode(self,Tool,Technique,Type_Layer):
+    def Create_Processed_Image(self,P_Data):
         if self.Isimagetoprint==True:
-            if Type_Layer=='R' or Type_Layer=='G' or Type_Layer=='B':
-                conv_imtoprint = self.imtoprint.convert('RGB')
-            if Type_Layer=='L': #Gray scale
-                conv_imtoprint = self.imtoprint.convert('L')    
-                #L = conv_imtoprint.getpixel((1, 1))
+            newsize=[]
+            for aaa in P_Data.PImg_Size_mm:
+                newsize.append(int(aaa/P_Data.PImg_Resolution))
+            self.imp=self.im.resize(newsize)    #puts the image to the end size for value in each pixel
+            
+            self.IsProcessedimagetoprint=True
+    
+    def appply_process_to_imp(self,P_Data):
+        if self.IsProcessedimagetoprint==True:
+            if P_Data.Process=='Black&White':
+                self.imp = self.imp.convert('L')
+            elif P_Data.Process=='Red':
+                self.imp = self.imp.convert('RGB')
+                self.imp = self.imp.getchannel(0)
+            elif P_Data.Process=='Green':
+                self.imp = self.imp.convert('RGB')
+                self.imp = self.imp.getchannel(1)
+            elif P_Data.Process=='Blue':
+                self.imp = self.imp.convert('RGB')
+                self.imp = self.imp.getchannel(2)
+            elif P_Data.Process=='RGB':
+                self.imp = self.imp.convert('RGB')
+            
+            self.imp = self.imp.quantize(colors=P_Data.PImg_Number_of_Colors)    
+            logging.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
+            
+    def Get_Pixel(self,x,y):
+        [x,y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y)
+        self.imp.getpixel(x, y)
+    
+    def Transform_pixel_coordinates_to_image_coordinates(self,x,y):
+        # (0,0) is the upper left corner
+        y=self.imp.height-y
+        return [x,y]
+
+    def Image_to_gcode(self,Tool,Technique,Process_Data):
+        if self.IsProcessedimagetoprint==True:
+            self.Get_Pixel(0, 0)    
+            #L = conv_imtoprint.getpixel((1, 1))
 
             #if Technique=='stipple':
             #if Technique=='circulism':
             #if Technique=='squares':
     
-    
+    def Set_Initial_Image_Tool_List(self):
+        self.Tool_List=[]
+        self.Tool_List.append('Ball Pen')
+        self.Tool_List.append('Fineliner Pen')
+        self.Tool_List.append('Felp Pen')
+        self.Tool_List.append('Brush')
+        self.Tool_List.append('Needle')
+        self.Tool_List.append('Cutter')
+        self.Tool_List.append('Pencil')
+        self.Tool_List.append('Mechanical Pencil')
+        
+        self.Selected_Tool=self.Tool_List[1]
+        
+
+    def Set_Initial_Technique_List(self):
+        self.Technique_List=[]    
+        self.Technique_List.append('Stipple')
+        self.Technique_List.append('Circulism')
+        self.Technique_List.append('Delineation')
+
+        self.Selected_Technique=self.Technique_List[1]
+
+    def Set_Initial_Image_Process(self):
+        self.Image_Process_List=[]    
+        self.Image_Process_List.append('Black&White')
+        self.Image_Process_List.append('Red')
+        self.Image_Process_List.append('Green')
+        self.Image_Process_List.append('Blue')
+        self.Image_Process_List.append('RGB')
+
+        self.Selected_Image_Process=self.Image_Process_List[1]
+
+
+
     
     def Set_Initial_Image_Config_Data(self):            
         #self.Image_Config_Data_names=['Img_Height','Img_Width']
@@ -127,6 +230,26 @@ class GImage:
         CValue='10 10'
         CInfo='Origin point XY of Image wrt to canvas(0,0)'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+        
+        #---------------------------------
+        CUnit=''
+        CType='bool'
+        
+        ConfVar='Is_Proportional'
+        CValue='True'
+        CInfo='When true will Scale the processed image as Original size'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        #---------------------------------
+        CUnit=''
+        CType='int'
+        
+        ConfVar='Img_Num_Colors'
+        CValue=8
+        CInfo='Will reduce the number of colors used in the Process(<256)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+
         #Set Default values
         self.Default_Image_Config_Data={}
         self.Set_actualConfig_as_new_Defaults()
@@ -135,7 +258,7 @@ class GImage:
         for ccc in self.Image_Config_Data:
             self.Default_Image_Config_Data[ccc]=self.Image_Config_Data[ccc]
     
-    def Set_To_Default_Conf_Var(self,ConfVar,Cval=1,Cunit=1,Ctype=1,Cinfo=0):
+    def Set_To_Default_Conf_Var(self,ConfVar,Cval=1,Cunit=1,Ctype=1,Cinfo=1):
         if Cval==1:
             self.Image_Config_Data[ConfVar]=self.Default_Image_Config_Data[ConfVar]
         if Cunit==1:    
@@ -153,30 +276,72 @@ class GImage:
         return ConfVarlist
 
     def Check_Image_Config_Data(self):
+        #This checks the formats and types are congruent
         ConfVarlist=self.Get_List_of_Image_Config_Names()        
         for ConfVar in ConfVarlist:        
             if self.Get_Variable_from_Image_Config_Data(ConfVar)==None:
                 self.Set_To_Default_Conf_Var(ConfVar)
             #else:
             #   print(str(self.Get_Variable_from_Image_Config_Data(ConfVar))+', Stored:'+str(self.Image_Config_Data[ConfVar]))     
-                
+        
+        #Length of Vectors are congruent
+        ConfVar='Img_ini_pos'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        #print(str(Varvect)+'-->'+str(len(Varvect)))
+        if len(Varvect)!=2:
+            self.Set_To_Default_Conf_Var(ConfVar)                
+            #print("Default set:"+str(self.Image_Config_Data[ConfVar]))
+        
         ConfVar='Robot_XYZ'
         Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
         if len(Varvect)!=3:
+            self.Set_To_Default_Conf_Var(ConfVar)    
+        
+        ConfVar='Is_Proportional'
+        IsProp=bool(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if IsProp==True:
+            self.Set_Image_Proportional_Size()
+
+        ConfVar='Img_Resolution'
+        Imres=self.Get_Variable_from_Image_Config_Data(ConfVar)
+        if Imres<=0.025:
             self.Set_To_Default_Conf_Var(ConfVar)
 
-        ConfVar='Img_ini_pos'
-        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
-        print(str(Varvect)+'-->'+str(len(Varvect)))
-        if len(Varvect)!=2:
-            self.Set_To_Default_Conf_Var(ConfVar)                
-            print("Default set:"+str(self.Image_Config_Data[ConfVar]))
-        
+        ConfVar='Img_Num_Colors'    
+        NC=self.Get_Variable_from_Image_Config_Data(ConfVar)
+        if NC<2 or NC>256:
+            self.Set_To_Default_Conf_Var(ConfVar)
+
         #set checked changes as new default
         self.Set_actualConfig_as_new_Defaults()
 
+    def Set_Image_Proportional_Size(self):
+        if self.Isimagetoprint==True:
+            pW=self.im.width
+            pH=self.im.height            
+            I_H=self.Get_Variable_from_Image_Config_Data('Img_Height')            
+            I_W=self.Get_Variable_from_Image_Config_Data('Img_Width')   
+            I_Ho=I_H
+            I_Wo=I_W     
+            # get defaults
+            I_Hd=self.Default_Image_Config_Data['Img_Height']
+            I_Wd=self.Default_Image_Config_Data['Img_Width']
+            if I_Hd!=I_H and I_Wd==I_W and pH!=0:
+                I_W=I_H*pW/pH
+                #logging.info('Here 1')
+            elif I_Hd==I_H and I_Wd!=I_W and pW!=0:     
+                I_H=I_W*pH/pW
+                #logging.info('Here 2')
+            else:    
+                if I_H>I_W and pW!=0:
+                    I_H=I_W*pH/pW
+                elif I_H<=I_W and pH!=0:
+                    I_W=I_H*pW/pH   
+            self.Image_Config_Data['Img_Height']=I_H    
+            self.Image_Config_Data['Img_Width']=I_W    
+            if I_Ho!=I_H or I_Wo!=I_W:
+                logging.info('Image Config Size Changed: Img_Width='+str(I_W)+' Img_Height='+str(I_H))            
 
-          
 
     def Get_Variable_from_Image_Config_Data(self,Variable):
         if Variable in self.Image_Config_Data:
@@ -196,7 +361,13 @@ class GImage:
                     if thetype=='string':
                         return str(self.Image_Config_Data[Variable])    
                     if thetype=='bool':
-                        return bool(self.Image_Config_Data[Variable])    
+                        aval=str(self.Image_Config_Data[Variable])
+                        if 'True' in aval or 'true' in aval or aval is '1' or aval is 'T':
+                            return True
+                        elif 'False' in aval or 'false' in aval or aval is '0' or aval is 'F':
+                            return False      
+                        else:    
+                            return ''    
                     if thetype=='vector':
                         alist=[]
                         try:                          

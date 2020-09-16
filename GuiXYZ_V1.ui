@@ -1108,6 +1108,26 @@
              <string>Image Select</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_12">
+             <item row="5" column="1">
+              <widget class="QPushButton" name="pushButton_Load_Image_Config">
+               <property name="text">
+                <string>Load Image Config</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QComboBox" name="comboBox_Image_Process"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_Image_Process">
+               <property name="text">
+                <string>Image Process</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_Tool_Select"/>
+             </item>
              <item row="0" column="0">
               <widget class="QPushButton" name="pushButton_Open_Image">
                <property name="text">
@@ -1116,36 +1136,43 @@
               </widget>
              </item>
              <item row="1" column="0">
-              <widget class="QLabel" name="label_Image_Process">
+              <widget class="QLabel" name="label_Tool_Select">
                <property name="text">
-                <string>Image Process</string>
+                <string>Tool</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
-              <widget class="QComboBox" name="comboBox_Image_Process"/>
-             </item>
-             <item row="2" column="0" colspan="2">
-              <widget class="QTableWidget" name="tableWidget_Image_Config"/>
-             </item>
-             <item row="3" column="0">
+             <item row="5" column="0">
               <widget class="QPushButton" name="pushButton_Set_Changes_Image_Config">
                <property name="text">
                 <string>Set Changes</string>
                </property>
               </widget>
              </item>
-             <item row="3" column="1">
-              <widget class="QPushButton" name="pushButton_Load_Image_Config">
-               <property name="text">
-                <string>Load Image Config</string>
-               </property>
-              </widget>
+             <item row="4" column="0" colspan="2">
+              <widget class="QTableWidget" name="tableWidget_Image_Config"/>
              </item>
-             <item row="4" column="1">
+             <item row="6" column="1">
               <widget class="QPushButton" name="pushButton_Save_Image_Config">
                <property name="text">
                 <string>Save Image Config</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_Technique">
+               <property name="text">
+                <string>Technique</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_Technique"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pushButton_Process_Image">
+               <property name="text">
+                <string>Apply Process</string>
                </property>
               </widget>
              </item>

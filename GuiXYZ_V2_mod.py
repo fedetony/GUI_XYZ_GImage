@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-
+from PIL.ImageQt import ImageQt
 
 #from PyQt5.QtWidgets import QMessageBox,QAction,QLabel
 #from PyQt5.QtWidgets import QTableWidget,QTableWidgetItem
@@ -395,6 +395,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Save_Image_Config.clicked.connect(self.PB_Save_Image_Config)
         self.pushButton_Set_Changes_Image_Config.clicked.connect(self.PB_Set_Changes_Image_Config)
 
+        self.comboBox_Image_Process.currentIndexChanged.connect(self.Combo_Image_Process_Select)
+        self.comboBox_Tool_Select.currentIndexChanged.connect(self.Combo_Tool_Select)
+        self.comboBox_Technique.currentIndexChanged.connect(self.Combo_Technique_Select)
+        self.pushButton_Process_Image.clicked.connect(self.PB_Process_Image)
 
         """
         for i,self.tabWidget in enumerate(bars):
@@ -443,12 +447,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.gridLayout_11.addWidget(self.label_Image_Preview_Processed, 0, 0, 1, 1)
         self.label_Image_Preview_Processed.setToolTip("Double Click to Open Image")
         self.connect_label_actions()
+        self.Fill_Image_process_Tool_Technique_Combo()
 
     def connect_label_actions(self):    
         #self.label_Image_Preview.clicked.connect(self.Image_Preview_Clicked) 
         self.label_Image_Preview.resize.connect(self.Image_Preview_Resized) 
         #self.label_Image_Preview_Processed.clicked.connect(self.Image_Preview_Clicked) 
-        self.label_Image_Preview_Processed.resize.connect(self.Image_Preview_Resized)        
+        self.label_Image_Preview_Processed.resize.connect(self.Processed_Image_Preview_Resized)        
         self.label_Image_Preview.left_clicked[int].connect(self.left_click)
         self.label_Image_Preview.right_clicked[int].connect(self.right_click)
         self.label_Image_Preview_Processed.left_clicked[int].connect(self.left_click_P)
@@ -475,19 +480,29 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Image_Preview_Clicked(self):
         print("Image clicked!!!!! ")
-        
+
+    def Processed_Image_Preview_Resized(self):
+        #print("Image resized!!!!!") 
+        if self.G_Image.IsProcessedimagetoprint == True:
+            self.label_Image_Preview_Processed.setPixmap(self.the_pixmap_p.scaled(
+                self.label_Image_Preview_Processed.size(), QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation))
+
     def Image_Preview_Resized(self):
         #print("Image resized!!!!!") 
         if self.G_Image.Isimagetoprint == True:
-            self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
-                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))
+            if (self.the_pixmap):
+                self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
+                    self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+                    QtCore.Qt.SmoothTransformation))
+                  
 
 
     
     def PB_Set_Changes_Image_Config(self):
         data=self.Get_data_from_Image_Config_Table()
         self.Set_Data_in_Image_Config(data)
+        self.G_Image.Process_Image()
         
 
     def PB_Emergency(self):
@@ -548,25 +563,37 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 logging.error(e)
                 logging.info("File was not Written!")
     
-    def setImage(self, image):
-        self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
-                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+    def setImage(self,alabel, image):
+        alabel.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
+                alabel.size(), QtCore.Qt.KeepAspectRatio,
                 QtCore.Qt.SmoothTransformation))
-    def setPixmap(self, aPixmap):
-        self.label_Image_Preview.setPixmap(aPixmap.scaled(
-                self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
+    def setPixmap(self,alabel, aPixmap):
+        alabel.setPixmap(aPixmap.scaled(
+                alabel.size(), QtCore.Qt.KeepAspectRatio,
                 QtCore.Qt.SmoothTransformation))
         #self.label_Image_Preview.setPixmap(aPixmap)    
 
     def Show_Image_Preview(self):
         if self.G_Image.Isimagetoprint == True:
             self.the_pixmap=QtGui.QPixmap(self.G_Image.imagefilename)
-            #self.label_Image_Preview.setPixmap(QtGui.QPixmap.fromImage(self.G_Image.Get_image()))
-            #self.label_Image_Preview.setPixmap(self.the_pixmap)
-            self.setPixmap(self.the_pixmap)
-            #self.label_Image_Preview.setScaledContents(True)            
-            
+            if (self.the_pixmap):
+                self.the_pixmap=self.the_pixmap
+            else:
+                qim = ImageQt(self.G_Image.im)
+                self.the_pixmap=QtGui.QPixmap.fromImage(qim) 
+            self.setPixmap(self.label_Image_Preview,self.the_pixmap)    
+    
+    def Show_Processed_Image_Preview(self):
+        #logging.info('Image Process preview entered')
+        if self.G_Image.IsProcessedimagetoprint==True:
+            qimp = ImageQt(self.G_Image.imp)
+            self.the_pixmap_p=QtGui.QPixmap.fromImage(qimp)            
+            #logging.info('Image Process preview showing')
+            self.setPixmap(self.label_Image_Preview_Processed,self.the_pixmap_p)
 
+    def PB_Process_Image(self):
+        self.G_Image.Process_Image()
+        self.Show_Processed_Image_Preview()
            
     def PB_Save_Image_Config(self):
         self.Save_Image_config_to_file()
@@ -595,9 +622,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             logging.info('Opening:'+filename)
             try:    
                             
-                self.G_Image.open_image(filename)                
-                #self.G_Image.show_image()
+                self.G_Image.open_image(filename)                                
                 self.Show_Image_Preview()
+                self.PB_Set_Changes_Image_Config()
+                self.Show_Processed_Image_Preview()
             except Exception as e:
                 logging.error(e)
                 logging.info("Could not open Image!")
@@ -824,8 +852,19 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.label_ZactPos.setText(_translate("MainWindow","Z = "+str(zzz)))
             self.label_ZactPos.adjustSize()
         
-
-    
+    def Fill_Image_process_Tool_Technique_Combo(self):        
+        self.comboBox_Image_Process.clear()  
+        self.comboBox_Tool_Select.clear()
+        techniques=self.G_Image.Technique_List
+        tools=self.G_Image.Tool_List
+        imgprocess=self.G_Image.Image_Process_List
+        for ccc in imgprocess:
+            self.comboBox_Image_Process.addItem(ccc) 
+        for ccc in tools:
+            self.comboBox_Tool_Select.addItem(ccc)  
+        for ccc in techniques:
+            self.comboBox_Technique.addItem(ccc)   
+            
 
     def Fill_Config_Combo(self):    
         if self.XYZRobot_found==1:       
@@ -895,8 +934,18 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Config_Table_row = row
         self.Config_Table_col = col
 
+    def Combo_Image_Process_Select(self):
+        self.G_Image.Selected_Image_Process=self.comboBox_Image_Process.currentText()
+        self.G_Image.Process_Image()
+
+    def Combo_Tool_Select(self):
+        self.G_Image.Selected_Tool=self.comboBox_Tool_Select.currentText()
+
+    def Combo_Technique_Select(self):
+        self.G_Image.Selected_Technique=self.comboBox_Technique.currentText()
+
     def Combo_config_Select(self):
-        self.Combo_Config_Selected=self.comboBox_ConfigItem.currentText()
+        self.Combo_Config_Selected=self.comboBox_ConfigItem.currentText()        
         config=self.xyz_thread.read_grbl_config(False,0)   
         for ccc in config:
             if not '_Info' in ccc and not '_Type' in ccc:
