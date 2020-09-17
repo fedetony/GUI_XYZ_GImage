@@ -400,6 +400,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_Technique.currentIndexChanged.connect(self.Combo_Technique_Select)
         self.pushButton_Process_Image.clicked.connect(self.PB_Process_Image)
 
+        self.pushButton_Generate_Gimage_Code.clicked.connect(self.PB_Generate_Gimage_Code)
+
         """
         for i,self.tabWidget in enumerate(bars):
             tabbar.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -416,6 +418,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def init_Values(self):
         self.killer_event = threading.Event()  
         self.killer_event.clear() 
+        self.IsRunning_event= threading.Event()
+        self.IsRunning_event.clear()
         self.XYZRobot_com_port ='COM10'
         self.Version ='2.0.1'
         self.x_pos = 0
@@ -428,6 +432,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Config_Table_NumRows=0
         self.Config_Table_NumCols=0
         self.isoncheckedstate_checkbox=False
+        self.IsImageThread=False
         #------------
         self.G_Image=GImage() #Class instance initialization
         #self.G_Image.Set_Initial_Image_Config_Data() # Setup Variables
@@ -562,7 +567,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             except Exception as e:
                 logging.error(e)
                 logging.info("File was not Written!")
-    
+
     def setImage(self,alabel, image):
         alabel.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
                 alabel.size(), QtCore.Qt.KeepAspectRatio,
@@ -590,7 +595,22 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.the_pixmap_p=QtGui.QPixmap.fromImage(qimp)            
             #logging.info('Image Process preview showing')
             self.setPixmap(self.label_Image_Preview_Processed,self.the_pixmap_p)
-
+    
+    def PB_Generate_Gimage_Code(self):
+        
+        if self.IsImageThread==False:
+            self.Start_Image_Thread()        
+        if self.IsImageThread==True:
+            Gimage_Data=self.G_Image.Get_Gimage_Data_for_Stream()
+            if self.G_Image.IsProcessedimagetoprint==True:
+                self.plaintextEdit_GcodeScript.clear()
+                Gimage_Code=self.xyz_gimagestream_thread.Generate_Gimage_Code(self.G_Image.imp,Gimage_Data,self.progressBar)
+                self.plaintextEdit_GcodeScript.appendPlainText(Gimage_Code)
+                self.progressBar.setValue(0)
+                logging.info('GImage Gcode Ready!')
+            else:    
+                logging.info('No processed image available!')
+        
     def PB_Process_Image(self):
         self.G_Image.Process_Image()
         self.Show_Processed_Image_Preview()
@@ -606,12 +626,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if type(data) != 'NoneType':
             try:
                 for ccc in data:
-                    for aaa in self.G_Image.Image_Config_Data:
-                        if aaa==ccc:
-                            self.G_Image.Image_Config_Data[aaa]=data[ccc]
-                            break                
-            except:
-                pass    
+                    if ccc in self.G_Image.Image_Config_Data:
+                        if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:                            
+                            self.G_Image.Image_Config_Data=self.G_Image.Set_ConfVar(self.G_Image.Image_Config_Data,ccc,data[ccc],data[ccc+'_Unit'],data[ccc+'_Type'],data[ccc+'_Info'])                            
+                            #print(aaa+':'+data[ccc])
+                            #break                
+            except Exception as e:
+                logging.error(e)
+                logging.error('Some items could not be read! ' +ccc )
+                pass   
+        #print('Read from file:'+self.G_Image.Image_Config_Data['Robot_XYZ']+' '+data['Robot_XYZ'])     
         self.G_Image.Check_Image_Config_Data()
         self.Fill_Image_Config_Table()    
 
@@ -636,7 +660,19 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.groupBox_XYZ.setEnabled(self.StatusConnected)
         self.label_ConnectedStatus.setEnabled(self.StatusConnected)
         self.tab_2.setEnabled(self.StatusConnected)
-        self.tab_3.setEnabled(self.StatusConnected)
+        self.Enable_Gcode_View(False)
+
+    def Enable_Gcode_View(self,Istotal=True):        
+        if Istotal==True:
+            self.tab_3.setEnabled(self.StatusConnected)
+        else:
+            self.frame_GcodePauseStop.setEnabled(self.StatusConnected)
+            self.checkBox_Gcode.setEnabled(self.StatusConnected)
+            self.PushButton_RunGcodeScript.setEnabled(self.StatusConnected)
+            self.groupBox_Gcode.setEnabled(self.StatusConnected)
+
+
+
 
     def Set_actX_Value(self):
         text=self.label_XactPos.text()
@@ -779,35 +815,39 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.textEdit_Logger.append(sss)
 
     def Start_Image_Thread(self):
-        try:
-            
-            self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
+        try:            
+            #self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
+            self.xyz_gimagestream_thread=Image_Gcode_Stream(self.killer_event,self.plaintextEdit_GcodeScript) 
             self.xyz_gimagestream_thread.setName("Gimage Stream") 
             self.xyz_gimagestream_thread.start()
-            logging.info("SUCCESS: Image to Gcode thread Initialized :)")   
+            logging.info("SUCCESS: Image to Gcode thread Initialized :)")  
+            self.IsImageThread=True 
             
         except Exception as e:               
             #logging.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
             logging.error(e)
             logging.error("Failed to initialise Image thread :( -> No Image to Gcode")
+            self.IsImageThread=False
             
     def Start_XYZ_Thread(self):            
         try:
             XYZRobot_port=self.COMPort            
             #Baudrate=self.COMBaudRate.encode('utf-8')
             Baudrate=int(self.COMBaudRate)
-            self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event)
+            self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
             self.xyz_thread.start()
             self.xyz_update_thread=XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
             self.xyz_update_thread.setName("XYZ Update") 
             self.xyz_update_thread.start()
             self.stream_event_stop= threading.Event()
             self.stream_event_stop.clear()
-            self.xyz_gcodestream_thread=XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
+            self.xyz_gcodestream_thread=XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
             self.xyz_gcodestream_thread.setName("XYZ Gcode Stream") 
             self.xyz_gcodestream_thread.start()
-            self.Start_Image_Thread()
-            
+            if self.IsImageThread==False:
+                self.Start_Image_Thread()
+            if self.IsImageThread==True:                    
+                self.xyz_gimagestream_thread.Set_xyz_thread(self.xyz_thread,self.stream_event_stop)
 
             logging.info("First Run Calibrating to: X = " + str(self.x_pos) + ", Y = " + str(self.y_pos) + ", Z = " + str(self.z_pos))
             self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)
@@ -1067,7 +1107,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         for line in linelist:
             #logging.info(line)
             try:                           
-                mf = re.search('<(.*)>_<([+-]?\d*[\.,]?\d*?)>_<(.*)>_<(.*)>_<(.*)>',line)                               
+                #mf = re.search('<(.*)>_<([+-]?\d*[\.,]?\d*?)>_<(.*)>_<(.*)>_<(.*)>',line)                               
+                mf = re.search('<(.*)>_<(.*)>_<(.*)>_<(.*)>_<(.*)>',line)                               
             except:
                 mf = None
             try:
@@ -1545,9 +1586,10 @@ class XYZ_Update(threading.Thread):
         self.label_ZactPos.adjustSize()    
 
 class XYZ_Gcode_Stream(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,holding_event,stoping_event):
+    def __init__(self,xyz_thread,killer_event,holding_event,stoping_event,IsRunning_event):
         threading.Thread.__init__(self, name="XYZ Gcode Stream")
-        logging.info("XYZ Gcode Stream Started")
+        logging.info("XYZ Gcode Stream Started")        
+        self.IsRunning_event=IsRunning_event 
         self.xyz_thread=xyz_thread
         self.killer_event=killer_event
         self.holding_event=holding_event
@@ -1558,21 +1600,17 @@ class XYZ_Gcode_Stream(threading.Thread):
         self.istext2stream=False
         self.text_queue = queue.Queue()
 
-    def wait_until_finished(self,a_count):
-        count=0
-        if self.state_xyz==3:
-            while self.state_xyz==self.oldstate_xyz and count<a_count:
-                self.data = self.xyz_thread.read()                
-                self.get_state()
-                time.sleep(self.cycle_time)
-                count=count+1            
-        self.oldstate_xyz=self.state_xyz
-        while self.state_xyz==5:
+    def wait_until_finished(self,a_count):        
+        if self.IsRunning_event.is_set()==True:
+            time.sleep(self.cycle_time)
             self.data = self.xyz_thread.read()                
             self.get_state()
             time.sleep(self.cycle_time)
-
-         
+            if self.oldstate_xyz!=self.state_xyz:
+                self.oldstate_xyz=self.state_xyz
+            if self.state_xyz==0:     #self.state_xyz==3 or            
+                self.IsRunning_event.clear() #Event is cleared in INIT state only here else in XYZ thread
+                
 
     def get_state(self):        
         self.state_xyz=self.data['STATE_XYZ'] 
@@ -1588,14 +1626,15 @@ class XYZ_Gcode_Stream(threading.Thread):
                 if self.holding_event.is_set()==False:                    
                     try:
                         #logging.info("Run entered 7")
-                        line2stream= self.text_queue.get_nowait()
-                        self.stream_one_line(line2stream)          
-                        self.data = self.xyz_thread.read()                
-                        self.get_state()
-                        if self.state_xyz==11: # error
-                            logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                            self.Stop_Clear()
-                        self.wait_until_finished(20000)    
+                        if self.IsRunning_event.is_set()==False:                                                          
+                            line2stream= self.text_queue.get_nowait()
+                            self.stream_one_line(line2stream)          
+                            self.data = self.xyz_thread.read()                
+                            self.get_state()
+                            if self.state_xyz==11: # error
+                                logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
+                                self.Stop_Clear()                                
+                        self.wait_until_finished(20000)    #Clears Running_event
                     except queue.Empty:                    
                         pass
                 
@@ -1625,8 +1664,17 @@ class XYZ_Gcode_Stream(threading.Thread):
         linecount=1
         for lll in text2stream:            
             if lll=='\n':
+                while self.IsRunning_event.wait(self.cycle_time):
+                    if self.killer_event.is_set():
+                        break
+                    if self.stoping_event.is_set():
+                        logging.info("Streaming Stopped! ("+str(linecount)+') '+ line )
+                        self.Stop_Clear()
+                        return
+                if self.killer_event.is_set()==True:
+                    break
                 logging.info("Sending Line-> ("+str(linecount)+") "+ line)
-                 
+                self.IsRunning_event.set() 
                 self.xyz_thread.grbl_gcode_cmd(line)   
                 time.sleep(self.cycle_time) # wait to react
                 self.data = self.xyz_thread.read()                
@@ -1635,8 +1683,7 @@ class XYZ_Gcode_Stream(threading.Thread):
                     logging.info("Error in Gcode! ("+str(linecount)+') '+ line )
                     self.Stop_Clear()
                     break    
-                if self.killer_event.is_set()==True:
-                    break
+                
                 linecount=linecount+1
                 line=''
             else:
@@ -1651,6 +1698,7 @@ class XYZ_Gcode_Stream(threading.Thread):
 
     def stream_one_line(self,line2stream):
         if self.istext2stream==True:
+            self.IsRunning_event.set()
             self.xyz_thread.grbl_gcode_cmd(line2stream)
 
 

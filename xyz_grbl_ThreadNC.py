@@ -17,9 +17,10 @@ class SerialReaderWriterThread(threading.Thread):
         A thread class to control XYZ read/write
     """
 
-    def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_start,grbl_event_status,grbl_event_softreset,grbl_event_stop):
+    def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_start,grbl_event_status,grbl_event_softreset,grbl_event_stop,IsRunning_event):
         threading.Thread.__init__(self, name="XYZ thread")
         self.rx_queue = rx_queue
+        self.IsRunning_event=IsRunning_event
         self.killer_event = kill_event
         self.grbl_event_hold=grbl_event_hold
         self.grbl_event_start=grbl_event_start
@@ -96,6 +97,7 @@ class SerialReaderWriterThread(threading.Thread):
             logging.error(eee)
             logging.error("SerialReaderWriterThread: Failed to open serial port " + self.port)
             raise
+    
     def run(self):        
         #logging.info("Run entered")
         self.xyzsetupready=True
@@ -164,7 +166,7 @@ class SerialReaderWriterThread(threading.Thread):
                 
                 # check if there is something we should send to the serial
                 try:
-                    #logging.info("Run entered 7")
+                    #logging.info("Run entered 7")                    
                     new_cmd = self.rx_queue.get_nowait()
                     logging.debug("Received :" + str(new_cmd))
                     self.ser_port.write(str(new_cmd).encode())
@@ -364,6 +366,10 @@ class SerialReaderWriterThread(threading.Thread):
                     self.data['STATE_XYZ'] = 0
                 #logging.info('STATE ' + str(self.data['STATE_XYZ']))
                 self.Set_Status_from_StateXYZ()
+                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==3:
+                    self.IsRunning_event.clear() 
+                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==0:
+                    self.IsRunning_event.clear()     
                 any=1
                 # print grbl_out
 
@@ -524,6 +530,9 @@ class SerialReaderWriterThread(threading.Thread):
             #print( grbl_out.strip() )
             if "ok" in grbl_out:
                 self.data['STATUS']='ok'
+                if self.IsRunning_event.is_set()==True:
+                    self.IsRunning_event.clear()
+                    showok=True
                 if showok==True:
                     logging.info(self.data['STATUS'])
             if "error" in grbl_out:                
@@ -550,6 +559,11 @@ class SerialReaderWriterThread(threading.Thread):
                     if self.Compare_Hasdatachanged(self.olddata)==True:
                         if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
                             logging.info('S_XYZ from '+ str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATE_XYZ']))          
+                            if self.olddata['STATE_XYZ']==3 and self.data['STATE_XYZ']!=3: # state 3-> X
+                                self.IsRunning_event.set()
+                            #if self.olddata['STATE_XYZ']!=3 and self.data['STATE_XYZ']==3: # state X-> 3
+                            #    self.IsRunning_event.clear()    
+
                             self.olddata['STATE_XYZ']=self.data['STATE_XYZ']              
                             self.Set_Status_from_StateXYZ()
                             self.olddata['STATUS']=self.data['STATUS']
@@ -656,6 +670,8 @@ class SerialReaderWriterThread(threading.Thread):
                 #if self.grbl_event_status.is_set():
                 if self.Compare_Hasdatachanged(self.olddata)==True:
                     logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==3:
+                    self.IsRunning_event.clear()    
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]              
                 #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
@@ -762,7 +778,8 @@ class SerialReaderWriterThread(threading.Thread):
 
 class XYZGrbl:
 
-    def __init__(self, grbl_port,grbl_baudrate, killer_event):
+    def __init__(self, grbl_port,grbl_baudrate, killer_event,IsRunning_event):
+        self.IsRunning_event=IsRunning_event
         self.srl_cmd_queue = queue.Queue()
         self.grbl_event_hold= threading.Event()
         self.grbl_event_start= threading.Event()
@@ -774,7 +791,7 @@ class XYZGrbl:
         self.grbl_event_status.clear()
         self.grbl_event_softreset.clear()     
         self.grbl_event_stop.clear()
-        self.ser_read_thread = SerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_start,self.grbl_event_status,self.grbl_event_softreset,self.grbl_event_stop)
+        self.ser_read_thread = SerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_start,self.grbl_event_status,self.grbl_event_softreset,self.grbl_event_stop,self.IsRunning_event)
 
     def join(self):
         self.ser_read_thread.join()

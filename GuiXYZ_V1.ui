@@ -16,6 +16,9 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
+     <layout class="QGridLayout" name="gridLayout_9"/>
+    </item>
+    <item>
      <widget class="QSplitter" name="splitter">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
@@ -34,7 +37,7 @@
         <attribute name="title">
          <string>Connect</string>
         </attribute>
-        <widget class="QWidget" name="">
+        <widget class="QWidget" name="layoutWidget">
          <property name="geometry">
           <rect>
            <x>9</x>
@@ -241,7 +244,7 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <property name="geometry">
            <rect>
             <x>10</x>
@@ -631,7 +634,7 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <property name="geometry">
            <rect>
             <x>10</x>
@@ -683,7 +686,7 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <property name="geometry">
            <rect>
             <x>180</x>
@@ -729,7 +732,7 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <property name="geometry">
            <rect>
             <x>480</x>
@@ -774,12 +777,12 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <property name="geometry">
            <rect>
             <x>590</x>
             <y>290</y>
-            <width>121</width>
+            <width>239</width>
             <height>31</height>
            </rect>
           </property>
@@ -1108,15 +1111,25 @@
              <string>Image Select</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_12">
-             <item row="5" column="1">
-              <widget class="QPushButton" name="pushButton_Load_Image_Config">
+             <item row="4" column="0" colspan="2">
+              <widget class="QTableWidget" name="tableWidget_Image_Config"/>
+             </item>
+             <item row="6" column="0">
+              <widget class="QPushButton" name="pushButton_Generate_Gimage_Code">
                <property name="text">
-                <string>Load Image Config</string>
+                <string>Generate Gimage Code</string>
                </property>
               </widget>
              </item>
-             <item row="3" column="1">
-              <widget class="QComboBox" name="comboBox_Image_Process"/>
+             <item row="6" column="1">
+              <widget class="QPushButton" name="pushButton_Save_Image_Config">
+               <property name="text">
+                <string>Save Image Config</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_Technique"/>
              </item>
              <item row="3" column="0">
               <widget class="QLabel" name="label_Image_Process">
@@ -1125,9 +1138,6 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
-              <widget class="QComboBox" name="comboBox_Tool_Select"/>
-             </item>
              <item row="0" column="0">
               <widget class="QPushButton" name="pushButton_Open_Image">
                <property name="text">
@@ -1135,10 +1145,20 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_Tool_Select">
+             <item row="3" column="1">
+              <widget class="QComboBox" name="comboBox_Image_Process"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_Technique">
                <property name="text">
-                <string>Tool</string>
+                <string>Technique</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QPushButton" name="pushButton_Load_Image_Config">
+               <property name="text">
+                <string>Load Image Config</string>
                </property>
               </widget>
              </item>
@@ -1149,30 +1169,27 @@
                </property>
               </widget>
              </item>
-             <item row="4" column="0" colspan="2">
-              <widget class="QTableWidget" name="tableWidget_Image_Config"/>
-             </item>
-             <item row="6" column="1">
-              <widget class="QPushButton" name="pushButton_Save_Image_Config">
-               <property name="text">
-                <string>Save Image Config</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="label_Technique">
-               <property name="text">
-                <string>Technique</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QComboBox" name="comboBox_Technique"/>
-             </item>
              <item row="0" column="1">
               <widget class="QPushButton" name="pushButton_Process_Image">
                <property name="text">
                 <string>Apply Process</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_Tool_Select">
+               <property name="text">
+                <string>Tool</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_Tool_Select"/>
+             </item>
+             <item row="7" column="0" colspan="2">
+              <widget class="QProgressBar" name="progressBar">
+               <property name="value">
+                <number>0</number>
                </property>
               </widget>
              </item>
@@ -1264,7 +1281,7 @@
         </layout>
        </widget>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QTextEdit" name="textEdit_Logger"/>
@@ -1294,17 +1311,6 @@
      </widget>
     </item>
    </layout>
-   <widget class="QWidget" name="">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>2</width>
-      <height>2</height>
-     </rect>
-    </property>
-    <layout class="QGridLayout" name="gridLayout_9"/>
-   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

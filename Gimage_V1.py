@@ -1,6 +1,8 @@
 from PIL import Image, ImageFilter  # imports the library
 from PIL.ImageQt import ImageQt
 
+import random
+import numpy as np
 import threading
 import queue
 import re
@@ -28,6 +30,22 @@ class Struct_Process_Data:
     PImg_Size_px: List[int] = field(default_factory=list)    
     PImg_Resolution: float = 0.1
     PImg_Number_of_Colors: int = 256         
+
+@dataclass
+class Struct_Stream_Data:
+    Ispimagetoprint: bool = False
+    Process: str = ''
+    Tool: str = ''
+    Technique: str = ''
+    Resolution: float = 0.1
+    Number_of_Colors: int = 8
+    deltaZ: float =3 
+    Zmove_pos: float =5
+    Ztouch_pos: float =0
+    Resolution: float =0.1
+    stipple_rate: float =2000
+    Robot_XYZ: List[float] = field(default_factory=list)  
+    Img_ini_pos: List[float] = field(default_factory=list)  
 
 class GImage:
     def __init__(self):
@@ -79,7 +97,7 @@ class GImage:
             #Get new size
             Process_Data.PImg_Proportional_Scale=bool(self.Get_Variable_from_Image_Config_Data('Is_Proportional'))
             Process_Data.PImg_Size_mm=[self.Get_Variable_from_Image_Config_Data('Img_Width'),self.Get_Variable_from_Image_Config_Data('Img_Height')]
-            print(str(Process_Data.PImg_Size_mm))
+            #print(str(Process_Data.PImg_Size_mm))
             if self.im.width > 0 and self.im.height > 0:
                 Process_Data.pix_per_mm_width=int(Process_Data.PImg_Size_mm[0]/self.im.width)
                 Process_Data.pix_per_mm_height=int(Process_Data.PImg_Size_mm[1]/self.im.height)                        
@@ -92,8 +110,8 @@ class GImage:
             Process_Data=self.Get_Process_Data()
             self.Create_Processed_Image(Process_Data)
             self.appply_process_to_imp(Process_Data)
-            logging.info('Image Process Done')
-            print(str(self.IsProcessedimagetoprint))
+            logging.info('Image Process Applied')
+            #print(str(self.IsProcessedimagetoprint))
             #Show image
 
 
@@ -130,25 +148,7 @@ class GImage:
             
             self.imp = self.imp.quantize(colors=P_Data.PImg_Number_of_Colors)    
             logging.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
-            
-    def Get_Pixel(self,x,y):
-        [x,y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y)
-        self.imp.getpixel(x, y)
-    
-    def Transform_pixel_coordinates_to_image_coordinates(self,x,y):
-        # (0,0) is the upper left corner
-        y=self.imp.height-y
-        return [x,y]
-
-    def Image_to_gcode(self,Tool,Technique,Process_Data):
-        if self.IsProcessedimagetoprint==True:
-            self.Get_Pixel(0, 0)    
-            #L = conv_imtoprint.getpixel((1, 1))
-
-            #if Technique=='stipple':
-            #if Technique=='circulism':
-            #if Technique=='squares':
-    
+                        
     def Set_Initial_Image_Tool_List(self):
         self.Tool_List=[]
         self.Tool_List.append('Ball Pen')
@@ -180,9 +180,6 @@ class GImage:
         self.Image_Process_List.append('RGB')
 
         self.Selected_Image_Process=self.Image_Process_List[1]
-
-
-
     
     def Set_Initial_Image_Config_Data(self):            
         #self.Image_Config_Data_names=['Img_Height','Img_Width']
@@ -406,6 +403,22 @@ class GImage:
 
     def Get_Image_Config_Data(self):        
         return self.Image_Config_Data
+    
+    def Get_Gimage_Data_for_Stream(self):
+        Gimage_Data=Struct_Stream_Data()
+        #Here fill info with configuration
+        Gimage_Data.Ispimagetoprint=self.IsProcessedimagetoprint
+        Gimage_Data.Technique=self.Selected_Technique
+        Gimage_Data.Tool=self.Selected_Tool
+        Gimage_Data.Process =self.Selected_Image_Process
+        Gimage_Data.Robot_XYZ=self.Get_Variable_from_Image_Config_Data('Robot_XYZ')
+        Gimage_Data.Img_ini_pos=self.Get_Variable_from_Image_Config_Data('Img_ini_pos')
+        Gimage_Data.deltaZ=3 #mm here value from config
+        Gimage_Data.Zmove_pos=Gimage_Data.Robot_XYZ[2]+5
+        Gimage_Data.Ztouch_pos=Gimage_Data.Robot_XYZ[2]
+        Gimage_Data.Resolution=0.1
+        Gimage_Data.stipple_rate=2000
+        return Gimage_Data           
 
     def Test_Image(self):
         im = Image.open("Testimage.png") # load an image from the hard drive
@@ -433,26 +446,29 @@ class GImage:
 
 
 class Image_Gcode_Stream(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,holding_event,stoping_event):
+    
+    #def __init__(self,xyz_thread,killer_event,holding_event,stoping_event):        
+    def __init__(self,killer_event,plaintextEdit_GcodeScript):        
         threading.Thread.__init__(self, name="Image Gcode Stream")
         logging.info("Image Gcode Stream Started")
-        self.xyz_thread=xyz_thread
+        self.plaintextEdit_GcodeScript=plaintextEdit_GcodeScript        
+        #self.xyz_thread=xyz_thread
         self.killer_event=killer_event
-        self.holding_event=holding_event
-        self.stoping_event=stoping_event        
+        #self.holding_event=holding_event
+        #self.stoping_event=stoping_event                
         self.cycle_time=0.1               
         self.state_xyz=0
-        self.prnt_height=0 #mm
-        self.prnt_width=0  #mm
-        self.im_width=0 # pixels
-        self.im_height=0
-        self.point_resolution=0.1 #
+
         self.Isimagetoprint=False
         self.istext2stream=False
+        self.Isxyz_thread=False
         self.text_queue = queue.Queue()
-        
-
     
+    def Set_xyz_thread(self,xyz_thread,stoping_event):
+        self.xyz_thread=xyz_thread  
+        self.holding_event=self.xyz_thread.grbl_event_hold     
+        self.stoping_event=stoping_event
+        self.Isxyz_thread=True
 
     def wait_until_finished(self,a_count):
         count=0
@@ -474,33 +490,34 @@ class Image_Gcode_Stream(threading.Thread):
     def run(self):                
         count=0
         while not self.killer_event.wait(self.cycle_time):   
-            try:
-                self.data = self.xyz_thread.read()                
-                self.get_state()
-                if self.stoping_event.is_set()==True:
-                    self.Stop_Clear()
-                if self.holding_event.is_set()==False:                    
-                    try:
-                        #logging.info("Run entered 7")
-                        line2stream= self.text_queue.get_nowait()
-                        self.stream_one_line(line2stream)          
-                        self.data = self.xyz_thread.read()                
-                        self.get_state()
-                        if self.state_xyz==11: # error
-                            logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                            self.Stop_Clear()
-                        self.wait_until_finished(20000)    
-                    except queue.Empty:                    
-                        pass
-                
-                
-            except:
-                if count==0:
-                    logging.info("Image Gcode Stream can't get data to update")                         
-                else:
-                   count=count+1
-                if count>=2000:
-                    count=0        
+            if self.Isxyz_thread==True:
+                try:
+                    self.data = self.xyz_thread.read()                
+                    self.get_state()
+                    if self.stoping_event.is_set()==True:
+                        self.Stop_Clear()
+                    if self.holding_event.is_set()==False:                    
+                        try:
+                            #logging.info("Run entered 7")
+                            line2stream= self.text_queue.get_nowait()
+                            self.stream_one_line(line2stream)          
+                            self.data = self.xyz_thread.read()                
+                            self.get_state()
+                            if self.state_xyz==11: # error
+                                logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
+                                self.Stop_Clear()
+                            self.wait_until_finished(20000)    
+                        except queue.Empty:                    
+                            pass
+                    
+                    
+                except:
+                    if count==0:
+                        logging.info("Image Gcode Stream can't get data to update")                         
+                    else:
+                        count=count+1
+                    if count>=2000:
+                        count=0        
         logging.info("Image Gcode Stream killed")          
     
     def Stop_Clear(self):
@@ -512,11 +529,96 @@ class Image_Gcode_Stream(threading.Thread):
 
     def read(self):
         return self.data
-
      
     def stream_one_line(self,line2stream):
         if self.istext2stream==True:
             self.xyz_thread.grbl_gcode_cmd(line2stream)
+    
+    def Get_Pixel(self,x,y):
+        [x,y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y)
+        self.imp.getpixel((x, y))
+    
+    def Transform_pixel_coordinates_to_image_coordinates(self,x,y):
+        # (0,0) is the upper left corner
+        y=self.imp.height-y
+        # Add robot image origin position
+        y=y+self.Img_ini_pos[1]+self.Robot_XYZ[1]
+        x=x+self.Img_ini_pos[0]+self.Robot_XYZ[0]
+        return [x,y]
+
+    def Generate_Gimage_Code(self,pimage,Gimage_Data,Progressbar):
+        self.Gimage_Code=''            
+        self.Gimage_Code_loop=''
+        if Gimage_Data.Ispimagetoprint==True:            
+            #pimg_arr=np.array(self.imp)    
+            self.imp=pimage  
+            self.Technique=Gimage_Data.Technique
+            self.Tool=Gimage_Data.Tool
+            self.Process=Gimage_Data.Process                         
+            self.Robot_XYZ=Gimage_Data.Robot_XYZ
+            self.Img_ini_pos=Gimage_Data.Img_ini_pos
+            Zinfo=[Gimage_Data.deltaZ,Gimage_Data.Zmove_pos,Gimage_Data.Ztouch_pos,Gimage_Data.Resolution,Gimage_Data.stipple_rate]
+
+            #get min max range
+            pimg_val_range=[0,256,0]
+            for xxx in range(0,self.imp.width-1):
+                #print(str(xxx))
+                for yyy in range(0,self.imp.height-1):
+                    #print(str(yyy))    
+                    avalue=self.imp.getpixel((xxx,yyy))
+                    if avalue<pimg_val_range[1]:
+                        pimg_val_range[1]=avalue
+                    if avalue>pimg_val_range[2]:
+                        pimg_val_range[2]=avalue   
+
+            for xxx in range(0,self.imp.width):
+                #print(str(xxx/pimage.width*100)+'%')
+                Progressbar.setValue(xxx/self.imp.width*100)
+                for yyy in range(0,self.imp.height):
+                    avalue=self.imp.getpixel((xxx, yyy))
+                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy)  
+                    pimg_val_range[0]=avalue                                                        
+                    self.Write_Gimage_Process_Code(pimg_val_range,pimg_X,pimg_Y,Zinfo)
+                    self.Gimage_Code=self.Gimage_Code+self.Gimage_Code_loop
+        return self.Gimage_Code            
+                    
+    def Write_Gimage_Process_Code(self,pimg_val_range,xxx,yyy,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,stipple_rate]=Zinfo
+        if pimg_val_range[0]>pimg_val_range[1]: #Only write if the value has color
+            Lcode=self.Write_Goto_Code(0,zzz=Zmove_pos)
+            Lcode=Lcode+self.Write_Goto_Code(0,xxx=xxx,yyy=yyy)
+            if self.Technique=='Stipple':
+                for aaa in range(pimg_val_range[1],pimg_val_range[0]):  
+                    if aaa>pimg_val_range[1]:
+                        #Generate 2 random numbers
+                        randomlist = []
+                        for iii in range(0,2):
+                            nnn = random.randint(0,12)
+                            randomlist.append((nnn-6)/6) #number beween -1 and 1 1/6 quantification
+                        newx=xxx+Resolution*randomlist[0]    
+                        newy=yyy+Resolution*randomlist[1]
+                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=newx,yyy=newy,zzz=Ztouch_pos,fff=stipple_rate)
+                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=xxx,yyy=yyy,zzz=Ztouch_pos+deltaZ,fff=stipple_rate)
+            #Lcode=Lcode+self.Write_Goto_Code(0,zzz=Zmove_pos)        
+            self.Gimage_Code_loop=Lcode
+
+    def Write_Goto_Code(self,GX,xxx=None,yyy=None,zzz=None,fff=None,eee=None,aaachar='',aaa=None,e_o_l='\n'):
+        Gimgcode='G'+str(GX)
+        if xxx!=None:
+            Gimgcode=Gimgcode+' X'+str("{0:.3f}".format(xxx))
+        if yyy!=None:
+            Gimgcode=Gimgcode+' Y'+str("{0:.3f}".format(yyy))    
+        if zzz!=None:
+            Gimgcode=Gimgcode+' Z'+str("{0:.3f}".format(zzz))
+        if fff!=None:
+            Gimgcode=Gimgcode+' F'+str(fff)
+        if eee!=None:
+            Gimgcode=Gimgcode+' E'+str(eee)   
+        if aaachar is not '':
+            Gimgcode=Gimgcode+' '+aaachar              
+        if aaa!=None:
+            Gimgcode=Gimgcode+str(aaa)     
+        return Gimgcode+e_o_l 
     
     
 
