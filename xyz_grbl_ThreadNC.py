@@ -33,7 +33,9 @@ class SerialReaderWriterThread(threading.Thread):
         self.is_tinyg=1
         self.xyzsetupready=False
         self.wasrunningbeforepause=False
-
+        self.linesexecuted=0
+        self.linessenttoexec=0
+       
         logging.info("Thread init XYZ")
         self.data = {}
         self.data['EPOS'] = float(0)
@@ -88,6 +90,7 @@ class SerialReaderWriterThread(threading.Thread):
             logging.info("setting up grbl")
             self.cycle_time=0.1    
             self.Initialize_Grbl()
+    
     def trytoopen_serial_port(self):
         try:            
             #str(self.baudrate).encode('utf-8')
@@ -104,8 +107,7 @@ class SerialReaderWriterThread(threading.Thread):
         #logging.info("killer_event->"+ str(self.killer_event.wait(self.cycle_time)))
         #logging.info("grbl_event_hold->"+ str(self.grbl_event_hold.wait(self.cycle_time)))
         while not self.killer_event.wait(self.cycle_time):            
-            #logging.info("Run entered 1")
-            
+            #logging.info("Run entered 1")            
             if  self.grbl_event_hold.is_set():
                 self.Send_grbl_Hold(1) #clears start flag
                 logging.info("Holding !!")
@@ -125,8 +127,7 @@ class SerialReaderWriterThread(threading.Thread):
                 self.grbl_event_softreset.clear()
                 #Clean queue
                 with self.rx_queue.mutex:
-                    self.rx_queue.queue.clear()
-            
+                    self.rx_queue.queue.clear()            
             if  self.grbl_event_stop.is_set():
                 logging.info("Stopping!!")
                 self.Send_Marlin_Stop(1)
@@ -151,11 +152,7 @@ class SerialReaderWriterThread(threading.Thread):
                 #Marlin blocks incoming data for 1 sec after M410 stop so makes error when comms try to reach                                   
                 # Clean queue
                 with self.rx_queue.mutex:
-                    self.rx_queue.queue.clear()
-                    
-                
-
-            
+                    self.rx_queue.queue.clear()                 
             if self.killer_event.is_set():
                 if self.is_tinyg==2:
                     self.Send_Marlin_Kill(1)
@@ -163,7 +160,6 @@ class SerialReaderWriterThread(threading.Thread):
                     self.Send_grbl_SoftReset(1)
                 #logging.info("Run entered 6")
             else:
-                
                 # check if there is something we should send to the serial
                 try:
                     #logging.info("Run entered 7")                    
@@ -175,14 +171,15 @@ class SerialReaderWriterThread(threading.Thread):
                 except queue.Empty:
                     #self.grbl_event_status.clear()
                     pass
-
                 # read the values
                 self.Run_Read_Values()
-                
- 
         logging.info(self.name + " killed")
         self.ser_port.close()
     
+    def Reset_linesexecutedCount(self):
+        self.linesexecuted=0
+        self.linessenttoexec=0
+
     def Run_Read_Values(self):
         if self.is_tinyg==1:
             grbl_out = str(self.ser_port.readline())  # Wait for grbl response with carriage return                    
@@ -342,15 +339,10 @@ class SerialReaderWriterThread(threading.Thread):
                                 else:
                                     self.grbl_Config['$'+str(mtg.group(1))]=str(mtg.group(3))
                                     self.grbl_Config['$'+str(mtg.group(1))+'_Type']='string'        
-
-
-
-
                     linebuff=[]         
         self.xyzsetupready=True
 
     def Process_Tinyg_data(self,grbl_out):
-        
         if (grbl_out):
             #print( grbl_out.strip() )
             self.Set_Status_from_StateXYZ()
@@ -366,10 +358,12 @@ class SerialReaderWriterThread(threading.Thread):
                     self.data['STATE_XYZ'] = 0
                 #logging.info('STATE ' + str(self.data['STATE_XYZ']))
                 self.Set_Status_from_StateXYZ()
-                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==3:
-                    self.IsRunning_event.clear() 
-                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==0:
-                    self.IsRunning_event.clear()     
+                if self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
+                    self.IsRunning_event.clear()  
+                    self.linesexecuted=self.linesexecuted+1  
+                else:
+                    self.IsRunning_event.set()    
+                
                 any=1
                 # print grbl_out
 
@@ -398,6 +392,8 @@ class SerialReaderWriterThread(threading.Thread):
                 # print grbl_out
             if  any==1:   
                 logging.info('<' + str(self.data['STATUS'])+', POS:'+"\t"+str(self.data['XPOS'])+",\t" + str(self.data['YPOS'])+",\t" + str(self.data['ZPOS'])+'> ' +str(self.data['STATE_XYZ']))
+                for aaa in self.data:         
+                    self.olddata[aaa]=self.data[aaa]
             else:
                 text=grbl_out.replace("b'",'')
                 text=text.replace("'",'')
@@ -463,9 +459,7 @@ class SerialReaderWriterThread(threading.Thread):
                 self.ser_port.write(str('^X'+'\n').encode())
                 logging.info("grbl softreset sent!")
 
-    def Send_grbl_Start(self,sendcmd):  
-        #if not self.grbl_event_start.is_set():  
-        #    
+    def Send_grbl_Start(self,sendcmd):         
         self.grbl_event_start.set()
         self.grbl_event_hold.clear()
         if sendcmd==1:    
@@ -478,11 +472,7 @@ class SerialReaderWriterThread(threading.Thread):
             else:    
                 self.ser_port.write(str('~'+'\n').encode())
                 logging.info("grbl start!")
-        time.sleep(0.2) # wait after command
-        #if self.grbl_event_hold.is_set():
-        #    self.grbl_event_hold.clear()
-        #    logging.info("grbl hold flag clear!")
-
+        time.sleep(0.2) # wait after command        
     
     def readline_grbl(self):
         line=''
@@ -530,8 +520,9 @@ class SerialReaderWriterThread(threading.Thread):
             #print( grbl_out.strip() )
             if "ok" in grbl_out:
                 self.data['STATUS']='ok'
-                if self.IsRunning_event.is_set()==True:
-                    self.IsRunning_event.clear()
+                if self.IsRunning_event.is_set():
+                    self.IsRunning_event.clear()   
+                    self.linesexecuted=self.linesexecuted+1
                     showok=True
                 if showok==True:
                     logging.info(self.data['STATUS'])
@@ -556,14 +547,15 @@ class SerialReaderWriterThread(threading.Thread):
                 try:                                
                     m = re.search('S_XYZ:([0-9]+)', grbl_out)
                     self.data['STATE_XYZ']= int(m.group(1))
+                    
                     if self.Compare_Hasdatachanged(self.olddata)==True:
                         if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
-                            logging.info('S_XYZ from '+ str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATE_XYZ']))          
-                            if self.olddata['STATE_XYZ']==3 and self.data['STATE_XYZ']!=3: # state 3-> X
-                                self.IsRunning_event.set()
-                            #if self.olddata['STATE_XYZ']!=3 and self.data['STATE_XYZ']==3: # state X-> 3
-                            #    self.IsRunning_event.clear()    
-
+                            logging.info('S_XYZ from '+ str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATE_XYZ']))                                      
+                            if self.IsRunning_event.is_set() and self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
+                                self.IsRunning_event.clear()   
+                                self.linesexecuted=self.linesexecuted+1 
+                            else:
+                                self.IsRunning_event.set()  
                             self.olddata['STATE_XYZ']=self.data['STATE_XYZ']              
                             self.Set_Status_from_StateXYZ()
                             self.olddata['STATUS']=self.data['STATUS']
@@ -609,6 +601,9 @@ class SerialReaderWriterThread(threading.Thread):
                 #if self.grbl_event_status.is_set():
                 if self.Compare_Hasdatachanged(self.olddata)==True:
                     logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                
+                   
+                
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]              
                 #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
@@ -667,11 +662,16 @@ class SerialReaderWriterThread(threading.Thread):
                 
                 #self.data['STATE_XYZ']=0
                 self.Set_StateXYZ_from_Status() 
-                #if self.grbl_event_status.is_set():
+                #if self.grbl_event_status.is_set():                
                 if self.Compare_Hasdatachanged(self.olddata)==True:
                     logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
-                if self.IsRunning_event.is_set() and self.data['STATE_XYZ']==3:
+                
+                if self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
                     self.IsRunning_event.clear()    
+                    self.linesexecuted=self.linesexecuted+1
+                else:
+                    self.IsRunning_event.set()   
+
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]              
                 #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
@@ -881,6 +881,11 @@ class XYZGrbl:
 
     def Send_Homing(self):        
         self.ser_read_thread.Send_Homing()
+    
+    def Reset_linesexecutedCount(self):
+        self.ser_read_thread.Reset_linesexecutedCount()
+    def Get_linesexecutedCount(self):
+        return self.ser_read_thread.linesexecuted    
 
 
 

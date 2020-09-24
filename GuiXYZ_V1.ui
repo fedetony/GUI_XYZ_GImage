@@ -1075,6 +1075,20 @@
                   </item>
                  </layout>
                 </item>
+                <item row="1" column="0">
+                 <widget class="QProgressBar" name="progressBar_Gcode">
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QLabel" name="label_time">
+                  <property name="text">
+                   <string>00:00:00</string>
+                  </property>
+                 </widget>
+                </item>
                </layout>
               </item>
              </layout>
@@ -1187,7 +1201,7 @@
               <widget class="QComboBox" name="comboBox_Tool_Select"/>
              </item>
              <item row="7" column="0" colspan="2">
-              <widget class="QProgressBar" name="progressBar">
+              <widget class="QProgressBar" name="progressBar_Gimage">
                <property name="value">
                 <number>0</number>
                </property>

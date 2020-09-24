@@ -30,6 +30,9 @@ class Struct_Process_Data:
     PImg_Size_px: List[int] = field(default_factory=list)    
     PImg_Resolution: float = 0.1
     PImg_Number_of_Colors: int = 256         
+    C_Size_mm: List[float] = field(default_factory=list)      
+    PImg_ini_pos_mm: List[float] = field(default_factory=list)      
+
 
 @dataclass
 class Struct_Stream_Data:
@@ -43,9 +46,14 @@ class Struct_Stream_Data:
     Zmove_pos: float =5
     Ztouch_pos: float =0
     Resolution: float =0.1
-    stipple_rate: float =2000
+    Process_rate: float =2000
     Robot_XYZ: List[float] = field(default_factory=list)  
     Img_ini_pos: List[float] = field(default_factory=list)  
+    Include_First_Layer: bool =False
+    Frame_Image: int = 0
+    Include_Last_Layer: bool =False
+    Ini_Script: str = ''
+    End_Script: str = ''
 
 class GImage:
     def __init__(self):
@@ -89,7 +97,7 @@ class GImage:
     def Get_Process_Data(self):
         Process_Data=Struct_Process_Data()
         Process_Data.Process=self.Selected_Image_Process
-        if self.Isimagetoprint==True:
+        if self.Isimagetoprint==True:            
             Process_Data.PImg_Number_of_Colors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
             Process_Data.Process=self.Selected_Image_Process
             Process_Data.OImg_Size_px=self.im.size
@@ -97,6 +105,10 @@ class GImage:
             #Get new size
             Process_Data.PImg_Proportional_Scale=bool(self.Get_Variable_from_Image_Config_Data('Is_Proportional'))
             Process_Data.PImg_Size_mm=[self.Get_Variable_from_Image_Config_Data('Img_Width'),self.Get_Variable_from_Image_Config_Data('Img_Height')]
+            
+            Process_Data.PImg_ini_pos_mm=self.Get_Variable_from_Image_Config_Data('Img_ini_pos')
+            Process_Data.C_Size_mm=[self.Get_Variable_from_Image_Config_Data('Canvas_Width'),self.Get_Variable_from_Image_Config_Data('Canvas_Height')]
+            
             #print(str(Process_Data.PImg_Size_mm))
             if self.im.width > 0 and self.im.height > 0:
                 Process_Data.pix_per_mm_width=int(Process_Data.PImg_Size_mm[0]/self.im.width)
@@ -109,6 +121,7 @@ class GImage:
         if self.Isimagetoprint==True:
             Process_Data=self.Get_Process_Data()
             self.Create_Processed_Image(Process_Data)
+            self.Crop_Image_to_Canvas_Size(Process_Data)
             self.appply_process_to_imp(Process_Data)
             logging.info('Image Process Applied')
             #print(str(self.IsProcessedimagetoprint))
@@ -126,8 +139,7 @@ class GImage:
             newsize=[]
             for aaa in P_Data.PImg_Size_mm:
                 newsize.append(int(aaa/P_Data.PImg_Resolution))
-            self.imp=self.im.resize(newsize)    #puts the image to the end size for value in each pixel
-            
+            self.imp=self.im.resize(newsize)    #puts the image to the end size for value in each pixel            
             self.IsProcessedimagetoprint=True
     
     def appply_process_to_imp(self,P_Data):
@@ -166,8 +178,10 @@ class GImage:
     def Set_Initial_Technique_List(self):
         self.Technique_List=[]    
         self.Technique_List.append('Stipple')
+        self.Technique_List.append('Lineing')
         self.Technique_List.append('Circulism')
         self.Technique_List.append('Delineation')
+
 
         self.Selected_Technique=self.Technique_List[1]
 
@@ -190,7 +204,7 @@ class GImage:
         #----------------
         
         ConfVar='Canvas_Height'        
-        CValue=float(210.0)        
+        CValue=float(297.0)        
         CInfo='Canvas or paper total Height (Y)'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
         
@@ -210,16 +224,21 @@ class GImage:
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
         ConfVar='Img_Resolution'
-        CValue=float(0.1)
+        CValue=float(0.5)
         CInfo='Image Resolution in [mm/pixel]' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        ConfVar='Z_Retract'
+        CValue=float(3.0)
+        CInfo='Amount to retract from canvas to move in [mm]' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+    
         #---------------------------------
         CUnit='mm'
         CType='vector'
         
         ConfVar='Robot_XYZ'
-        CValue='1 2.1 3'
+        CValue='0 0 20'
         CInfo='(X,Y,Z) Origin point XYZ of Robot for canvas coordinate (0,0) tool touching the canvas.'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
@@ -237,15 +256,53 @@ class GImage:
         CInfo='When true will Scale the processed image as Original size'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        ConfVar='Tool_Change'
+        CValue='False'
+        CInfo='When layer is build goes to Tool_Change_pos for tool to be changed'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Include_First_Layer'
+        CValue='False'
+        CInfo='Includes the white Layer in the process'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Include_Last_Layer'
+        CValue='False'
+        CInfo='Includes the Black Layer in the process'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
         #---------------------------------
         CUnit=''
         CType='int'
         
         ConfVar='Img_Num_Colors'
         CValue=8
-        CInfo='Will reduce the number of colors used in the Process(<256)'
+        CInfo='The number of colors/Layers used in the Process(<256)'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        ConfVar='Technique_Rate'
+        CValue=2000
+        CInfo='Technique rate speed to in [mm/m]' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Frame_Image'
+        CValue=0
+        CInfo='0=No Frame, 1=Single Line Frame' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        #---------------------------------
+        CUnit=''
+        CType='string'
+        
+        ConfVar='Ini_Script'
+        CValue='G28\nM117 Starting Gimage Code\nG0 X0 Y0\n'
+        CInfo='Initial Gcode script for Gimage code'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='End_Script'
+        CValue='G0 Z80\nG0 X0 Y0\nM117 End of Gimage Code\n'
+        CInfo='Initial Gcode script for Gimage code'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
         #Set Default values
         self.Default_Image_Config_Data={}
@@ -413,12 +470,47 @@ class GImage:
         Gimage_Data.Process =self.Selected_Image_Process
         Gimage_Data.Robot_XYZ=self.Get_Variable_from_Image_Config_Data('Robot_XYZ')
         Gimage_Data.Img_ini_pos=self.Get_Variable_from_Image_Config_Data('Img_ini_pos')
-        Gimage_Data.deltaZ=3 #mm here value from config
-        Gimage_Data.Zmove_pos=Gimage_Data.Robot_XYZ[2]+5
+        Gimage_Data.deltaZ=self.Get_Variable_from_Image_Config_Data('Z_Retract') #mm here value from config
+        Gimage_Data.Zmove_pos=Gimage_Data.Robot_XYZ[2]+Gimage_Data.deltaZ
         Gimage_Data.Ztouch_pos=Gimage_Data.Robot_XYZ[2]
-        Gimage_Data.Resolution=0.1
-        Gimage_Data.stipple_rate=2000
+        Gimage_Data.Resolution=self.Get_Variable_from_Image_Config_Data('Img_Resolution')
+        Gimage_Data.Process_rate=self.Get_Variable_from_Image_Config_Data('Technique_Rate')        
+        Gimage_Data.Include_First_Layer=self.Get_Variable_from_Image_Config_Data('Include_First_Layer')
+        Gimage_Data.Frame_Image=self.Get_Variable_from_Image_Config_Data('Frame_Image')
+        Gimage_Data.Include_Last_Layer=self.Get_Variable_from_Image_Config_Data('Include_Last_Layer')            
+        Gimage_Data.Ini_Script=self.Get_Variable_from_Image_Config_Data('Ini_Script')
+        Gimage_Data.End_Script=self.Get_Variable_from_Image_Config_Data('End_Script')
         return Gimage_Data           
+    
+    def Crop_Image_to_Canvas_Size(self,P_Data):        
+        P_Data.PImg_ini_pos_mm
+        C_Hmm=P_Data.C_Size_mm[1]
+        C_Wmm=P_Data.C_Size_mm[0]
+        I_Hmm=P_Data.PImg_Size_mm[1]
+        I_Wmm=P_Data.PImg_Size_mm[0]
+        I_ini_posmm=P_Data.PImg_ini_pos_mm
+        I_Rmm=P_Data.PImg_Resolution
+        if I_Rmm>0:
+            C_H=int(C_Hmm/I_Rmm)
+            C_W=int(C_Wmm/I_Rmm)
+            I_H=int(I_Hmm/I_Rmm)
+            I_W=int(I_Wmm/I_Rmm)
+            I_ini_pos=[int(I_ini_posmm[0]/I_Rmm),int(I_ini_posmm[1]/I_Rmm)]
+
+        #crop image if smaller than Canvas
+        if C_H<I_ini_pos[1]+I_H:
+            val=C_H-I_ini_pos[1]
+            if val>0:
+                self.imp = self.imp.crop((0, 0, val, C_W)) # crop image
+        if C_W<I_ini_pos[0]+I_W:
+            val=C_W-I_ini_pos[0]
+            if val>0:    
+                self.imp = self.imp.crop((0, 0, C_H, val)) # crop image
+        
+               
+
+
+
 
     def Test_Image(self):
         im = Image.open("Testimage.png") # load an image from the hard drive
@@ -534,19 +626,21 @@ class Image_Gcode_Stream(threading.Thread):
         if self.istext2stream==True:
             self.xyz_thread.grbl_gcode_cmd(line2stream)
     
-    def Get_Pixel(self,x,y):
+    def Get_Pixel(self,x,y,Resolution):
         [x,y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y)
         self.imp.getpixel((x, y))
     
-    def Transform_pixel_coordinates_to_image_coordinates(self,x,y):
+    def Transform_pixel_coordinates_to_image_coordinates(self,x,y,Resolution=1):
         # (0,0) is the upper left corner
         y=self.imp.height-y
+        x=Resolution*x
+        y=Resolution*y
         # Add robot image origin position
         y=y+self.Img_ini_pos[1]+self.Robot_XYZ[1]
         x=x+self.Img_ini_pos[0]+self.Robot_XYZ[0]
         return [x,y]
 
-    def Generate_Gimage_Code(self,pimage,Gimage_Data,Progressbar):
+    def Generate_Gimage_Code(self,pimage,Gimage_Data,P_Bar_Update_Gimage):
         self.Gimage_Code=''            
         self.Gimage_Code_loop=''
         if Gimage_Data.Ispimagetoprint==True:            
@@ -556,51 +650,184 @@ class Image_Gcode_Stream(threading.Thread):
             self.Tool=Gimage_Data.Tool
             self.Process=Gimage_Data.Process                         
             self.Robot_XYZ=Gimage_Data.Robot_XYZ
-            self.Img_ini_pos=Gimage_Data.Img_ini_pos
-            Zinfo=[Gimage_Data.deltaZ,Gimage_Data.Zmove_pos,Gimage_Data.Ztouch_pos,Gimage_Data.Resolution,Gimage_Data.stipple_rate]
+            self.Img_ini_pos=Gimage_Data.Img_ini_pos            
+            Zinfo=[Gimage_Data.deltaZ,Gimage_Data.Zmove_pos,Gimage_Data.Ztouch_pos,Gimage_Data.Resolution,Gimage_Data.Process_rate]
 
             #get min max range
             pimg_val_range=[0,256,0]
-            for xxx in range(0,self.imp.width-1):
+            for xxx in range(0,self.imp.width):
                 #print(str(xxx))
-                for yyy in range(0,self.imp.height-1):
+                for yyy in range(0,self.imp.height):
                     #print(str(yyy))    
                     avalue=self.imp.getpixel((xxx,yyy))
                     if avalue<pimg_val_range[1]:
                         pimg_val_range[1]=avalue
                     if avalue>pimg_val_range[2]:
                         pimg_val_range[2]=avalue   
+            if Gimage_Data.Include_Last_Layer==True:
+                pimg_val_range[2]=pimg_val_range[2]+1
+            if Gimage_Data.Include_First_Layer==True:
+                pimg_val_range[1]=pimg_val_range[1]-1                                            
+            logging.info(self.Technique+' Process Started') 
+            self.Gimage_Code='' 
+            print('Ini script-> '+Gimage_Data.Ini_Script)
+            if Gimage_Data.Ini_Script is not '':                 
+                self.Gimage_Code=self.Gimage_Code+Gimage_Data.Ini_Script.replace('\\n','\n')
+            if Gimage_Data.Frame_Image==1:
+                inicoor=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Gimage_Data.Resolution)                
+                endcoor=self.Transform_pixel_coordinates_to_image_coordinates(self.imp.width,self.imp.height,Gimage_Data.Resolution)
+                print(str([inicoor,endcoor]))
+                self.Gimage_Code=self.Gimage_Code+self.Do_a_line_Frame(True,inicoor,endcoor,Zinfo)   
+            if self.Technique=='Stipple':                
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Stippling(pimg_val_range,Zinfo,P_Bar_Update_Gimage)                  
+            if self.Technique=='Lineing':        
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Lineing(pimg_val_range,Zinfo,P_Bar_Update_Gimage)
+            if Gimage_Data.End_Script is not '':             
+                self.Gimage_Code=self.Gimage_Code+Gimage_Data.End_Script.replace('\\n','\n')
+            logging.info(self.Technique+' Process Finished')    
+        return self.Gimage_Code    
+    
+    def Do_a_line_Frame(self,Isclockwise,Coordsinimm,Coordsendmm,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
+        Lcode=''
+        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+        Lcode=Lcode+Lcodeadd
+        Lcode=Lcode+self.Write_Goto_Code(0,xxx=Coordsinimm[0],yyy=Coordsinimm[1])
+        ##Pull down
+        [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+        Lcode=Lcode+Lcodeadd
+        if Isclockwise==True:            
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsendmm[1],fff=Process_rate)
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsendmm[0],yyy=Coordsendmm[1],fff=Process_rate)
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsendmm[0],yyy=Coordsinimm[1],fff=Process_rate)
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsinimm[1],fff=Process_rate)
+        else:            
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsendmm[0],yyy=Coordsinimm[1],fff=Process_rate)
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsendmm[0],yyy=Coordsendmm[1],fff=Process_rate)
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsendmm[1],fff=Process_rate)    
+            Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsinimm[1],fff=Process_rate)
+        ##Pull up
+        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+        Lcode=Lcode+Lcodeadd
+        return Lcode
 
-            for xxx in range(0,self.imp.width):
-                #print(str(xxx/pimage.width*100)+'%')
-                Progressbar.setValue(xxx/self.imp.width*100)
-                for yyy in range(0,self.imp.height):
-                    avalue=self.imp.getpixel((xxx, yyy))
-                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy)  
-                    pimg_val_range[0]=avalue                                                        
-                    self.Write_Gimage_Process_Code(pimg_val_range,pimg_X,pimg_Y,Zinfo)
-                    self.Gimage_Code=self.Gimage_Code+self.Gimage_Code_loop
-        return self.Gimage_Code            
+    def Write_Gimage_Code_Lineing(self,pimg_val_range,Zinfo,P_Bar_Update_Gimage):      
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo   
+        last_avalue=0
+        is_up=True
+        Lcode=''
+        for aaa in range(pimg_val_range[1],pimg_val_range[2]):
+            P_Bar_Update_Gimage.SetStatus(aaa/pimg_val_range[2]*100)
+            if aaa==pimg_val_range[1]:                 
+                [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Resolution)  
+                Lcode=Lcode+self.Write_Goto_Code(0,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+                Lcode=Lcode+Lcodeadd            
+            else:       
+                if aaa % 2 == 0:                            
+                    for xxx in range(0,self.imp.width):                                                       
+                        if xxx % 2 == 0:
+                            for yyy in range(0,self.imp.height):   
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)
+                        else:        
+                            for yyy in reversed(range(0,self.imp.height)):   
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)
+                else:                                                                           
+                    for yyy in range(0,self.imp.height):   
+                        if yyy % 2 == 0:
+                            for xxx in range(0,self.imp.width):
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)            
+                        else:
+                            for xxx in reversed(range(0,self.imp.width)):
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)                    
+
+        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+        Lcode=Lcode+Lcodeadd   
+        return Lcode            
                     
-    def Write_Gimage_Process_Code(self,pimg_val_range,xxx,yyy,Zinfo):
-        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,stipple_rate]=Zinfo
-        if pimg_val_range[0]>pimg_val_range[1]: #Only write if the value has color
+    def Write_Gimage_Process_Code_Lineing(self,Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo                
+        avalue=self.imp.getpixel((xxx, yyy)) 
+        pimg_val_range[0]=avalue       
+        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                          
+        [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                                 
+        if avalue==aaa:                                                   
+            if is_up==True:
+                [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                          
+                [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)
+                #Put Down
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=False                                
+            else:
+                #update end coordinates
+                [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)  
+        elif avalue!=aaa:
+            if is_up==False:
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
+                #Lift
+                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=True
+        elif yyy>=self.imp.height-1 or xxx>=self.imp.width-1 or xxx==0 or yyy==0:                            
+            if is_up==False:
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
+                #Lift
+                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=True
+        return [Lcode,is_up]        
+
+    def Lineing_UpDown(self,Is_up,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
+        if Is_up==True:
+            Lcode=self.Write_Goto_Code(0,zzz=Ztouch_pos)
+            return [Lcode,False]
+        else: 
             Lcode=self.Write_Goto_Code(0,zzz=Zmove_pos)
-            Lcode=Lcode+self.Write_Goto_Code(0,xxx=xxx,yyy=yyy)
-            if self.Technique=='Stipple':
-                for aaa in range(pimg_val_range[1],pimg_val_range[0]):  
-                    if aaa>pimg_val_range[1]:
-                        #Generate 2 random numbers
-                        randomlist = []
-                        for iii in range(0,2):
-                            nnn = random.randint(0,12)
-                            randomlist.append((nnn-6)/6) #number beween -1 and 1 1/6 quantification
-                        newx=xxx+Resolution*randomlist[0]    
-                        newy=yyy+Resolution*randomlist[1]
-                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=newx,yyy=newy,zzz=Ztouch_pos,fff=stipple_rate)
-                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=xxx,yyy=yyy,zzz=Ztouch_pos+deltaZ,fff=stipple_rate)
-            #Lcode=Lcode+self.Write_Goto_Code(0,zzz=Zmove_pos)        
-            self.Gimage_Code_loop=Lcode
+            return [Lcode,True]
+        return 
+    
+    def Write_Gimage_Code_Stippling(self,pimg_val_range,Zinfo,P_Bar_Update_Gimage):  
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo          
+        Gimage_Code=''
+        for xxx in range(0,self.imp.width):
+            #print(str(xxx/pimage.width*100)+'%')
+            P_Bar_Update_Gimage.SetStatus(xxx/self.imp.width*100)
+            for yyy in range(0,self.imp.height):
+                avalue=self.imp.getpixel((xxx, yyy))
+                [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)  
+                pimg_val_range[0]=avalue                                                        
+                Gimage_Code_loop=self.Write_Gimage_Process_Code_Stippling(pimg_val_range,pimg_X,pimg_Y,Zinfo)
+                Gimage_Code=Gimage_Code+Gimage_Code_loop 
+        return Gimage_Code
+
+    def Write_Gimage_Process_Code_Stippling(self,pimg_val_range,xxx,yyy,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
+        iii=0
+        randomlist = []
+        randomlist.clear()       
+        Lcode='' 
+        for aaa in range(pimg_val_range[1],pimg_val_range[0]):
+            iii=iii+1
+            for bbb in range(0,2): #Generate 2 random numbers per item
+                nnn = random.randint(0,12)
+                randomlist.append((nnn-6)/6) #number beween -1 and 1 1/6 quantification
+        sss=0   
+        #print(str(randomlist))     
+        if iii>1: #Only write if the value has color
+            Lcode=self.Write_Goto_Code(0,zzz=Zmove_pos)
+            Lcode=Lcode+self.Write_Goto_Code(0,xxx=xxx,yyy=yyy)            
+            for aaa in range(pimg_val_range[1],pimg_val_range[0]):  
+                if aaa>pimg_val_range[1]:                                               
+                    newx=xxx+Resolution*randomlist[sss]
+                    sss=sss+1    
+                    newy=yyy+Resolution*randomlist[sss]
+                    sss=sss+1
+                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=newx,yyy=newy,zzz=Ztouch_pos,fff=Process_rate)
+                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=xxx,yyy=yyy,zzz=Ztouch_pos+deltaZ,fff=Process_rate)                               
+        return Lcode    
 
     def Write_Goto_Code(self,GX,xxx=None,yyy=None,zzz=None,fff=None,eee=None,aaachar='',aaa=None,e_o_l='\n'):
         Gimgcode='G'+str(GX)
