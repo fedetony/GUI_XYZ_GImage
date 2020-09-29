@@ -41,6 +41,7 @@ from xyz_grbl_ThreadNC import XYZGrbl
 from Gimage_V1 import Image_Gcode_Stream 
 from Gimage_V1 import GImage 
 import GuiXYZ_V1
+import GuiXYZ_LSTD
 #import atexit
 #import keyboard for keyboard inputs
 
@@ -224,9 +225,14 @@ class MyWindow(QtWidgets.QMainWindow):
         event.ignore()
 
         if result == QtWidgets.QMessageBox.Yes:
-            
-            #ui.App_Close_Event()
-            ui.killer_event.set()
+            #print('inside class') 
+            #ui.App_Close_Event()  
+            try:                
+                ui.LSTDialog.quit()                
+            except Exception as e:
+                #logging.error(e)     
+                pass      
+            ui.killer_event.set()            
             event.accept()
     
             
@@ -278,7 +284,164 @@ class Dialogs(QWidget):
             return fileName
         else:
             return None
+class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
+    set_clicked= QtCore.pyqtSignal(list)
+    #def __init__(self,NumLayers,Selected_Layers,parent=None):    
+    #    super().__init__(parent)
+    def __init__(self,NumLayers,Selected_Layers, *args, **kwargs):
+        super(LayerSelectionToolDialog, self).__init__(*args, **kwargs)    
+        self.Number_of_Layers=NumLayers
+        if self.Number_of_Layers<1:
+            self.Number_of_Layers=1
+        self.Selected_Layers=Selected_Layers        
+        if self.Selected_Layers is None or len(self.Selected_Layers)<=0:
+            self.Selected_Layers=[-1]
+        self.Layer_range=[0,0,self.Number_of_Layers]    
+        self.openLayerSelectToolDialog()
+        self.Set_Checkboxeswith_Selected_Layers(self.Selected_Layers)   
+    
+    def quit(self):
+        self.Dialog_LSTD.close()
 
+    def Assign_Colors_to_Labels(self,Color_Palette):
+
+        for iii in range(self.Number_of_Layers): 
+            #CBname="checkBox_LSTD"+'_CB_L'+str(iii)
+            Color=(255,255,255)
+            Lname="label_LSTD"+'_L_L'+str(iii)                         
+            try:
+                label = self.Dialog_LSTD.findChild(QtWidgets.QLabel, Lname)                  
+                txt="("+str(255)+","+str(255)+","+str(255)+")"    
+                label.setText(txt)    
+                label.setStyleSheet("background-color:rgb"+txt+"; border: 1px solid black;")
+                label.adjustSize()
+                if Color_Palette is not None:
+                    for ttt in Color_Palette:# (p,c,r,g,b)) palette,count,rgb tuple
+                        (p,c,r,g,b)=ttt
+                        if p==iii:
+                            Color=(r,g,b)
+                            txt="("+str(r)+","+str(g)+","+str(b)+")"    
+                            label.setText(txt)    
+                            label.setStyleSheet("background-color:rgb"+txt+"; border: 1px solid black;")                        
+                            break
+               
+
+            except Exception as e:
+                logging.error(e)
+                logging.info("Label Error!"+Lname)
+                pass    
+
+
+    def Clear_allcheckbox(self,val=False):
+        for iii in range(self.Number_of_Layers): 
+            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
+            #Lname="label_LSTD"+'_L_L'+str(iii)                         
+            try:
+                checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)                  
+                checkbox.setChecked(val)
+            except Exception as e:
+                logging.error(e)
+                logging.info("Check Box Error!"+CBname)
+                pass    
+    
+    def Get_Selected_Layers_From_checkbox(self):
+        S_L=[]
+        sss=0
+        for iii in range(self.Number_of_Layers): 
+            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
+            #Lname="label_LSTD"+'_L_L'+str(iii)                         
+            try:
+                checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)                  
+                if checkbox.isChecked()==True:
+                    S_L.append(iii)
+                    sss=sss+1
+            except Exception as e:
+                logging.error(e)
+                logging.info("Check Box Error!"+CBname)
+                pass    
+        if sss==self.Number_of_Layers:
+            S_L=[-1]    
+        self.Selected_Layers = S_L    
+
+    def Set_Checkboxeswith_Selected_Layers(self,S_L):
+        Isall=False
+        self.Clear_allcheckbox()
+        for iii in S_L:
+            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
+            #Lname="label_LSTD"+'_L_L'+str(iii)
+            if iii==-1:
+                Isall=True
+                break                       
+            checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)
+            checkbox.setChecked(True)
+        if Isall==True:
+            self.Clear_allcheckbox(True)
+
+
+    def set_objects_fromNum_layers(self,Num_Layers):
+        
+        Obj_Names=[]
+        for iii in range(Num_Layers):
+            Obj_Names.append('_CB_L'+str(iii))
+            Obj_Names.append('_L_L'+str(iii))
+        Obj_Text=[]
+        for iii in range(Num_Layers):
+            Obj_Text.append('Layer'+str(iii))
+            Obj_Text.append(str(iii))
+        
+        obj_positions = [(iii, jjj) for iii in range(Num_Layers) for jjj in range(2)]
+
+        L_N=0
+        for position, name, txt in zip(obj_positions, Obj_Names, Obj_Text):
+            if name == '':
+                continue
+            if '_CB_L' in name:                
+                checkbox=QtWidgets.QCheckBox(self.DSLui.frame)
+                checkbox.setObjectName("checkBox_LSTD"+name)  
+                checkbox.setText(txt)                
+                checkbox.clicked.connect(self.Get_Selected_Layers_From_checkbox)
+                self.DSLui.gridLayout.addWidget(checkbox, *position)              
+
+
+            else:
+                label=QtWidgets.QLabel(self.DSLui.frame)
+                label.setObjectName("label_LSTD"+name)
+                label.setText(txt)
+                self.DSLui.gridLayout.addWidget(label, *position)
+                L_N=L_N+1    
+           
+    def openLayerSelectToolDialog(self):
+        self.Dialog_LSTD = QtWidgets.QDialog()
+        self.DSLui = GuiXYZ_LSTD.Ui_Dialog_LSTD()
+        self.DSLui.setupUi(self.Dialog_LSTD)
+        self.set_objects_fromNum_layers(self.Number_of_Layers)        
+        self.Dialog_LSTD.show()             
+        self.DSLui.pushButton_LSTD_Set_Preview.clicked.connect(self.PB_LSTD_Set_Preview)
+            
+    def PB_LSTD_Set_Preview(self):            
+        #print('clicked')
+        self.set_clicked.emit(self.Selected_Layers)
+
+    def accept(self):
+        #print('accepted')
+        self.Get_Selected_Layers_From_checkbox()
+        return self.Selected_Layers   
+
+    def Get_list_of_Selected_Layers(self,Selected_Layers,pimg_val_range):
+        listofSellay=[]
+        for sss in Selected_Layers:
+            if sss==-1:
+                listofSellay=[]
+                for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
+                    listofSellay.append(iii)
+                break
+            if sss<=pimg_val_range[2] and sss>=pimg_val_range[1]:
+                listofSellay.append(sss)
+        if len(Selected_Layers)==0:    
+            listofSellay=[]
+            for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
+                listofSellay.append(iii)
+        return listofSellay
 
 
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
@@ -357,6 +520,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
 
         self.actionSave_Config.triggered.connect(self.Save_config_to_file)
+        self.actionLayer_Selection.triggered.connect(self.Open_LayerSelectionToolDialog)
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
         self.pushButton_SetConfig.clicked.connect(self.Set_Config_Value)
@@ -468,7 +632,63 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.label_Image_Preview.right_clicked[int].connect(self.right_click)
         self.label_Image_Preview_Processed.left_clicked[int].connect(self.left_click_P)
         self.label_Image_Preview_Processed.right_clicked[int].connect(self.right_click_P)
-        
+
+    def Open_LayerSelectionToolDialog(self):   
+        S_L=self.G_Image.LSTD_Get_Selected_Layers()
+        N_L=self.G_Image.LSTD_Get_Num_Layers()            
+        self.LSTDialog=LayerSelectionToolDialog(N_L,S_L)   
+        self.LSTDialog.DSLui.buttonBox_LSTD.accepted.connect(lambda: self.LSTD_buttonClicked(self.LSTDialog.Selected_Layers))             
+        self.LSTDialog.DSLui.pushButton_LSTD_Set_Preview.clicked.connect(lambda: self.LSTD_Set_buttonClicked(self.LSTDialog.Selected_Layers))
+        self.Fill_comboBox_LSTD_Image_Process() 
+        Color_Palette=self.G_Image.Get_Color_Palette()
+        self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)
+   
+
+    def LSTD_Set_buttonClicked(self,S_L):
+        self.LSTD_buttonClicked(S_L)        
+
+    def LSTD_buttonClicked(self,S_L):
+        #print(S_L)
+        data=self.Get_data_from_Image_Config_Table()
+        sss=0
+        SLtext=''
+        IncLastLtxt='False'
+        for iii in S_L:
+            if sss>0:
+                SLtext=SLtext+' '        
+            if iii==-1:
+                IncLastLtxt='True'
+            if iii==data['Img_Num_Colors']-1: 
+                IncLastLtxt='True'   
+            SLtext=SLtext+str(iii)
+            sss=sss+1    
+        data['Selected_Layers']=SLtext                
+        data['Include_Last_Layer']=IncLastLtxt
+        self.Set_Data_in_Image_Config(data)
+        self.G_Image.Process_Image()
+        self.PB_Process_Image()
+
+    def Fill_comboBox_LSTD_Image_Process(self):
+        imgprocess=self.G_Image.Image_Process_List
+        self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.clear()
+        for ccc in imgprocess:
+            self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.addItem(ccc)
+        self.Change_comboBox_LSTD_from_Image_Process()    
+        self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentIndexChanged.connect(self.Change_comboBox_Image_Process_from_LSTD)    
+
+    def Change_comboBox_Image_Process_from_LSTD(self):
+        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.comboBox_Image_Process.currentText():    
+            index= self.comboBox_Image_Process.findText(self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText(),QtCore.Qt.MatchFixedString)
+            self.comboBox_Image_Process.setCurrentIndex(index)   
+            Color_Palette=self.G_Image.Get_Color_Palette()
+            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                   
+            
+    def Change_comboBox_LSTD_from_Image_Process(self):
+        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.comboBox_Image_Process.currentText():                 
+            index= self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.findText(self.comboBox_Image_Process.currentText(),QtCore.Qt.MatchFixedString)
+            self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.setCurrentIndex(index)   
+            Color_Palette=self.G_Image.Get_Color_Palette()
+            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                             
 
     def left_click(self, nb):
         if nb == 1: 
@@ -504,15 +724,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             if (self.the_pixmap):
                 self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
                     self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
-                    QtCore.Qt.SmoothTransformation))
-                  
+                    QtCore.Qt.SmoothTransformation))               
 
-
-    
     def PB_Set_Changes_Image_Config(self):
         data=self.Get_data_from_Image_Config_Table()
+        Value=self.G_Image.Get_Variable_from_Image_Config_Data('Img_Num_Colors')        
         self.Set_Data_in_Image_Config(data)
         self.G_Image.Process_Image()
+        try:    
+            if data['Img_Num_Colors']!=Value:                
+                self.LSTDialog.close()
+            self.Open_LayerSelectionToolDialog()
+        except Exception as e:
+            #logging.error(e)
+            pass
         
 
     def PB_Emergency(self):
@@ -979,9 +1204,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def Config_Table_cellClick(self, row, col):
         self.Config_Table_row = row
         self.Config_Table_col = col
-
+    
     def Combo_Image_Process_Select(self):
         self.G_Image.Selected_Image_Process=self.comboBox_Image_Process.currentText()
+        try:
+            self.Change_comboBox_LSTD_from_Image_Process()
+        except:
+            pass
         self.G_Image.Process_Image()
 
     def Combo_Tool_Select(self):
@@ -1425,7 +1654,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         event.ignore()
 
         if result == QtWidgets.QMessageBox.Yes:
-            self.App_Close_Event()    
+            self.App_Close_Event() 
+            #print('inside def') 
+            try:                
+                self.LSTDialog.close()                
+            except:                
+                pass  
             event.accept()
 
     def App_Close_Event(self):

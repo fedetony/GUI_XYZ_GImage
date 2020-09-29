@@ -698,6 +698,8 @@ class Ui_MainWindow(object):
         self.menuGcode.setObjectName("menuGcode")
         self.menuGimage = QtWidgets.QMenu(self.menuFile)
         self.menuGimage.setObjectName("menuGimage")
+        self.menuTools = QtWidgets.QMenu(self.menubar)
+        self.menuTools.setObjectName("menuTools")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -720,6 +722,8 @@ class Ui_MainWindow(object):
         self.actionSave_Processed_Image.setObjectName("actionSave_Processed_Image")
         self.actionSave_Gimage_Gcode = QtWidgets.QAction(MainWindow)
         self.actionSave_Gimage_Gcode.setObjectName("actionSave_Gimage_Gcode")
+        self.actionLayer_Selection = QtWidgets.QAction(MainWindow)
+        self.actionLayer_Selection.setObjectName("actionLayer_Selection")
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionSave_Config)
         self.menuGcode.addAction(self.actionLoad_Gcode)
@@ -734,7 +738,10 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.menuConfig.menuAction())
         self.menuFile.addAction(self.menuGcode.menuAction())
         self.menuFile.addAction(self.menuGimage.menuAction())
+        self.menuTools.addAction(self.actionLayer_Selection)
+        self.menuTools.addSeparator()
         self.menubar.addAction(self.menuFile.menuAction())
+        self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(4)
@@ -809,6 +816,7 @@ class Ui_MainWindow(object):
         self.menuConfig.setTitle(_translate("MainWindow", "Config"))
         self.menuGcode.setTitle(_translate("MainWindow", "Gcode"))
         self.menuGimage.setTitle(_translate("MainWindow", "Gimage"))
+        self.menuTools.setTitle(_translate("MainWindow", "Tools"))
         self.actionOpen.setText(_translate("MainWindow", "Open"))
         self.actionSave_Config.setText(_translate("MainWindow", "Save Config"))
         self.actionLoad_Gcode.setText(_translate("MainWindow", "Load Gcode"))
@@ -818,6 +826,7 @@ class Ui_MainWindow(object):
         self.actionLoad_Image.setText(_translate("MainWindow", "Load Image"))
         self.actionSave_Processed_Image.setText(_translate("MainWindow", "Save Processed Image"))
         self.actionSave_Gimage_Gcode.setText(_translate("MainWindow", "Save Gimage Gcode"))
+        self.actionLayer_Selection.setText(_translate("MainWindow", "Layer Selection"))
 
 
 if __name__ == "__main__":

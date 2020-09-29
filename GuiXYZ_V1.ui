@@ -1369,7 +1369,15 @@
     <addaction name="menuGcode"/>
     <addaction name="menuGimage"/>
    </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="actionLayer_Selection"/>
+    <addaction name="separator"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen">
@@ -1415,6 +1423,11 @@
   <action name="actionSave_Gimage_Gcode">
    <property name="text">
     <string>Save Gimage Gcode</string>
+   </property>
+  </action>
+  <action name="actionLayer_Selection">
+   <property name="text">
+    <string>Layer Selection</string>
    </property>
   </action>
  </widget>

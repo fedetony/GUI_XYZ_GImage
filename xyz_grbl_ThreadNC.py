@@ -884,9 +884,12 @@ class XYZGrbl:
     
     def Reset_linesexecutedCount(self):
         self.ser_read_thread.Reset_linesexecutedCount()
+    
     def Get_linesexecutedCount(self):
         return self.ser_read_thread.linesexecuted    
 
+    def Is_TinyG(self):
+        return self.ser_read_thread.is_tinyg
 
 
 

@@ -32,7 +32,8 @@ class Struct_Process_Data:
     PImg_Number_of_Colors: int = 256         
     C_Size_mm: List[float] = field(default_factory=list)      
     PImg_ini_pos_mm: List[float] = field(default_factory=list)      
-
+    Selected_Layers: List[int] = field(default_factory=list)
+    PImg_Include: List[bool] = field(default_factory=list)
 
 @dataclass
 class Struct_Stream_Data:
@@ -49,11 +50,19 @@ class Struct_Stream_Data:
     Process_rate: float =2000
     Robot_XYZ: List[float] = field(default_factory=list)  
     Img_ini_pos: List[float] = field(default_factory=list)  
+    Tool_Change_XYZpos: List[float] = field(default_factory=list)
+    Dip_XYZvectorpos: List[float] = field(default_factory=list)    
+    Tool_Z_Correction: float =0.1
+    Tool_Change: bool = True
+    Tool_Change_per_Layer: bool = False
+    Tool_Change_in_Layers: List[int] = field(default_factory=list)   
+    Selected_Layers: List[int] = field(default_factory=list)  
     Include_First_Layer: bool =False
     Frame_Image: int = 0
     Include_Last_Layer: bool =False
     Ini_Script: str = ''
     End_Script: str = ''
+    Tool_Change_Script: str = ''
 
 class GImage:
     def __init__(self):
@@ -107,14 +116,15 @@ class GImage:
             Process_Data.PImg_Size_mm=[self.Get_Variable_from_Image_Config_Data('Img_Width'),self.Get_Variable_from_Image_Config_Data('Img_Height')]
             
             Process_Data.PImg_ini_pos_mm=self.Get_Variable_from_Image_Config_Data('Img_ini_pos')
-            Process_Data.C_Size_mm=[self.Get_Variable_from_Image_Config_Data('Canvas_Width'),self.Get_Variable_from_Image_Config_Data('Canvas_Height')]
-            
+            Process_Data.C_Size_mm=[self.Get_Variable_from_Image_Config_Data('Canvas_Width'),self.Get_Variable_from_Image_Config_Data('Canvas_Height')]            
             #print(str(Process_Data.PImg_Size_mm))
             if self.im.width > 0 and self.im.height > 0:
                 Process_Data.pix_per_mm_width=int(Process_Data.PImg_Size_mm[0]/self.im.width)
                 Process_Data.pix_per_mm_height=int(Process_Data.PImg_Size_mm[1]/self.im.height)                        
             Process_Data.PImg_Size_px=[Process_Data.pix_per_mm_width*Process_Data.PImg_Size_mm[0],Process_Data.pix_per_mm_width*Process_Data.PImg_Size_mm[1]]
 
+            Process_Data.Selected_Layers=self.Get_Variable_from_Image_Config_Data('Selected_Layers')
+            Process_Data.PImg_Include=[self.Get_Variable_from_Image_Config_Data('Include_First_Layer'),self.Get_Variable_from_Image_Config_Data('Include_Last_Layer')]             
         return Process_Data
 
     def Process_Image(self):
@@ -141,26 +151,182 @@ class GImage:
                 newsize.append(int(aaa/P_Data.PImg_Resolution))
             self.imp=self.im.resize(newsize)    #puts the image to the end size for value in each pixel            
             self.IsProcessedimagetoprint=True
+        else:
+            self.IsProcessedimagetoprint=False    
     
     def appply_process_to_imp(self,P_Data):
         if self.IsProcessedimagetoprint==True:
+            
             if P_Data.Process=='Black&White':
                 self.imp = self.imp.convert('L')
             elif P_Data.Process=='Red':
-                self.imp = self.imp.convert('RGB')
-                self.imp = self.imp.getchannel(0)
+                #imdata = self.imp.getdata()
+                #r = [(d[0], 0, 0) for d in imdata]
+                self.imp = self.imp.convert('RGB')                
+                #self.imp = self.imp.getchannel(0)                
+                self.Set_channel_to_imp('R')
             elif P_Data.Process=='Green':
+                #imdata = self.imp.getdata()
+                #g = [(0, d[1], 0) for d in data]              
                 self.imp = self.imp.convert('RGB')
-                self.imp = self.imp.getchannel(1)
+                #self.imp = self.imp.getchannel(1)
+                self.Set_channel_to_imp('G')
             elif P_Data.Process=='Blue':
+                #imdata = self.imp.getdata()
+                #b = [(0, 0, d[2]) for d in data]
                 self.imp = self.imp.convert('RGB')
-                self.imp = self.imp.getchannel(2)
+                #self.imp = self.imp.getchannel(2)
+                self.Set_channel_to_imp('B')
+                
             elif P_Data.Process=='RGB':
                 self.imp = self.imp.convert('RGB')
-            
-            self.imp = self.imp.quantize(colors=P_Data.PImg_Number_of_Colors)    
-            logging.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
                         
+            self.imp = self.imp.quantize(colors=P_Data.PImg_Number_of_Colors)
+            pimg_val_range=self.Get_image_Value_Range()  
+            self.get_Color_Pallete_imp(P_Data.PImg_Number_of_Colors)        
+            Selected_Layers=self.Get_list_of_Selected_Layers(P_Data.Selected_Layers,pimg_val_range,P_Data.PImg_Include)
+            self.Retain_Selected_Layers(Selected_Layers)
+                        
+            logging.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
+    
+    def get_Color_Pallete_imp(self,Number_of_Colors):
+        ColorList=self.imp.getcolors(Number_of_Colors)    # (count, pixel) values  
+        PalleteList=self.imp.getpalette()     
+        #print(ColorList)
+        #print(PalleteList)
+        self.Color_Palette=[]
+        for iii in range(0,len(ColorList)):
+            (c,p)=ColorList[iii]            
+            r=PalleteList[3*iii+0]
+            g=PalleteList[3*iii+1]
+            b=PalleteList[3*iii+2]
+            #print([iii,c,p,r,g,b])    
+            self.Color_Palette.append((p,c,r,g,b)) #palette,count,rgb tuple
+
+
+    def Set_channel_to_imp(self,channel):
+        width = self.imp.size[0] 
+        height = self.imp.size[1] 
+        for iii in range(0,width):# process all pixels
+            for jjj in range(0,height):
+                data = self.imp.getpixel((iii,jjj))                    
+                if type(data) == tuple:
+                    if channel is 'R' or channel is 0:        
+                        self.imp.putpixel((iii,jjj),(data[0], 0, 0))     
+                    if channel is 'G' or channel is 1:        
+                        self.imp.putpixel((iii,jjj),(0, data[1], 0))         
+                    if channel is 'B' or channel is 2:        
+                        self.imp.putpixel((iii,jjj),(0, 0, data[2]))
+
+    def Retain_Selected_Layers(self,Selected_Layer_List):
+        width = self.imp.size[0] 
+        height = self.imp.size[1] 
+        for iii in range(0,width):# process all pixels
+            for jjj in range(0,height):
+                data = self.imp.getpixel((iii,jjj))                
+                if type(data) == tuple:     
+                    pval=self.Is_ColorinPalette(data,self.Color_Palette)                              
+                    if pval in Selected_Layer_List:   
+                        self.imp.putpixel((iii,jjj),(data[0], data[1], data[2]))
+                    else:     
+                        self.imp.putpixel((iii,jjj),(255, 255, 255))     #white       
+                if type(data) == int:                       
+                    pval=data
+                    if pval in Selected_Layer_List:   
+                        Color=self.Get_Color_from_Palette(pval,self.Color_Palette)
+                        self.imp.putpixel((iii,jjj),(Color[0], Color[1], Color[2]))
+                    else:     
+                        self.imp.putpixel((iii,jjj),(255, 255, 255))     #white       
+    
+    def Get_Color_Palette(self):
+        if self.IsProcessedimagetoprint==True:
+            return self.Color_Palette
+        else:
+            return None
+
+
+    
+    def Is_ColorinPalette(self,Color,Palette):
+        pval=-99        
+        for ttt in Palette:# (p,c,r,g,b)) palette,count,rgb tuple
+            (p,c,r,g,b)=ttt
+            if type(Color) == tuple:
+                if (r==Color[0] and g==Color[1] and b==Color[2]):
+                    pval=p
+                    break            
+        return pval
+
+    def Get_Color_from_Palette(self,Pval,Palette):
+        Color=(255,255,255)
+        for ttt in Palette:# (p,c,r,g,b)) palette,count,rgb tuple
+            (p,c,r,g,b)=ttt
+            if type(Pval) == int:
+                if p==Pval:
+                    Color=(r,g,b)
+                    break 
+        return Color             
+
+    def RGB_to_L(self,RGB):
+        if type(RGB)==tuple:
+            L = int(RGB[0] * 299/1000 + RGB[1] * 587/1000 + RGB[2] * 114/1000)
+        elif type(RGB)==int:   
+            L = RGB
+        else:
+            L=0    
+        return L
+    def Get_image_Value_Range(self):
+        #get min max range
+        pimg_val_range=[0,256,0]
+        for xxx in range(0,self.imp.width):                
+            for yyy in range(0,self.imp.height):                    
+                avalue=self.imp.getpixel((xxx,yyy))
+                avalue=self.RGB_to_L(avalue)
+                if avalue<pimg_val_range[1]:
+                    pimg_val_range[1]=avalue
+                    #print(avalue)
+                if avalue>pimg_val_range[2]:
+                    pimg_val_range[2]=avalue   
+                    #print(avalue)
+        return pimg_val_range       
+
+    def LSTD_Get_Selected_Layers(self):
+        S_L=self.Get_Variable_from_Image_Config_Data('Selected_Layers') 
+        if self.IsProcessedimagetoprint==True:
+            P_Data=self.Get_Process_Data()            
+            pimg_val_range=self.Get_image_Value_Range() 
+            S_L=self.Get_list_of_Selected_Layers(P_Data.Selected_Layers,pimg_val_range,P_Data.PImg_Include)
+        return S_L
+
+    def LSTD_Get_Num_Layers(self):
+        N_L=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors') 
+        return N_L
+
+    def Get_list_of_Selected_Layers(self,Selected_Layers,pimg_val_range,PImg_Include):
+        Include_First_Layer=PImg_Include[0]
+        Include_Last_Layer=PImg_Include[1]
+        listofSellay=[]
+        for sss in Selected_Layers:
+            if sss==-1:
+                listofSellay=[]
+                for iii in range(pimg_val_range[1],pimg_val_range[2]):
+                    listofSellay.append(iii)
+                break
+            if sss<=pimg_val_range[2] and sss>=pimg_val_range[1]:
+                listofSellay.append(sss)
+        if len(Selected_Layers)==0:    
+            listofSellay=[]
+            for iii in range(pimg_val_range[1],pimg_val_range[2]):
+                listofSellay.append(iii)
+        
+        if Include_First_Layer==True:
+            if 0 not in listofSellay:
+                listofSellay.append(0)
+        if Include_Last_Layer==True:
+            if pimg_val_range[2] not in listofSellay:
+                listofSellay.append(pimg_val_range[2])                    
+        return listofSellay
+                 
+
     def Set_Initial_Image_Tool_List(self):
         self.Tool_List=[]
         self.Tool_List.append('Ball Pen')
@@ -171,18 +337,16 @@ class GImage:
         self.Tool_List.append('Cutter')
         self.Tool_List.append('Pencil')
         self.Tool_List.append('Mechanical Pencil')
-        
         self.Selected_Tool=self.Tool_List[1]
         
 
     def Set_Initial_Technique_List(self):
         self.Technique_List=[]    
-        self.Technique_List.append('Stipple')
         self.Technique_List.append('Lineing')
+        self.Technique_List.append('Stipple')
+        self.Technique_List.append('Accumulative')        
         self.Technique_List.append('Circulism')
         self.Technique_List.append('Delineation')
-
-
         self.Selected_Technique=self.Technique_List[1]
 
     def Set_Initial_Image_Process(self):
@@ -192,7 +356,6 @@ class GImage:
         self.Image_Process_List.append('Green')
         self.Image_Process_List.append('Blue')
         self.Image_Process_List.append('RGB')
-
         self.Selected_Image_Process=self.Image_Process_List[1]
     
     def Set_Initial_Image_Config_Data(self):            
@@ -232,10 +395,15 @@ class GImage:
         CValue=float(3.0)
         CInfo='Amount to retract from canvas to move in [mm]' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Tool_Z_Correction'
+        CValue=float(0.1)
+        CInfo='Z Touch position correction for used pencil tip [mm] per [m]. Positive lowers Z.' #image is divided into pixels with this resolution each pixel represents an x,y coordinate
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
     
         #---------------------------------
         CUnit='mm'
-        CType='vector'
+        CType='vectorf'
         
         ConfVar='Robot_XYZ'
         CValue='0 0 20'
@@ -246,7 +414,30 @@ class GImage:
         CValue='10 10'
         CInfo='Origin point XY of Image wrt to canvas(0,0)'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
-        
+
+        ConfVar='Tool_Change_XYZpos'
+        CValue='0 0 20'
+        CInfo='(X,Y,Z) Point XYZ of Robot for tool Change'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Dip_XYZvectorpos'
+        CValue='0 0 20'
+        CInfo='(X,Y,Z) Points for every color/layer to be dipped'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+        #---------------------------------
+        CUnit=''
+        CType='vectori'
+
+        ConfVar='Tool_Change_in_Layers'
+        CValue='-1'
+        CInfo='List Layers on which tool change required. Tool_Change and Tool_Change_per_Layer on true and vector not empty. -1 sets all'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Selected_Layers'
+        CValue='-1'
+        CInfo='List of Layers to draw. -1 sets all'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
         #---------------------------------
         CUnit=''
         CType='bool'
@@ -261,14 +452,19 @@ class GImage:
         CInfo='When layer is build goes to Tool_Change_pos for tool to be changed'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        ConfVar='Tool_Change_per_Layer'
+        CValue='False'
+        CInfo='When Tool_Change==True makes a tool change in every layer'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
         ConfVar='Include_First_Layer'
         CValue='False'
-        CInfo='Includes the white Layer in the process'
+        CInfo='Includes the Lightest Layer in the process'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
         ConfVar='Include_Last_Layer'
-        CValue='False'
-        CInfo='Includes the Black Layer in the process'
+        CValue='True'
+        CInfo='Includes the Darkest Layer in the process'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
         #---------------------------------
@@ -304,6 +500,11 @@ class GImage:
         CInfo='Initial Gcode script for Gimage code'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        ConfVar='Tool_Change_Script'
+        CValue='M0\n'
+        CInfo="Pause,Park or hold feed command for tool change. ('M0\\n' is Default)"
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
         #Set Default values
         self.Default_Image_Config_Data={}
         self.Set_actualConfig_as_new_Defaults()
@@ -320,7 +521,21 @@ class GImage:
         if Ctype==1:    
             self.Image_Config_Data[ConfVar+'_Type']=self.Default_Image_Config_Data[ConfVar+'_Type']    
         if Cinfo==1:            
-            self.Image_Config_Data[ConfVar+'_Info']=self.Default_Image_Config_Data[ConfVar+'_Info']     
+            self.Image_Config_Data[ConfVar+'_Info']=self.Default_Image_Config_Data[ConfVar+'_Info']  
+
+    def Change_Conf_Var(self,ConfVar,Cval=None,Cunit=None,Ctype=None,Cinfo=None):
+        try:
+            if Cval!=None:
+                self.Image_Config_Data[ConfVar]=Cval
+            if Cunit!=None:    
+                self.Image_Config_Data[ConfVar+'_Unit']=Cunit
+            if Ctype!=None:    
+                self.Image_Config_Data[ConfVar+'_Type']=Ctype    
+            if Cinfo!=None:            
+                self.Image_Config_Data[ConfVar+'_Info']=Cinfo           
+        except:
+            logging.error('Not possible to change:'+ConfVar)
+            pass
     
     def Get_List_of_Image_Config_Names(self):
         ConfVarlist=[]
@@ -346,6 +561,49 @@ class GImage:
             self.Set_To_Default_Conf_Var(ConfVar)                
             #print("Default set:"+str(self.Image_Config_Data[ConfVar]))
         
+        ConfVar='Dip_XYZvectorpos'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect) % 3!=0 or len(Varvect)<3:
+            self.Set_To_Default_Conf_Var(ConfVar)
+        '''
+        numcolors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
+        if len(Varvect) % 3!=0 or numcolors!=len(Varvect):
+            self.Set_To_Default_Conf_Var(ConfVar)
+            Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+            if numcolors*3>len(Varvect):                         
+                for aaa in range(len(Varvect),numcolors*3+1):
+                    Varvect.append(0)
+                for each in Varvect:
+                    astr=str(each)+' '
+                self.Change_Conf_Var(ConfVar,astr)          
+        '''
+        
+        ConfVar='Tool_Change_in_Layers'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)==0:
+            self.Set_To_Default_Conf_Var(ConfVar)
+        if len(Varvect)>0:
+            numcolors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
+            for aaa in Varvect:
+                if int(aaa)>numcolors:
+                    self.Set_To_Default_Conf_Var(ConfVar)         
+                    break
+                    
+        ConfVar='Selected_Layers'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)==0:
+            self.Set_To_Default_Conf_Var(ConfVar)
+        if len(Varvect)>0:
+            numcolors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
+            for aaa in Varvect:
+                if int(aaa)>numcolors:
+                    self.Set_To_Default_Conf_Var(ConfVar)         
+                    break
+        ConfVar='Tool_Change_XYZpos'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)!=3:
+            self.Set_To_Default_Conf_Var(ConfVar)         
+
         ConfVar='Robot_XYZ'
         Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
         if len(Varvect)!=3:
@@ -422,7 +680,7 @@ class GImage:
                             return False      
                         else:    
                             return ''    
-                    if thetype=='vector':
+                    if thetype=='vector' or thetype=='vectorf':
                         alist=[]
                         try:                          
                             line=str(self.Image_Config_Data[Variable]) 
@@ -434,10 +692,28 @@ class GImage:
                                 numitems=len(mf)
                                 for item in mf:                                   
                                     #print("Inside vector->"+str(item))
-                                    alist.append(float(item))
-                                  
+                                    alist.append(float(item))                    
                         except Exception as e:
-                            logging.error('Bad vector format in '+ Variable)
+                            logging.error('Bad float vector format in '+ Variable)
+                            logging.error(e)                        
+                            alist=[]
+                            pass
+                        return alist                
+                    if thetype=='vectori':
+                        alist=[]
+                        try:                          
+                            line=str(self.Image_Config_Data[Variable]) 
+                            mf =re.split(r'\s',line)                               
+                        except:
+                            mf = None
+                        try:
+                            if mf is not None:   
+                                numitems=len(mf)
+                                for item in mf:                                   
+                                    #print("Inside vector->"+str(item))
+                                    alist.append(int(item))                       
+                        except Exception as e:
+                            logging.error('Bad int vector format in '+ Variable)
                             logging.error(e)                        
                             alist=[]
                             pass
@@ -480,6 +756,15 @@ class GImage:
         Gimage_Data.Include_Last_Layer=self.Get_Variable_from_Image_Config_Data('Include_Last_Layer')            
         Gimage_Data.Ini_Script=self.Get_Variable_from_Image_Config_Data('Ini_Script')
         Gimage_Data.End_Script=self.Get_Variable_from_Image_Config_Data('End_Script')
+        
+        Gimage_Data.Dip_XYZvectorpos=self.Get_Variable_from_Image_Config_Data('Dip_XYZvectorpos')
+        Gimage_Data.Tool_Z_Correction=self.Get_Variable_from_Image_Config_Data('Tool_Z_Correction')
+        Gimage_Data.Tool_Change_XYZpos=self.Get_Variable_from_Image_Config_Data('Tool_Change_XYZpos')
+        Gimage_Data.Tool_Change=self.Get_Variable_from_Image_Config_Data('Tool_Change')
+        Gimage_Data.Tool_Change_per_Layer=self.Get_Variable_from_Image_Config_Data('Tool_Change_per_Layer')
+        Gimage_Data.Tool_Change_Script=self.Get_Variable_from_Image_Config_Data('Tool_Change_Script')
+        Gimage_Data.Tool_Change_in_Layers=self.Get_Variable_from_Image_Config_Data('Tool_Change_in_Layers')        
+        Gimage_Data.Selected_Layers=self.Get_Variable_from_Image_Config_Data('Selected_Layers')        
         return Gimage_Data           
     
     def Crop_Image_to_Canvas_Size(self,P_Data):        
@@ -496,22 +781,19 @@ class GImage:
             I_H=int(I_Hmm/I_Rmm)
             I_W=int(I_Wmm/I_Rmm)
             I_ini_pos=[int(I_ini_posmm[0]/I_Rmm),int(I_ini_posmm[1]/I_Rmm)]
-
-        #crop image if smaller than Canvas
+        print((C_H,C_W,I_H,I_W,I_ini_pos))
+        #crop image if bigger than Canvas
         if C_H<I_ini_pos[1]+I_H:
+            print('Croped 1')
             val=C_H-I_ini_pos[1]
             if val>0:
                 self.imp = self.imp.crop((0, 0, val, C_W)) # crop image
         if C_W<I_ini_pos[0]+I_W:
+            print('Croped 2')
             val=C_W-I_ini_pos[0]
             if val>0:    
                 self.imp = self.imp.crop((0, 0, C_H, val)) # crop image
-        
-               
-
-
-
-
+    
     def Test_Image(self):
         im = Image.open("Testimage.png") # load an image from the hard drive
         blurred = im.filter(ImageFilter.BLUR) # blur the image
@@ -550,7 +832,10 @@ class Image_Gcode_Stream(threading.Thread):
         #self.stoping_event=stoping_event                
         self.cycle_time=0.1               
         self.state_xyz=0
-
+        self.print_length=0
+        self.movement_length=0
+        self.print_Layer_length=[]
+        self.lastCount_positionXYZ=[0,0,0,0]
         self.Isimagetoprint=False
         self.istext2stream=False
         self.Isxyz_thread=False
@@ -626,10 +911,6 @@ class Image_Gcode_Stream(threading.Thread):
         if self.istext2stream==True:
             self.xyz_thread.grbl_gcode_cmd(line2stream)
     
-    def Get_Pixel(self,x,y,Resolution):
-        [x,y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y)
-        self.imp.getpixel((x, y))
-    
     def Transform_pixel_coordinates_to_image_coordinates(self,x,y,Resolution=1):
         # (0,0) is the upper left corner
         y=self.imp.height-y
@@ -652,49 +933,142 @@ class Image_Gcode_Stream(threading.Thread):
             self.Robot_XYZ=Gimage_Data.Robot_XYZ
             self.Img_ini_pos=Gimage_Data.Img_ini_pos            
             Zinfo=[Gimage_Data.deltaZ,Gimage_Data.Zmove_pos,Gimage_Data.Ztouch_pos,Gimage_Data.Resolution,Gimage_Data.Process_rate]
+            #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}
+            TCinfo={}
+            TCinfo['T']=Gimage_Data.Tool
+            TCinfo['T_Ch']=Gimage_Data.Tool_Change
+            TCinfo['T_Ch_per_Layer']=Gimage_Data.Tool_Change_per_Layer
+            TCinfo['T_Ch_Script']=Gimage_Data.Tool_Change_Script
+            TCinfo['T_Ch_XYZpos']=Gimage_Data.Tool_Change_XYZpos                                
+            TCinfo['T_Ch_in_Layers']=Gimage_Data.Tool_Change_in_Layers
+            TCinfo['T_Z_Correction']=Gimage_Data.Tool_Z_Correction
+            
 
             #get min max range
-            pimg_val_range=[0,256,0]
-            for xxx in range(0,self.imp.width):
-                #print(str(xxx))
-                for yyy in range(0,self.imp.height):
-                    #print(str(yyy))    
-                    avalue=self.imp.getpixel((xxx,yyy))
-                    if avalue<pimg_val_range[1]:
-                        pimg_val_range[1]=avalue
-                    if avalue>pimg_val_range[2]:
-                        pimg_val_range[2]=avalue   
-            if Gimage_Data.Include_Last_Layer==True:
-                pimg_val_range[2]=pimg_val_range[2]+1
+            pimg_val_range=self.Get_image_Value_Range()  
             if Gimage_Data.Include_First_Layer==True:
-                pimg_val_range[1]=pimg_val_range[1]-1                                            
-            logging.info(self.Technique+' Process Started') 
+                pimg_val_range[1]=pimg_val_range[1]-1
+            if Gimage_Data.Include_Last_Layer==True:
+                pimg_val_range[2]=pimg_val_range[2]+1    
+
+            
+            TCinfo['List_Selected_Layers']=self.Get_list_of_Selected_Layers(Gimage_Data.Selected_Layers,pimg_val_range)
+            TCinfo=self.Check_TCinfo(TCinfo,pimg_val_range)
+            
+            logging.info(self.Technique +' Process Started')             
             self.Gimage_Code='' 
-            print('Ini script-> '+Gimage_Data.Ini_Script)
+            #print('Ini script-> '+Gimage_Data.Ini_Script)            
+            self.print_length=0
+            self.movement_length=0
+            self.print_Layer_length=[]
+            self.lastCount_positionXYZ=[0,0,0,Gimage_Data.Ztouch_pos]
             if Gimage_Data.Ini_Script is not '':                 
-                self.Gimage_Code=self.Gimage_Code+Gimage_Data.Ini_Script.replace('\\n','\n')
+                self.Gimage_Code=self.Gimage_Code+Gimage_Data.Ini_Script.replace('\\n','\n')                
+            self.Gimage_Code=self.Gimage_Code+self.Do_a_Tool_Change(Gimage_Data.Tool_Change_XYZpos,Gimage_Data.Tool_Change,Zinfo,Gimage_Data.Tool_Change_Script)
             if Gimage_Data.Frame_Image==1:
                 inicoor=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Gimage_Data.Resolution)                
                 endcoor=self.Transform_pixel_coordinates_to_image_coordinates(self.imp.width,self.imp.height,Gimage_Data.Resolution)
-                print(str([inicoor,endcoor]))
+                #print(str([inicoor,endcoor]))
                 self.Gimage_Code=self.Gimage_Code+self.Do_a_line_Frame(True,inicoor,endcoor,Zinfo)   
             if self.Technique=='Stipple':                
-                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Stippling(pimg_val_range,Zinfo,P_Bar_Update_Gimage)                  
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Stippling(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)                  
             if self.Technique=='Lineing':        
-                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Lineing(pimg_val_range,Zinfo,P_Bar_Update_Gimage)
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Lineing(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)
+            if self.Technique=='Accumulative':
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Accumulative(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)            
             if Gimage_Data.End_Script is not '':             
                 self.Gimage_Code=self.Gimage_Code+Gimage_Data.End_Script.replace('\\n','\n')
-            logging.info(self.Technique+' Process Finished')    
+            logging.info(self.Technique+' Process Finished')   
+               
+            logging.info('Layer Lengths =')
+            ooo=1
+            for aLlength in self.print_Layer_length:
+                logging.info('Layer '+str(ooo)+' '+str(round(aLlength/1000,3))+' [m]')
+                ooo=ooo+1
+            logging.info('Total Drawing Length ='+str(round(self.print_length/1000,3))+' [m]')
+            logging.info('Total Movement Length ='+str(round(self.movement_length))+' [m]')
+            
         return self.Gimage_Code    
-    
+
+    def Do_a_Tool_Change(self,Tool_Change_XYZpos,Tool_Change,Zinfo,Tool_Change_Script='M0\n'):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
+        Lcode=''
+        if Tool_Change==True:            
+            TC_script=Tool_Change_Script.replace('\\n','\n')     
+            if '\n' not in TC_script and TC_script is not '':
+                TC_script=TC_script+'\n'                      
+            [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position        
+            Lcode=Lcode+Lcodeadd
+            Lcode=Lcode+self.Write_Goto_Code(0,xxx=Tool_Change_XYZpos[0],yyy=Tool_Change_XYZpos[1])
+            #Lower to tool change position
+            Lcode=Lcode+self.Write_Goto_Code(0,zzz=Tool_Change_XYZpos[2])            
+            #M0 grbl & Marlin, M1 Rep-rap, ! in tinyG, M24 ? G27 on Marlin
+            Lcode=Lcode + TC_script
+            [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #To Move pos
+            Lcode=Lcode+Lcodeadd
+        return Lcode
+
+    def Check_TCinfo(self,TCinfo,pimg_val_range):
+        #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}        
+        if TCinfo['T_Ch']==True and TCinfo['T_Ch_per_Layer']==True:
+            layers=[]            
+            if TCinfo['T_Ch_in_Layers']==None or len(TCinfo['T_Ch_in_Layers'])==0:
+                for iii in range(pimg_val_range[1],pimg_val_range[2]+1): #Not include first, include last                        
+                    if iii!=pimg_val_range[1]:
+                        layers.append(iii)            
+            else:
+                for iii in TCinfo['T_Ch_in_Layers']: #Not include first, include last                        
+                    if iii>=pimg_val_range[1] and iii<=pimg_val_range[2] :
+                        layers.append(iii)
+                if len(layers)==0:
+                    for iii in range(pimg_val_range[1],pimg_val_range[2]+1): #Not include first, include last                        
+                        if iii!=pimg_val_range[1]:
+                            layers.append(iii)            
+            #print('The Layers->'+str(layers))
+            TCinfo['T_Ch_in_Layers']=layers
+        
+        return TCinfo
+    def Get_image_Value_Range(self):
+        #get min max range
+        pimg_val_range=[0,256,0]
+        for xxx in range(0,self.imp.width):                
+            for yyy in range(0,self.imp.height):                    
+                avalue=self.imp.getpixel((xxx,yyy))
+                avalue=self.RGB_to_L(avalue)
+                if avalue<pimg_val_range[1]:
+                    pimg_val_range[1]=avalue
+                    #print(avalue)
+                if avalue>pimg_val_range[2]:
+                    pimg_val_range[2]=avalue   
+                    #print(avalue)
+        return pimg_val_range       
+
+    def Get_list_of_Selected_Layers(self,Selected_Layers,pimg_val_range):
+        listofSellay=[]
+        for sss in Selected_Layers:
+            if sss==-1:
+                listofSellay=[]
+                for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
+                    listofSellay.append(iii)
+                break
+            if sss<=pimg_val_range[2] and sss>=pimg_val_range[1]:
+                listofSellay.append(sss)
+        if len(Selected_Layers)==0:    
+            listofSellay=[]
+            for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
+                listofSellay.append(iii)
+        return listofSellay
+
+
+
     def Do_a_line_Frame(self,Isclockwise,Coordsinimm,Coordsendmm,Zinfo):
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
         Lcode=''
-        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+        [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
         Lcode=Lcode+Lcodeadd
         Lcode=Lcode+self.Write_Goto_Code(0,xxx=Coordsinimm[0],yyy=Coordsinimm[1])
         ##Pull down
-        [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+        [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
         Lcode=Lcode+Lcodeadd
         if Isclockwise==True:            
             Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsendmm[1],fff=Process_rate)
@@ -707,31 +1081,124 @@ class Image_Gcode_Stream(threading.Thread):
             Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsendmm[1],fff=Process_rate)    
             Lcode=Lcode+self.Write_Goto_Code(1,xxx=Coordsinimm[0],yyy=Coordsinimm[1],fff=Process_rate)
         ##Pull up
-        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+        [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
         Lcode=Lcode+Lcodeadd
         return Lcode
 
-    def Write_Gimage_Code_Lineing(self,pimg_val_range,Zinfo,P_Bar_Update_Gimage):      
+    def Write_Gimage_Code_Accumulative(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):    
+        #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}  
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo   
+        last_avalue=0
+        is_up=True
+        Lcode=''
+
+        for aaa in range(pimg_val_range[1],pimg_val_range[2]):
+            P_Bar_Update_Gimage.SetStatus(aaa/pimg_val_range[2]*100)            
+            if TCinfo['T_Ch']==True and aaa in TCinfo['T_Ch_in_Layers']:
+                Lcode=Lcode+self.Do_a_Tool_Change(TCinfo['T_Ch_XYZpos'],TCinfo['T_Ch'],Zinfo,TCinfo['T_Ch_Script'])
+            if aaa==pimg_val_range[1]:                 
+                [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Resolution)  
+                Lcode=Lcode+self.Write_Goto_Code(0,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
+                Lcode=Lcode+Lcodeadd            
+            else:       
+                if aaa % 2 == 0:       #aaa == -1:                     
+                    for xxx in range(0,self.imp.width):                           
+                        if xxx % 2 == 0:
+                            for yyy in range(0,self.imp.height):   
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Accumulative(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)
+                        else:        
+                            for yyy in reversed(range(0,self.imp.height)):   
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Accumulative(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)                                                                                  
+                        #[Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+                        #Lcode=Lcode+Lcodeadd        
+                else:                                                                           
+                    for yyy in range(0,self.imp.height):   #do first X direction                        
+                        if yyy % 2 == 0:
+                            for xxx in range(0,self.imp.width):
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Accumulative(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)            
+                        else:
+                            for xxx in reversed(range(0,self.imp.width)):
+                                [Lcode,is_up]=self.Write_Gimage_Process_Code_Accumulative(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)   
+                        #[Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+                        #Lcode=Lcode+Lcodeadd                                                         
+            [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+            Lcode=Lcode+Lcodeadd   
+            self.Report_Printed_Lengths(aaa)
+        return Lcode            
+    
+    def Report_Printed_Lengths(self,aaa):
+        ppp=len(self.print_Layer_length)    
+        if ppp==0:
+            self.print_Layer_length.append(self.print_length)                  
+        else:                
+            self.print_Layer_length.append(self.print_length-self.print_Layer_length[ppp-1])    
+        logging.info('Layer '+str(aaa)+' Length ='+str(int(self.print_Layer_length[ppp]))+' [mm]')    
+        logging.info('Drawing Length ='+str(int(self.print_length)/1000)+' [m] at Layer '+str(aaa))
+        logging.info('Movement Length ='+str(int(self.movement_length))+' [m] at Layer '+str(aaa))
+
+    def Write_Gimage_Process_Code_Accumulative(self,Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo):
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo                
+        avalue=self.imp.getpixel((xxx, yyy)) 
+        avalue=self.RGB_to_L(avalue)
+        pimg_val_range[0]=avalue       
+        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                          
+        [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                                 
+        if avalue>=aaa:                                                   
+            if is_up==True:
+                [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                          
+                [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)
+                #Put Down
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=False                                
+            else:
+                #update end coordinates
+                [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)  
+        elif avalue<aaa:
+            if is_up==False:
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
+                #Lift
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=True
+        elif yyy>=self.imp.height-1 or xxx>=self.imp.width-1 or xxx==0 or yyy==0:                            
+            if is_up==False:
+                Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
+                #Lift
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
+                Lcode=Lcode+Lcodeadd
+                is_up=True
+        return [Lcode,is_up]        
+
+    def Write_Gimage_Code_Lineing(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):    
+        #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}  
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo   
         last_avalue=0
         is_up=True
         Lcode=''
         for aaa in range(pimg_val_range[1],pimg_val_range[2]):
             P_Bar_Update_Gimage.SetStatus(aaa/pimg_val_range[2]*100)
+            if TCinfo['T_Ch']==True and aaa in TCinfo['T_Ch_in_Layers']:
+                Lcode=Lcode+self.Do_a_Tool_Change(TCinfo['T_Ch_XYZpos'],TCinfo['T_Ch'],Zinfo,TCinfo['T_Ch_Script'])
             if aaa==pimg_val_range[1]:                 
                 [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Resolution)  
                 Lcode=Lcode+self.Write_Goto_Code(0,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-                [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
                 Lcode=Lcode+Lcodeadd            
             else:       
                 if aaa % 2 == 0:                            
-                    for xxx in range(0,self.imp.width):                                                       
+                    for xxx in range(0,self.imp.width):  
+                                                          
                         if xxx % 2 == 0:
                             for yyy in range(0,self.imp.height):   
                                 [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)
                         else:        
                             for yyy in reversed(range(0,self.imp.height)):   
                                 [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)
+                        #[Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+                        #Lcode=Lcode+Lcodeadd         
                 else:                                                                           
                     for yyy in range(0,self.imp.height):   
                         if yyy % 2 == 0:
@@ -740,14 +1207,19 @@ class Image_Gcode_Stream(threading.Thread):
                         else:
                             for xxx in reversed(range(0,self.imp.width)):
                                 [Lcode,is_up]=self.Write_Gimage_Process_Code_Lineing(Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo)                    
-
-        [Lcodeadd,is_up]=self.Lineing_UpDown(False,Zinfo)
+                        #[Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+                        #Lcode=Lcode+Lcodeadd                                                         
+            [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position
+            Lcode=Lcode+Lcodeadd   
+            self.Report_Printed_Lengths(aaa)
+        [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
         Lcode=Lcode+Lcodeadd   
         return Lcode            
-                    
+
     def Write_Gimage_Process_Code_Lineing(self,Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo):
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo                
         avalue=self.imp.getpixel((xxx, yyy)) 
+        avalue=self.RGB_to_L(avalue)
         pimg_val_range[0]=avalue       
         [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                          
         [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)                                                 
@@ -757,7 +1229,7 @@ class Image_Gcode_Stream(threading.Thread):
                 [pimg_Xend,pimg_Yend]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)
                 #Put Down
                 Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
                 Lcode=Lcode+Lcodeadd
                 is_up=False                                
             else:
@@ -767,19 +1239,21 @@ class Image_Gcode_Stream(threading.Thread):
             if is_up==False:
                 Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
                 #Lift
-                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
                 Lcode=Lcode+Lcodeadd
                 is_up=True
         elif yyy>=self.imp.height-1 or xxx>=self.imp.width-1 or xxx==0 or yyy==0:                            
             if is_up==False:
                 Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_Xend,yyy=pimg_Yend,fff=Process_rate)
                 #Lift
-                [Lcodeadd,is_up]=self.Lineing_UpDown(is_up,Zinfo)
+                [Lcodeadd,is_up]=self.Move_Down_to_Touch(is_up,Zinfo)
                 Lcode=Lcode+Lcodeadd
                 is_up=True
         return [Lcode,is_up]        
 
-    def Lineing_UpDown(self,Is_up,Zinfo):
+    def Move_Down_to_Touch(self,Is_up,Zinfo): 
+        #is_up=False go to Move position
+        #is_up=True go to touch position
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo
         if Is_up==True:
             Lcode=self.Write_Goto_Code(0,zzz=Ztouch_pos)
@@ -789,7 +1263,7 @@ class Image_Gcode_Stream(threading.Thread):
             return [Lcode,True]
         return 
     
-    def Write_Gimage_Code_Stippling(self,pimg_val_range,Zinfo,P_Bar_Update_Gimage):  
+    def Write_Gimage_Code_Stippling(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):  
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo          
         Gimage_Code=''
         for xxx in range(0,self.imp.width):
@@ -797,6 +1271,7 @@ class Image_Gcode_Stream(threading.Thread):
             P_Bar_Update_Gimage.SetStatus(xxx/self.imp.width*100)
             for yyy in range(0,self.imp.height):
                 avalue=self.imp.getpixel((xxx, yyy))
+                avalue=self.RGB_to_L(avalue)
                 [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xxx,yyy,Resolution)  
                 pimg_val_range[0]=avalue                                                        
                 Gimage_Code_loop=self.Write_Gimage_Process_Code_Stippling(pimg_val_range,pimg_X,pimg_Y,Zinfo)
@@ -844,10 +1319,50 @@ class Image_Gcode_Stream(threading.Thread):
         if aaachar is not '':
             Gimgcode=Gimgcode+' '+aaachar              
         if aaa!=None:
-            Gimgcode=Gimgcode+str(aaa)     
+            Gimgcode=Gimgcode+str(aaa) 
+        self.Count_Print_Length(xxx,yyy,zzz)
+
         return Gimgcode+e_o_l 
     
-    
+    def Count_Print_Length(self,xxx=None,yyy=None,zzz=None):
+        Ztouch=self.lastCount_positionXYZ[3]
+        
+        if xxx is not None:
+            x=xxx-self.lastCount_positionXYZ[0]
+            self.lastCount_positionXYZ[0]=xxx
+        else:
+            xxx=self.lastCount_positionXYZ[0]
+            x=0    
+        if yyy is not None:    
+            y=yyy-self.lastCount_positionXYZ[1]
+            self.lastCount_positionXYZ[1]=yyy
+        else:
+            yyy=self.lastCount_positionXYZ[1]
+            y=0    
+        if zzz is not None:    
+            z=zzz-self.lastCount_positionXYZ[2]
+            self.lastCount_positionXYZ[2]=zzz
+        else:
+            zzz=self.lastCount_positionXYZ[2]
+            z=0     
+
+        self.lastCount_positionXYZ=[xxx,yyy,zzz,Ztouch]
+        self.movement_length=self.movement_length+np.sqrt(x**2+y**2+z**2)/1000 # in [m]        
+        if zzz==Ztouch: # Count if touching                    
+            val=np.sqrt(x**2+y**2) # in [mm]        
+            self.print_length=self.print_length+val/1 # in [mm]
+
+    def RGB_to_L(self,RGB):
+        if type(RGB)==tuple:
+            L = int(RGB[0] * 299/1000 + RGB[1] * 587/1000 + RGB[2] * 114/1000)
+        elif type(RGB)==int:   
+            L = RGB
+        else:
+            L=0    
+        #print(L)
+        return L        
+
+            
 
 
     
