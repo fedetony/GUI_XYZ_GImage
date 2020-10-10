@@ -15,13 +15,15 @@ from typing import List
 # install pySerial NOT serial!!!
 import serial
 
+import Vectorize_Thread
+
 logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 
 @dataclass
 class Struct_Process_Data:
     Isimagetoprint: bool = False
-    Process: str = ''
+    Process: str = ''    
     OImg_Size_px: List[int] = field(default_factory=list)             
     PImg_Proportional_Scale: bool = True
     PImg_Size_mm: List[float] = field(default_factory=list)                                     
@@ -77,11 +79,7 @@ class GImage:
         self.Set_Initial_Image_Config_Data()
         self.Set_Initial_Image_Tool_List()
         self.Set_Initial_Technique_List()
-        self.Set_Initial_Image_Process()
-        
-
-
-
+        self.Set_Initial_Image_Process()        
 
     def open_image(self,imagefilename):
         self.imagefilename=imagefilename
@@ -109,6 +107,7 @@ class GImage:
         if self.Isimagetoprint==True:            
             Process_Data.PImg_Number_of_Colors=self.Get_Variable_from_Image_Config_Data('Img_Num_Colors')
             Process_Data.Process=self.Selected_Image_Process
+            
             Process_Data.OImg_Size_px=self.im.size
             Process_Data.PImg_Resolution=self.Get_Variable_from_Image_Config_Data('Img_Resolution')
             #Get new size
@@ -288,6 +287,54 @@ class GImage:
                     pimg_val_range[2]=avalue   
                     #print(avalue)
         return pimg_val_range       
+       
+    def RTD_Set_Data_List(self,RTD_List):
+        [Machine_Size,Machine_pos,Canvas_pos,Canvas_Size,Image_pos,Image_Size,Frame]=RTD_List
+        Machine_Sizestr=' '.join(map(str, Machine_Size))
+        Machine_posstr=' '.join(map(str, Machine_pos))
+        #print('Got ->'+Machine_posstr)
+        Canvas_posstr=' '.join(map(str, Canvas_pos))
+        Image_posstr=' '.join(map(str, Image_pos))
+        self.Change_Conf_Var('Robot_Size_XYZ',Cval=Machine_Sizestr)
+        self.Change_Conf_Var('Robot_XYZ',Cval=Machine_posstr)
+        self.Change_Conf_Var('Canvas_ini_pos',Cval=Canvas_posstr)
+        self.Change_Conf_Var('Canvas_Width',Cval=Canvas_Size[0])
+        self.Change_Conf_Var('Canvas_Height',Cval=Canvas_Size[1])
+        self.Change_Conf_Var('Img_ini_pos',Cval=Image_posstr)
+        self.Change_Conf_Var('Img_Width',Cval=Image_Size[0])
+        self.Change_Conf_Var('Img_Height',Cval=Image_Size[1])
+        self.Change_Conf_Var('Frame_Image',Cval=Frame)
+        self.Check_Image_Config_Data()
+
+    def RTD_Get_Data_List(self):
+        RTD_List=[]
+        RTD_List.append(self.Get_Variable_from_Image_Config_Data('Robot_Size_XYZ'))   
+        RTD_List.append(self.Get_Variable_from_Image_Config_Data('Robot_XYZ'))           
+        RTD_List.append(self.Get_Variable_from_Image_Config_Data('Canvas_ini_pos'))
+        RTD_List.append([self.Get_Variable_from_Image_Config_Data('Canvas_Width'),self.Get_Variable_from_Image_Config_Data('Canvas_Height')])
+        RTD_List.append(self.Get_Variable_from_Image_Config_Data('Img_ini_pos'))
+        RTD_List.append([self.Get_Variable_from_Image_Config_Data('Img_Width'),self.Get_Variable_from_Image_Config_Data('Img_Height')])        
+        RTD_List.append(self.Get_Variable_from_Image_Config_Data('Frame_Image'))               
+        return RTD_List
+
+    def RTD_Get_Units_Info_List(self):        
+        RTD_dict={}            
+        RTD_dict['RSize'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Robot_Size_XYZ'+'_Unit')   
+        RTD_dict['Rpos'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Robot_XYZ'+'_Unit')           
+        RTD_dict['Cpos'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Canvas_ini_pos'+'_Unit')
+        RTD_dict['CSize'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Canvas_Width'+'_Unit')
+        RTD_dict['Ipos'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Img_ini_pos'+'_Unit')
+        RTD_dict['ISize'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Img_Width'+'_Unit')
+        RTD_dict['Frame'+'_Unit']=self.Get_Variable_from_Image_Config_Data('Frame_Image'+'_Unit')    
+
+        RTD_dict['RSize'+'_Info']=self.Get_Variable_from_Image_Config_Data('Robot_Size_XYZ'+'_Info')   
+        RTD_dict['Rpos'+'_Info']=self.Get_Variable_from_Image_Config_Data('Robot_XYZ'+'_Info')           
+        RTD_dict['Cpos'+'_Info']=self.Get_Variable_from_Image_Config_Data('Canvas_ini_pos'+'_Info')
+        RTD_dict['CSize'+'_Info']=self.Get_Variable_from_Image_Config_Data('Canvas_Width'+'_Info')
+        RTD_dict['Ipos'+'_Info']=self.Get_Variable_from_Image_Config_Data('Img_ini_pos'+'_Info')
+        RTD_dict['ISize'+'_Info']=self.Get_Variable_from_Image_Config_Data('Img_Width'+'_Info')
+        RTD_dict['Frame'+'_Info']=self.Get_Variable_from_Image_Config_Data('Frame_Image'+'_Info')                 
+        return RTD_dict    
 
     def LSTD_Get_Selected_Layers(self):
         S_L=self.Get_Variable_from_Image_Config_Data('Selected_Layers') 
@@ -344,9 +391,9 @@ class GImage:
         self.Technique_List=[]    
         self.Technique_List.append('Lineing')
         self.Technique_List.append('Stipple')
-        self.Technique_List.append('Accumulative')        
+        self.Technique_List.append('Accumulative')                
+        self.Technique_List.append('Vectorize')
         self.Technique_List.append('Circulism')
-        self.Technique_List.append('Delineation')
         self.Selected_Technique=self.Technique_List[1]
 
     def Set_Initial_Image_Process(self):
@@ -410,10 +457,23 @@ class GImage:
         CInfo='(X,Y,Z) Origin point XYZ of Robot for canvas coordinate (0,0) tool touching the canvas.'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 
+        
+        ConfVar='Robot_Size_XYZ'
+        CValue='700 600 85'
+        CInfo='(X,Y) Size of Robot for canvas coordinate'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        
         ConfVar='Img_ini_pos'
         CValue='10 10'
         CInfo='Origin point XY of Image wrt to canvas(0,0)'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
+        ConfVar='Canvas_ini_pos'
+        CValue='0 0'
+        CInfo='Origin point XY of canvas wrt to machine(0,0)'
+        self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
+
 
         ConfVar='Tool_Change_XYZpos'
         CValue='0 0 20'
@@ -560,7 +620,11 @@ class GImage:
         if len(Varvect)!=2:
             self.Set_To_Default_Conf_Var(ConfVar)                
             #print("Default set:"+str(self.Image_Config_Data[ConfVar]))
-        
+        ConfVar='Canvas_ini_pos'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)!=2:
+            self.Set_To_Default_Conf_Var(ConfVar)                
+            
         ConfVar='Dip_XYZvectorpos'
         Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
         if len(Varvect) % 3!=0 or len(Varvect)<3:
@@ -607,7 +671,12 @@ class GImage:
         ConfVar='Robot_XYZ'
         Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
         if len(Varvect)!=3:
-            self.Set_To_Default_Conf_Var(ConfVar)    
+            self.Set_To_Default_Conf_Var(ConfVar)   
+
+        ConfVar='Robot_Size_XYZ'
+        Varvect=list(self.Get_Variable_from_Image_Config_Data(ConfVar))
+        if len(Varvect)!=3:
+            self.Set_To_Default_Conf_Var(ConfVar)      
         
         ConfVar='Is_Proportional'
         IsProp=bool(self.Get_Variable_from_Image_Config_Data(ConfVar))
@@ -649,6 +718,8 @@ class GImage:
                     I_H=I_W*pH/pW
                 elif I_H<=I_W and pH!=0:
                     I_W=I_H*pW/pH   
+            I_H=round(I_H,2)        
+            I_W=round(I_W,2)        
             self.Image_Config_Data['Img_Height']=I_H    
             self.Image_Config_Data['Img_Width']=I_W    
             if I_Ho!=I_H or I_Wo!=I_W:
@@ -767,7 +838,11 @@ class GImage:
         Gimage_Data.Selected_Layers=self.Get_Variable_from_Image_Config_Data('Selected_Layers')        
         return Gimage_Data           
     
-    def Crop_Image_to_Canvas_Size(self,P_Data):        
+    def Crop_Image_to_Canvas_Size(self,P_Data):    
+
+        print('Entered Crop!')    
+        return
+
         P_Data.PImg_ini_pos_mm
         C_Hmm=P_Data.C_Size_mm[1]
         C_Wmm=P_Data.C_Size_mm[0]
@@ -975,7 +1050,9 @@ class Image_Gcode_Stream(threading.Thread):
             if self.Technique=='Lineing':        
                 self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Lineing(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)
             if self.Technique=='Accumulative':
-                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Accumulative(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)            
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Accumulative(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage) 
+            if self.Technique=='Vectorize':
+                self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Vectorize(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)               
             if Gimage_Data.End_Script is not '':             
                 self.Gimage_Code=self.Gimage_Code+Gimage_Data.End_Script.replace('\\n','\n')
             logging.info(self.Technique+' Process Finished')   
@@ -1360,7 +1437,83 @@ class Image_Gcode_Stream(threading.Thread):
         else:
             L=0    
         #print(L)
-        return L        
+        return L       
+
+    def Get_Vectorized_color_joined_pieces(self,im,Pbar=None,opaque=None, keep_every_point=False):
+        imageRGBA = im.convert('RGBA')        
+        Vectorize=Vectorize_Thread.Vectorization(imageRGBA,self.killer_event,self.plaintextEdit_GcodeScript,Pbar)
+        Vectorize.start()        
+        logging.info('Vectorization Thread Started! :)')      
+        color_joined_pieces = Vectorize.Get_color_joined_pieces_from_rgba_image(imageRGBA, opaque, keep_every_point)
+        svg=Vectorize.write_color_joined_pieces_to_svg_contiguous(im,color_joined_pieces)   
+        try:  
+            Filename="test/Temp_Imp_Vectorized.svg"
+            Vectorize.Save_svg_text_file(svg,Filename)   
+        except:
+            pass    
+        Vectorize.join()
+        logging.info('Vectorization Thread Finished! :)')      
+        return color_joined_pieces
+    
+    def Set_Progress_Percentage(self,P_Bar_Update_Gimage,sss,Numsss,Perini=0,Perend=100):
+        if sss>Numsss:
+            P_Bar_Update_Gimage.SetStatus(Perend)
+            return Perend
+        if sss<0 or Numsss<=0:
+            P_Bar_Update_Gimage.SetStatus(Perini)
+            return Perini
+        if (Perend-Perini)<=0:
+            Per=min(abs(Perini),abs(Perend))  
+            P_Bar_Update_Gimage.SetStatus(Per)
+            return Per 
+        Per=round(Perini+(sss/Numsss)*(Perend-Perini),2)        
+        P_Bar_Update_Gimage.SetStatus(Per)
+        return Per         
+
+    def Write_Gimage_Code_Vectorize(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):    
+        #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}  
+        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo   
+        last_avalue=0
+        is_up=True
+        Lcode=''
+        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Resolution)  
+        Lcode=Lcode+self.Write_Goto_Code(0,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+        [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
+        Lcode=Lcode+Lcodeadd            
+        color_joined_pieces=self.Get_Vectorized_color_joined_pieces(self.imp,P_Bar_Update_Gimage,opaque=None, keep_every_point=False)
+        sss=0
+        lenlist=len(color_joined_pieces)
+        for color, shapes in color_joined_pieces.items():            
+            self.improcess_percentage=self.Set_Progress_Percentage(P_Bar_Update_Gimage,sss,lenlist,0,100)            
+            if TCinfo['T_Ch']==True and sss in TCinfo['T_Ch_in_Layers']:
+                Lcode=Lcode+self.Do_a_Tool_Change(TCinfo['T_Ch_XYZpos'],TCinfo['T_Ch'],Zinfo,TCinfo['T_Ch_Script'])
+            for shape in shapes:                  
+                
+                for sub_shape in shape:
+                    here = sub_shape.pop(0)[0]
+                    (x, y)=here
+                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y,Resolution)  
+                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                    [Lcodeadd,is_up]=self.Move_Down_to_Touch(True,Zinfo)
+                    Lcode=Lcode+Lcodeadd            
+                    for edge in sub_shape:
+                        here = edge[0]
+                        (xe, ye)=here
+                        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xe,ye,Resolution)  
+                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                    #close path shape
+                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y,Resolution)  
+                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
+                    [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
+                    Lcode=Lcode+Lcodeadd            
+                #end of shape
+            self.Report_Printed_Lengths(sss)  
+            sss=sss+1  
+       
+        return Lcode            
+
+
+    
 
             
 

@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog_RTD</class>
+ <widget class="QDialog" name="Dialog_RTD">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>680</width>
+    <height>488</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Resize Tool Dialog</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox_RTD_Resize">
+     <property name="title">
+      <string>Resize Tool</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QSplitter" name="splitter_RTD">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <widget class="QFrame" name="frame_RTD_Commands">
+         <property name="maximumSize">
+          <size>
+           <width>310</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="9" column="0">
+           <widget class="QLabel" name="label_RTD_Frame">
+            <property name="text">
+             <string>Frame Image</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_RTD_Machine_pos">
+            <property name="text">
+             <string>Robot_XYZ</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Image_Size_W"/>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_Size_z"/>
+          </item>
+          <item row="5" column="1">
+           <widget class="Line" name="line_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_pos_y"/>
+          </item>
+          <item row="1" column="4">
+           <widget class="QLabel" name="label_RTD_Machine_pos_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="Line" name="line">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_RTD_Canvas_pos">
+            <property name="text">
+             <string>Canvas Position</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Canvas_Size_H"/>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_pos_z"/>
+          </item>
+          <item row="6" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Image_pos_x"/>
+          </item>
+          <item row="6" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Image_pos_y"/>
+          </item>
+          <item row="3" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Canvas_pos_y"/>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Canvas_pos_x"/>
+          </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="label_RTD_Image_Size">
+            <property name="text">
+             <string>Image Size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_pos_x"/>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_RTD_Canvas_Size">
+            <property name="text">
+             <string>Canvas Size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_Size_x"/>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Machine_Size_y"/>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="lineEdit_RTD_Canvas_Size_W"/>
+          </item>
+          <item row="11" column="0">
+           <widget class="QPushButton" name="pushButton_RTD_Set_Resized">
+            <property name="text">
+             <string>Set Position Info</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_RTD_Machine_Size">
+            <property name="text">
+             <string>Machine Size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="1">
+           <widget class="QSpinBox" name="spinBox_RTD_Frame">
+            <property name="maximum">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QLabel" name="label_RTD_Canvas_pos_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="2">
+           <widget class="QLineEdit" name="lineEdit_RTD_Image_Size_H"/>
+          </item>
+          <item row="0" column="4">
+           <widget class="QLabel" name="label_RTD_Machine_Size_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0">
+           <widget class="QLabel" name="label_RTD_Image_pos">
+            <property name="text">
+             <string>Image Position</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="3">
+           <widget class="QLabel" name="label_RTD_Image_pos_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="3">
+           <widget class="QLabel" name="label_RTD_Image_Size_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="3">
+           <widget class="QLabel" name="label_RTD_Canvas_Size_unit">
+            <property name="text">
+             <string>mm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="1">
+           <widget class="Line" name="line_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QFrame" name="frame_RTD_Images">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <widget class="QLabel" name="label_RTD_Canvas">
+          <property name="geometry">
+           <rect>
+            <x>100</x>
+            <y>90</y>
+            <width>171</width>
+            <height>191</height>
+           </rect>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="pixmap">
+           <pixmap>img/Canvas.png</pixmap>
+          </property>
+          <property name="scaledContents">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_RTD_Image">
+          <property name="geometry">
+           <rect>
+            <x>200</x>
+            <y>130</y>
+            <width>47</width>
+            <height>13</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="pixmap">
+           <pixmap>img/PreImage.png</pixmap>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_RTD_Machine">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>140</y>
+            <width>260</width>
+            <height>260</height>
+           </rect>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::WinPanel</enum>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="pixmap">
+           <pixmap>img/Machine.png</pixmap>
+          </property>
+          <property name="scaledContents">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_RTD_Machine_Point">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>370</y>
+            <width>30</width>
+            <height>30</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="pixmap">
+           <pixmap>img/MachinePoint.png</pixmap>
+          </property>
+          <property name="scaledContents">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <zorder>label_RTD_Machine</zorder>
+         <zorder>label_RTD_Canvas</zorder>
+         <zorder>label_RTD_Image</zorder>
+         <zorder>label_RTD_Machine_Point</zorder>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox_RTD">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox_RTD</sender>
+   <signal>accepted()</signal>
+   <receiver>Dialog_RTD</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox_RTD</sender>
+   <signal>rejected()</signal>
+   <receiver>Dialog_RTD</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

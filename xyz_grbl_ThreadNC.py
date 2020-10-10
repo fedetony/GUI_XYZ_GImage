@@ -35,6 +35,9 @@ class SerialReaderWriterThread(threading.Thread):
         self.wasrunningbeforepause=False
         self.linesexecuted=0
         self.linessenttoexec=0
+        self.linesacknkowledged=0
+        self.IscheckmodeOn=False
+        self.Actualcmdneedstimetoexec=False
        
         logging.info("Thread init XYZ")
         self.data = {}
@@ -49,6 +52,10 @@ class SerialReaderWriterThread(threading.Thread):
         self.data['STATUS'] = str('')
         self.grbl_Config={}
         self.olddata={}
+        self.LastPlannedPos={}
+        self.LastPlannedPos['ZPOS'] = float(0)
+        self.LastPlannedPos['YPOS'] = float(0)
+        self.LastPlannedPos['XPOS'] = float(0)
         for aaa in self.data:         
             self.olddata[aaa]=self.data[aaa]              
 
@@ -164,10 +171,15 @@ class SerialReaderWriterThread(threading.Thread):
                 try:
                     #logging.info("Run entered 7")                    
                     new_cmd = self.rx_queue.get_nowait()
+                    self.Actualcmdneedstimetoexec=self.Does_cmd_need_time_to_execute(new_cmd,self.Actualcmdneedstimetoexec)
+                    
+                    #logging.info("Wait State :" + str(new_cmd)+'-->'+str(self.Actualcmdneedstimetoexec))
                     logging.debug("Received :" + str(new_cmd))
                     self.ser_port.write(str(new_cmd).encode())
                     if self.is_tinyg!=1:
-                        self.grbl_event_status.set()                        
+                        self.grbl_event_status.set()  
+                    self.Do_line_Counting(new_cmd)      
+                    
                 except queue.Empty:
                     #self.grbl_event_status.clear()
                     pass
@@ -176,9 +188,205 @@ class SerialReaderWriterThread(threading.Thread):
         logging.info(self.name + " killed")
         self.ser_port.close()
     
+    def Do_line_Counting(self,new_cmd):      
+        self.linesacknkowledged=self.linesacknkowledged+1                        
+        if self.Actualcmdneedstimetoexec==False: #Count No waiting lines as executed. Example G92 or G80 or M114
+            self.linesexecuted=self.linesexecuted+1                            
+        else:
+            self.Actualcmdneedstimetoexec=self.Track_position_for_Gcode(new_cmd,self.Actualcmdneedstimetoexec)   
+            if self.Actualcmdneedstimetoexec==False: #Count No waiting lines as executed. Example G92 or G80 or M114
+                self.linesexecuted=self.linesexecuted+1 
+        Is_G0G1G2G3=self.Set_Last_Planned_Position(new_cmd)        
+
+    def queue_count(self):
+        return self.rx_queue.qsize()
+
     def Reset_linesexecutedCount(self):
         self.linesexecuted=0
         self.linessenttoexec=0
+        self.linesacknkowledged=0
+    
+    def Set_Last_Planned_Positionfromdata(self):
+        self.LastPlannedPos['XPOS']=self.data['XPOS']
+        self.LastPlannedPos['YPOS']=self.data['YPOS']
+        self.LastPlannedPos['ZPOS']=self.data['ZPOS']
+
+    def Set_Last_Planned_Position(self,txtgcmd):
+        try:
+            mg = re.search('.*?([Gg][0-3 9]{1})(\d*[\.,]?\d*)?.*?([X,x,Y,y,Z,z,F,f,I,i,J,j,K,k])([+-]?\d*[\.,]?\d*)',txtgcmd)
+            if '9' in str(mg.group(1)):
+                if '2' != str(mg.group(2)):
+                    #Not G92
+                    return False
+            else:        
+                if float(mg.group(2)) is not None:
+                    #print('Not G0,G1,G2,G3')
+                    return False                         
+        except:    
+            pass
+        try:
+            mgx = re.search('.*?([Gg][0-3]{1}).*([X,x])([+-]?\d*[\.,]?\d*)',txtgcmd)
+            self.LastPlannedPos['XPOS'] = float(mgx.group(3))            
+        except:    
+            pass
+        try:
+            mgy = re.search('.*?([Gg][0-3]{1}).*([Y,y])([+-]?\d*[\.,]?\d*)',txtgcmd)            
+            self.LastPlannedPos['YPOS'] = float(mgx.group(3))
+        except:    
+            pass
+        try:
+            mgz = re.search('.*?([Gg][0-3]{1}).*([Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)            
+            self.LastPlannedPos['ZPOS'] = float(mgx.group(3))
+        except:    
+            pass
+        return True
+
+
+    def Track_position_for_Gcode(self,txtgcmd,Current_IswaitState):
+        samex=True
+        samey=True
+        samez=True
+        try:
+            mg = re.search('.*?([Gg][0-3]{1})(\d*[\.,]?\d*)?.*?([X,x,Y,y,Z,z,F,f,I,i,J,j,K,k])([+-]?\d*[\.,]?\d*)',txtgcmd)
+            if float(mg.group(2)) is not None:
+                print('Not G0,G1,G2,G3')
+                return Current_IswaitState                         
+        except:    
+            pass
+        print('Is a G0,G1,G2,G3')
+        try:
+            mgx = re.search('.*?([Gg][0-3]{1}).*([X,x])([+-]?\d*[\.,]?\d*)',txtgcmd)
+            if self.LastPlannedPos['XPOS'] == float(mgx.group(3)):
+                samex=True
+            else:
+                samex=False                
+        except:    
+            pass
+        try:
+            mgy = re.search('.*?([Gg][0-3]{1}).*([Y,y])([+-]?\d*[\.,]?\d*)',txtgcmd)            
+            if self.LastPlannedPos['YPOS'] == float(mgy.group(3)):
+                samey=True
+            else:
+                samey=False                            
+        except:    
+            pass
+        try:
+            mgz = re.search('.*?([Gg][0-3]{1}).*([Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)            
+            if self.LastPlannedPos['ZPOS'] == float(mgz.group(3)):
+                samez=True
+            else:
+                samez=False    
+        except:    
+            pass
+        if (samex and samey and samez)==True: #when all coordinates are the same -> no movement
+            return False
+        return Current_IswaitState
+
+    def Does_cmd_need_time_to_execute(self,txtgcmd,Current_IswaitState=False):
+        coords=['X','x','Y','y','Z','z','I','i','J','j','K','k','R','r']
+        GRBL_Wait_for_state_Cmds=['G0','g0','G1','g1','G2','g2','G3','g3','$H','G29','g29','G30','g30', 'G38.2', 'G38.3', 'G38.4', 'G38.5']        
+        gnums=[0,1,2,3,4,28,28.1,28.2,28.3,30,30.1,30.2,30.3]
+        mnums=[]
+        TinyG_Wait_for_state_Cmds=[]
+        for iii in gnums:
+            TinyG_Wait_for_state_Cmds.append('G'+str(iii))
+            TinyG_Wait_for_state_Cmds.append('g'+str(iii))
+        for iii in mnums:
+            TinyG_Wait_for_state_Cmds.append('M'+str(iii))
+            TinyG_Wait_for_state_Cmds.append('m'+str(iii))
+        #TinyG_Wait_for_state_Cmds=['G0','g0','G1','g1','G2','g2','G3','g3','G4','g4','G28','g28','G28.1','g28.1','G28.2','g28.2','G28.3','g28.3','G29','g29','G30','g30']
+        
+        gnums=[0,1,2,3,4,5,10,11,12,27,28,29,30,38.2,38.3,38.4,38.5,42,61,425]
+        mnums=[48,125,190,191,192,226,360,361,362,363,364,400]
+        #Marlin_Wait_for_state_Cmds=['S000','P000','R000']
+        Marlin_Wait_for_state_Cmds=[]
+        for iii in gnums:
+            Marlin_Wait_for_state_Cmds.append('G'+str(iii))
+            Marlin_Wait_for_state_Cmds.append('g'+str(iii))
+        for iii in mnums:
+            Marlin_Wait_for_state_Cmds.append('M'+str(iii))
+            Marlin_Wait_for_state_Cmds.append('m'+str(iii))
+
+        if self.is_tinyg==0: #Grbl            
+            try:
+                mg = re.search('^([\!,~,\?,\$])',txtgcmd)   # override string
+                if str(mg.group(1)) in ['!','~','?']:
+                    return Current_IswaitState
+                if str(mg.group(1))=='$':
+                    if '$H' in txtgcmd or '$h' in txtgcmd: #Homing
+                        return True            
+                    elif '$J' in txtgcmd or '$j' in txtgcmd: #Jogging                          
+                        return True             
+                    elif '$C' in txtgcmd:
+                        if self.IscheckmodeOn==True:
+                            self.IscheckmodeOn=False
+                            return False
+                        else:     
+                            self.IscheckmodeOn=True
+                            return False                  
+                    else:
+                        return Current_IswaitState
+                return False        
+            except:    
+                pass
+            if self.IscheckmodeOn==True:
+                return False   
+            try:                            
+                mg = re.search('^([M,m,G,g,X,x,Y,y,Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)   
+                thecmd=str(mg.group(1))+str(mg.group(2))   
+                if str(mg.group(1)) in coords: # case modal on -> X100
+                    return True
+                for cmd in GRBL_Wait_for_state_Cmds: 
+                    if cmd in thecmd: #case G0 X100
+                        return True 
+                    if cmd in txtgcmd: #case G53 G0 X0
+                        return True       
+            except:
+                pass  
+
+            
+        if self.is_tinyg==1: #TinyG
+            try:                           
+                mg = re.search('^([N,n,M,m,G,g,S,s,P,p,R,r,X,x,Y,y,Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)   
+                thecmd=str(mg.group(1))+str(mg.group(2)) 
+                if str(mg.group(1)) in coords: # case modal on -> X100
+                    return True         
+                if str(mg.group(1)) == 'N' or str(mg.group(1)) == 'n': #if starts with line number search after it the command
+                    mg = re.search('^([N,n])([+-]?\d*[\.,]?\d*)\s?([M,m,G,g,S,s,P,p,R,r,X,x,Y,y,Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)   
+                    thecmd=str(mg.group(3))+str(mg.group(4))              
+                    if str(mg.group(3)) in coords: # case modal on -> X100
+                        return True         
+                for cmd in TinyG_Wait_for_state_Cmds:          
+                    if cmd in thecmd: #case G0 X100
+                        return True 
+                    if cmd in txtgcmd: #case G53 G0 X0
+                        return True       
+            except:
+                pass             
+        if self.is_tinyg==2:
+            try:                           
+                mg = re.search('^([N,n,M,m,G,g,S,s,P,p,R,r,X,x,Y,y,Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)   
+                thecmd=str(mg.group(1))+str(mg.group(2)) 
+                if str(mg.group(1)) in ['R','r','P','p','S','s']:
+                    if 'R000' in txtgcmd or 'S000' in txtgcmd or 'P000' in txtgcmd:
+                        return Current_IswaitState  
+                if str(mg.group(1)) in coords: # case modal on -> X100
+                    return True         
+                if str(mg.group(1)) == 'N' or str(mg.group(1)) == 'n': #if starts with line number search after it the command
+                    mg = re.search('^([N,n])([+-]?\d*[\.,]?\d*)\s?([M,m,G,g,S,s,P,p,R,r,X,x,Y,y,Z,z])([+-]?\d*[\.,]?\d*)',txtgcmd)   
+                    thecmd=str(mg.group(3))+str(mg.group(4))                                
+                    if str(mg.group(3)) in coords: # case modal on -> X100
+                        return True         
+                for cmd in Marlin_Wait_for_state_Cmds:
+                    if cmd in thecmd: #case G0 X100
+                        return True 
+                    if cmd in txtgcmd: #case G53 G0 X0
+                        return True       
+            except:
+                pass             
+            
+            
+        return False    
 
     def Run_Read_Values(self):
         if self.is_tinyg==1:
@@ -193,6 +401,8 @@ class SerialReaderWriterThread(threading.Thread):
             self.Send_grbl_Read(0,False)         # do not report ok-> False             
             grbl_out = self.readline_grbl()
             self.data=self.Process_grbl_data(grbl_out)
+        
+        #self.Set_Last_Planned_Positionfromdata()    
 
     def Initialize_Tinyg(self):
         self.ser_port.write(str.encode("$sv=1\n"))
@@ -391,7 +601,7 @@ class SerialReaderWriterThread(threading.Thread):
                 any=1
                 # print grbl_out
             if  any==1:   
-                logging.info('<' + str(self.data['STATUS'])+', POS:'+"\t"+str(self.data['XPOS'])+",\t" + str(self.data['YPOS'])+",\t" + str(self.data['ZPOS'])+'> ' +str(self.data['STATE_XYZ']))
+                logging.info('<' + str(self.data['STATUS'])+', POS:'+"\t"+str(self.data['XPOS'])+",\t" + str(self.data['YPOS'])+",\t" + str(self.data['ZPOS'])+'> ' +str(self.data['STATE_XYZ']))                                            
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]
             else:
@@ -529,6 +739,9 @@ class SerialReaderWriterThread(threading.Thread):
             if "error" in grbl_out:                
                 self.data['STATUS']=grbl_out
                 logging.info(self.data['STATUS'])
+                if self.Actualcmdneedstimetoexec==True or self.IsRunning_event.is_set():
+                    self.IsRunning_event.clear()    
+                    self.linesexecuted=self.linesexecuted+1
             if "ALARM" in grbl_out:
                 self.data['STATUS']=grbl_out
             if "echo:" in grbl_out:
@@ -622,6 +835,9 @@ class SerialReaderWriterThread(threading.Thread):
             if "error" in grbl_out:                
                 self.data['STATUS']=grbl_out
                 logging.info(self.data['STATUS'])
+                if self.Actualcmdneedstimetoexec==True:
+                    self.IsRunning_event.clear()    
+                    self.linesexecuted=self.linesexecuted+1
             if "ALARM" in grbl_out:
                 self.data['STATUS']=grbl_out
                 logging.info(self.data['STATUS'])
@@ -665,12 +881,13 @@ class SerialReaderWriterThread(threading.Thread):
                 #if self.grbl_event_status.is_set():                
                 if self.Compare_Hasdatachanged(self.olddata)==True:
                     logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
-                
-                if self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
-                    self.IsRunning_event.clear()    
-                    self.linesexecuted=self.linesexecuted+1
-                else:
-                    self.IsRunning_event.set()   
+                    # if state changed                
+                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
+                        if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
+                            self.IsRunning_event.clear()    
+                            self.linesexecuted=self.linesexecuted+1
+                        else:
+                            self.IsRunning_event.set()   
 
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]              
@@ -853,7 +1070,13 @@ class XYZGrbl:
 
     def grbl_gcode_cmd(self,gcode_cmd):
         if self.ser_read_thread.is_tinyg==2 and gcode_cmd=='M410':
-            self.grbl_stop()          
+            self.grbl_stop()     
+        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='!':
+            self.grbl_feed_hold()         
+        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='~':
+            self.grbl_event_start.set()
+        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='^X':                
+            self.grbl_event_softreset.set()               
         else:
             self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
     
@@ -886,7 +1109,13 @@ class XYZGrbl:
         self.ser_read_thread.Reset_linesexecutedCount()
     
     def Get_linesexecutedCount(self):
-        return self.ser_read_thread.linesexecuted    
+        return self.ser_read_thread.linesexecuted  
+
+    def Get_linesacknowledgedCount(self):
+        return self.ser_read_thread.linesacknkowledged      
+    
+    def Get_Queue_Count(self):    
+        return self.ser_read_thread.queue_count()
 
     def Is_TinyG(self):
         return self.ser_read_thread.is_tinyg
