@@ -384,6 +384,8 @@ class GImage:
         self.Tool_List.append('Cutter')
         self.Tool_List.append('Pencil')
         self.Tool_List.append('Mechanical Pencil')
+        self.Tool_List.append('Laser')
+        self.Tool_List.append('Spindle')
         self.Selected_Tool=self.Tool_List[1]
         
 
@@ -1447,8 +1449,9 @@ class Image_Gcode_Stream(threading.Thread):
         color_joined_pieces = Vectorize.Get_color_joined_pieces_from_rgba_image(imageRGBA, opaque, keep_every_point)
         svg=Vectorize.write_color_joined_pieces_to_svg_contiguous(im,color_joined_pieces)   
         try:  
-            Filename="test/Temp_Imp_Vectorized.svg"
-            Vectorize.Save_svg_text_file(svg,Filename)   
+            Filename="temp/Temp_Imp_Vectorized.svg"
+            Vectorize.Save_svg_text_file(svg,Filename)  
+            loggin.info("svg File saved under "+Filename) 
         except:
             pass    
         Vectorize.join()

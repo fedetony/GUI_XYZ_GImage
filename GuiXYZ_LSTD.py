@@ -31,6 +31,9 @@ class Ui_Dialog_LSTD(object):
         self.pushButton_LSTD_Set_Preview = QtWidgets.QPushButton(self.groupBox_LSTD_Layer_Select)
         self.pushButton_LSTD_Set_Preview.setObjectName("pushButton_LSTD_Set_Preview")
         self.gridLayout_3.addWidget(self.pushButton_LSTD_Set_Preview, 1, 1, 1, 1)
+        self.checkBox_LSTD_checkall = QtWidgets.QCheckBox(self.groupBox_LSTD_Layer_Select)
+        self.checkBox_LSTD_checkall.setObjectName("checkBox_LSTD_checkall")
+        self.gridLayout_3.addWidget(self.checkBox_LSTD_checkall, 1, 0, 1, 1)
         self.gridLayout_2.addLayout(self.gridLayout_3, 0, 1, 1, 1)
         self.frame = QtWidgets.QFrame(self.groupBox_LSTD_Layer_Select)
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -60,6 +63,7 @@ class Ui_Dialog_LSTD(object):
         self.groupBox_LSTD_Layer_Select.setTitle(_translate("Dialog_LSTD", "Layer_Select"))
         self.label_LSTD_Image_Process.setText(_translate("Dialog_LSTD", "Image Process"))
         self.pushButton_LSTD_Set_Preview.setText(_translate("Dialog_LSTD", "Set_Preview"))
+        self.checkBox_LSTD_checkall.setText(_translate("Dialog_LSTD", "Check All"))
 
 
 if __name__ == "__main__":

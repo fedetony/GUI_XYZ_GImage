@@ -728,6 +728,8 @@ class Ui_MainWindow(object):
         self.actionResize.setObjectName("actionResize")
         self.actionSave_svg_Gimage = QtWidgets.QAction(MainWindow)
         self.actionSave_svg_Gimage.setObjectName("actionSave_svg_Gimage")
+        self.actionCommand_Configuration = QtWidgets.QAction(MainWindow)
+        self.actionCommand_Configuration.setObjectName("actionCommand_Configuration")
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionSave_Config)
         self.menuGcode.addAction(self.actionLoad_Gcode)
@@ -739,6 +741,8 @@ class Ui_MainWindow(object):
         self.menuGimage.addAction(self.actionSave_Processed_Image)
         self.menuGimage.addSeparator()
         self.menuGimage.addAction(self.actionSave_Gimage_Gcode)
+        self.menuGimage.addSeparator()
+        self.menuGimage.addAction(self.actionSave_svg_Gimage)
         self.menuFile.addAction(self.menuConfig.menuAction())
         self.menuFile.addAction(self.menuGcode.menuAction())
         self.menuFile.addAction(self.menuGimage.menuAction())
@@ -746,7 +750,8 @@ class Ui_MainWindow(object):
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionResize)
         self.menuTools.addSeparator()
-        self.menuTools.addAction(self.actionSave_svg_Gimage)
+        self.menuTools.addAction(self.actionCommand_Configuration)
+        self.menuTools.addSeparator()
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
 
@@ -836,6 +841,7 @@ class Ui_MainWindow(object):
         self.actionLayer_Selection.setText(_translate("MainWindow", "Layer Selection"))
         self.actionResize.setText(_translate("MainWindow", "Resize"))
         self.actionSave_svg_Gimage.setText(_translate("MainWindow", "Save svg Gimage"))
+        self.actionCommand_Configuration.setText(_translate("MainWindow", "Command Configuration"))
 
 
 if __name__ == "__main__":

@@ -15,14 +15,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PIL.ImageQt import ImageQt
 
-#from PyQt5.QtWidgets import QMessageBox,QAction,QLabel
-#from PyQt5.QtWidgets import QTableWidget,QTableWidgetItem
-#from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog
-#from PyQt5.QtGui import QIcon
-#from PyQt5.QtCore import Qt, QRect, QSize
-#from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QTextEdit, QSizePolicy
-#from PyQt5.QtGui import QColor, QPainter, QTextFormat
-
 import sys
 import glob
 import serial
@@ -42,10 +34,13 @@ from Gimage_V1 import Image_Gcode_Stream
 from Gimage_V1 import GImage 
 import GuiXYZ_V1
 import GuiXYZ_LSTD
+import GuiXYZ_CCD
 import GuiXYZ_RTD
 #import atexit
 #import keyboard for keyboard inputs
-
+import class_CCD   
+import class_LSTD 
+import class_RTD
 class QLabel_altered(QLabel):
     
     resize=pyqtSignal()
@@ -183,7 +178,13 @@ class MyWindow(QtWidgets.QMainWindow):
         event.ignore()
 
         if result == QtWidgets.QMessageBox.Yes:
-            #print('inside class')             
+            #print('inside class')       
+            # self.CCDialog      
+            try:                
+                ui.CCDialog.quit()                   
+            except Exception as e:
+                #logging.error(e)     
+                pass      
             try:                
                 ui.LSTDialog.quit()                   
             except Exception as e:
@@ -246,524 +247,6 @@ class Dialogs(QWidget):
             return fileName
         else:
             return None
-class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
-    set_clicked= QtCore.pyqtSignal(list)
-    #def __init__(self,NumLayers,Selected_Layers,parent=None):    
-    #    super().__init__(parent)
-    def __init__(self,NumLayers,Selected_Layers, *args, **kwargs):
-        super(LayerSelectionToolDialog, self).__init__(*args, **kwargs)    
-        self.Number_of_Layers=NumLayers
-        if self.Number_of_Layers<1:
-            self.Number_of_Layers=1
-        self.Selected_Layers=Selected_Layers        
-        if self.Selected_Layers is None or len(self.Selected_Layers)<=0:
-            self.Selected_Layers=[-1]
-        self.Layer_range=[0,0,self.Number_of_Layers]    
-        self.openLayerSelectToolDialog()
-        self.Set_Checkboxeswith_Selected_Layers(self.Selected_Layers)   
-    
-    def quit(self):
-        self.Dialog_LSTD.close()
-
-    def Assign_Colors_to_Labels(self,Color_Palette):
-
-        for iii in range(self.Number_of_Layers): 
-            #CBname="checkBox_LSTD"+'_CB_L'+str(iii)
-            Color=(255,255,255)
-            Lname="label_LSTD"+'_L_L'+str(iii)                         
-            try:
-                label = self.Dialog_LSTD.findChild(QtWidgets.QLabel, Lname)                  
-                txt="("+str(255)+","+str(255)+","+str(255)+")"    
-                label.setText(txt)    
-                label.setStyleSheet("background-color:rgb"+txt+"; border: 1px solid black;")
-                label.adjustSize()
-                if Color_Palette is not None:
-                    for ttt in Color_Palette:# (p,c,r,g,b)) palette,count,rgb tuple
-                        (p,c,r,g,b)=ttt
-                        if p==iii:
-                            Color=(r,g,b)
-                            txt="("+str(r)+","+str(g)+","+str(b)+")"    
-                            label.setText(txt)    
-                            label.setStyleSheet("background-color:rgb"+txt+"; border: 1px solid black;")                        
-                            break
-               
-
-            except Exception as e:
-                logging.error(e)
-                logging.info("Label Error!"+Lname)
-                pass    
-
-
-    def Clear_allcheckbox(self,val=False):
-        for iii in range(self.Number_of_Layers): 
-            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
-            #Lname="label_LSTD"+'_L_L'+str(iii)                         
-            try:
-                checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)                  
-                checkbox.setChecked(val)
-            except Exception as e:
-                logging.error(e)
-                logging.info("Check Box Error!"+CBname)
-                pass    
-    
-    def Get_Selected_Layers_From_checkbox(self):
-        S_L=[]
-        sss=0
-        for iii in range(self.Number_of_Layers): 
-            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
-            #Lname="label_LSTD"+'_L_L'+str(iii)                         
-            try:
-                checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)                  
-                if checkbox.isChecked()==True:
-                    S_L.append(iii)
-                    sss=sss+1
-            except Exception as e:
-                logging.error(e)
-                logging.info("Check Box Error!"+CBname)
-                pass    
-        if sss==self.Number_of_Layers:
-            S_L=[-1]    
-        self.Selected_Layers = S_L    
-
-    def Set_Checkboxeswith_Selected_Layers(self,S_L):
-        Isall=False
-        self.Clear_allcheckbox()
-        for iii in S_L:
-            CBname="checkBox_LSTD"+'_CB_L'+str(iii)
-            #Lname="label_LSTD"+'_L_L'+str(iii)
-            if iii==-1:
-                Isall=True
-                break                       
-            checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)
-            checkbox.setChecked(True)
-        if Isall==True:
-            self.Clear_allcheckbox(True)
-
-
-    def set_objects_fromNum_layers(self,Num_Layers):
-        
-        Obj_Names=[]
-        for iii in range(Num_Layers):
-            Obj_Names.append('_CB_L'+str(iii))
-            Obj_Names.append('_L_L'+str(iii))
-        Obj_Text=[]
-        for iii in range(Num_Layers):
-            Obj_Text.append('Layer'+str(iii))
-            Obj_Text.append(str(iii))
-        
-        obj_positions = [(iii, jjj) for iii in range(Num_Layers) for jjj in range(2)]
-
-        L_N=0
-        for position, name, txt in zip(obj_positions, Obj_Names, Obj_Text):
-            if name == '':
-                continue
-            if '_CB_L' in name:                
-                checkbox=QtWidgets.QCheckBox(self.DSLui.frame)
-                checkbox.setObjectName("checkBox_LSTD"+name)  
-                checkbox.setText(txt)                
-                checkbox.clicked.connect(self.Get_Selected_Layers_From_checkbox)
-                self.DSLui.gridLayout.addWidget(checkbox, *position)              
-
-
-            else:
-                label=QtWidgets.QLabel(self.DSLui.frame)
-                label.setObjectName("label_LSTD"+name)
-                label.setText(txt)
-                self.DSLui.gridLayout.addWidget(label, *position)
-                L_N=L_N+1    
-           
-    def openLayerSelectToolDialog(self):
-        self.Dialog_LSTD = QtWidgets.QDialog()
-        self.DSLui = GuiXYZ_LSTD.Ui_Dialog_LSTD()
-        self.DSLui.setupUi(self.Dialog_LSTD)
-        self.set_objects_fromNum_layers(self.Number_of_Layers)        
-        self.Dialog_LSTD.show()             
-        self.DSLui.pushButton_LSTD_Set_Preview.clicked.connect(self.PB_LSTD_Set_Preview)
-            
-    def PB_LSTD_Set_Preview(self):            
-        #print('clicked')
-        self.set_clicked.emit(self.Selected_Layers)
-
-    def accept(self):
-        #print('accepted')
-        self.Get_Selected_Layers_From_checkbox()
-        return self.Selected_Layers   
-
-    def Get_list_of_Selected_Layers(self,Selected_Layers,pimg_val_range):
-        listofSellay=[]
-        for sss in Selected_Layers:
-            if sss==-1:
-                listofSellay=[]
-                for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
-                    listofSellay.append(iii)
-                break
-            if sss<=pimg_val_range[2] and sss>=pimg_val_range[1]:
-                listofSellay.append(sss)
-        if len(Selected_Layers)==0:    
-            listofSellay=[]
-            for iii in range(pimg_val_range[1],pimg_val_range[2]+1):
-                listofSellay.append(iii)
-        return listofSellay
-
-class ResizeToolDialog(QWidget,GuiXYZ_RTD.Ui_Dialog_RTD):
-    set_clicked= QtCore.pyqtSignal(list)
-    #def __init__(self,NumLayers,Selected_Layers,parent=None):    
-    #    super().__init__(parent)
-    def __init__(self,Resize_Data_List, *args, **kwargs):
-        super(ResizeToolDialog, self).__init__(*args, **kwargs)    
-        self.IsRTDim=False
-        self.Scale=1
-        self.Resize_Data_List=Resize_Data_List    
-        self.openResizeToolDialog()
-        [self.Machine_Size,self.Machine_pos,self.Canvas_pos,self.Canvas_Size,self.Image_pos,self.Image_Size,self.Frame]=self.Resize_Data_List
-        self.Set_Data_List(self.Resize_Data_List)
-        self.Actualize_labels_positions()
-        self.RTD_Connect_Actions()
-    
-    def quit(self):
-        self.Dialog_RTD.close()
-           
-    def openResizeToolDialog(self):
-        self.Dialog_RTD = QtWidgets.QDialog()
-        self.DRui = GuiXYZ_RTD.Ui_Dialog_RTD()
-        self.DRui.setupUi(self.Dialog_RTD)
-        #self.set_objects_fromNum_layers(self.Number_of_Layers)        
-        self.Dialog_RTD.show()             
-        self.DRui.pushButton_RTD_Set_Resized.clicked.connect(self.PB_RTD_Set_Preview)
-            
-    def PB_RTD_Set_Preview(self):            
-        #print('clicked')
-        self.Update_Resize_Data_List()
-        self.set_clicked.emit(self.Resize_Data_List)
-
-    def Update_Resize_Data_List(self):
-        self.Resize_Data_List=[self.Machine_Size,self.Machine_pos,self.Canvas_pos,self.Canvas_Size,self.Image_pos,self.Image_Size,self.Frame]
-    
-    def accept(self):
-        #print('accepted')
-        #self.Get_Selected_Layers_From_checkbox()
-        self.Update_Resize_Data_List()
-        return self.Resize_Data_List  
-    
-    def Set_Data_List(self,Data_List):
-        #print(Data_List)
-        [Machine_Size,Machine_pos,Canvas_pos,Canvas_Size,Image_pos,Image_Size,Frame]=Data_List
-        self.Set_Machine_Size(Machine_Size)
-        self.Set_Machine_pos(Machine_pos)
-        self.Set_Canvas_pos(Canvas_pos)    
-        self.Set_Canvas_Size(Canvas_Size)   
-        self.Set_Image_pos(Image_pos)   
-        self.Set_Image_Size(Image_Size)     
-        self.Set_Frame(Frame)                 
-
-    def RTD_Connect_Actions(self):
-        #self.DRui.groupBox_RTD_Resize.
-
-        self.DRui.lineEdit_RTD_Machine_Size_x.editingFinished.connect(self.Put_Machine_Size)
-        self.DRui.lineEdit_RTD_Machine_Size_y.editingFinished.connect(self.Put_Machine_Size)
-        self.DRui.lineEdit_RTD_Machine_Size_z.editingFinished.connect(self.Put_Machine_Size)
-        
-        self.DRui.lineEdit_RTD_Machine_pos_x.editingFinished.connect(self.Put_Machine_pos)
-        self.DRui.lineEdit_RTD_Machine_pos_y.editingFinished.connect(self.Put_Machine_pos)
-        self.DRui.lineEdit_RTD_Machine_pos_z.editingFinished.connect(self.Put_Machine_pos) 
-
-        self.DRui.lineEdit_RTD_Canvas_pos_x.editingFinished.connect(self.Put_Canvas_pos)
-        self.DRui.lineEdit_RTD_Canvas_pos_y.editingFinished.connect(self.Put_Canvas_pos)
-
-        self.DRui.lineEdit_RTD_Canvas_Size_W.editingFinished.connect(self.Put_Canvas_Size)
-        self.DRui.lineEdit_RTD_Canvas_Size_H.editingFinished.connect(self.Put_Canvas_Size)  
-
-        self.DRui.lineEdit_RTD_Image_pos_x.editingFinished.connect(self.Put_Image_pos)
-        self.DRui.lineEdit_RTD_Image_pos_y.editingFinished.connect(self.Put_Image_pos)
-
-        self.DRui.lineEdit_RTD_Image_Size_W.editingFinished.connect(self.Put_Image_Size)
-        self.DRui.lineEdit_RTD_Image_Size_H.editingFinished.connect(self.Put_Image_Size)
-
-        self.DRui.spinBox_RTD_Frame.valueChanged.connect(self.Put_Frame)
-    
-    def Put_All(self):
-        self.Put_Machine_Size()
-        self.Put_Machine_pos()
-        self.Put_Canvas_pos()
-        self.Put_Canvas_Size()
-        self.Put_Image_pos()
-        self.Put_Image_Size()
-        self.Put_Frame()
-
-    def Put_Machine_Size(self):
-        Machine_Size=self.Get_Machine_Size()
-        #print('Got '+str(Machine_Size)+' had '+str(self.Machine_Size))
-        self.Set_Machine_Size(Machine_Size) #if accepted
-        self.Machine_Size=self.Get_Machine_Size()        
-        self.Actualize_labels_positions()
-
-    def Put_Machine_pos(self):
-        Machine_pos=self.Get_Machine_pos()        
-        #print('Got '+str(Machine_pos)+' had '+str(self.Machine_pos))
-        self.Set_Machine_pos(Machine_pos) #if accepted
-        self.Machine_pos=self.Get_Machine_pos()        
-        #print('Got after '+str(Machine_pos)+' had '+str(self.Machine_pos))
-        self.Actualize_labels_positions() 
-
-    def Put_Canvas_pos(self):
-        Canvas_pos=self.Get_Canvas_pos()        
-        self.Set_Canvas_pos(Canvas_pos) #if accepted
-        self.Canvas_pos=self.Get_Canvas_pos()        
-        self.Actualize_labels_positions() 
-
-    def Put_Canvas_Size(self):
-        Canvas_Size=self.Get_Canvas_Size()        
-        self.Set_Canvas_Size(Canvas_Size) #if accepted
-        self.Canvas_Size=self.Get_Canvas_Size()        
-        self.Actualize_labels_positions()     
-
-    def Put_Image_Size(self):
-        Image_Size=self.Get_Image_Size()        
-        self.Set_Image_Size(Image_Size) #if accepted
-        self.Image_Size=self.Get_Image_Size()        
-        self.Actualize_labels_positions() 
-
-    def Put_Image_pos(self):
-        Image_pos=self.Get_Image_pos()        
-        self.Set_Image_pos(Image_pos) #if accepted
-        self.Image_pos=self.Get_Image_pos()        
-        self.Actualize_labels_positions()     
-
-    def Put_Frame(self):
-        self.Frame=self.Get_Frame()
-        if self.Frame==0:
-           self.DRui.label_RTD_Image.setStyleSheet("border: No border;") 
-        else:
-           self.DRui.label_RTD_Image.setStyleSheet("border: 2px solid black;")  
-           #self.DRui.label_RTD_Image.setStyleSheet("border: 2px solid blue;") 
-    
-    def Get_Machine_Size(self):
-        Data=self.Machine_Size
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Machine_Size_x.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Machine_Size_y.text())
-            Data[2]=float(self.DRui.lineEdit_RTD_Machine_Size_z.text())
-        except Exception as e:
-            logging.error(e)
-            self.Set_Machine_Size(self.Machine_Size)
-            Data=self.Machine_Size
-        return Data    
-
-    def Set_Machine_Size(self,Machine_Size):
-        if Machine_Size is not None:
-            
-            self.DRui.lineEdit_RTD_Machine_Size_x.setText(str("{0:.2f}".format(Machine_Size[0])))
-            self.DRui.lineEdit_RTD_Machine_Size_y.setText(str("{0:.2f}".format(Machine_Size[1])))
-            self.DRui.lineEdit_RTD_Machine_Size_z.setText(str("{0:.2f}".format(Machine_Size[2])))        
-
-    def Get_Machine_pos(self):
-        Data=self.Machine_pos
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Machine_pos_x.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Machine_pos_y.text())
-            Data[2]=float(self.DRui.lineEdit_RTD_Machine_pos_z.text())
-        except Exception as e:
-            logging.error(e)
-            self.Set_Machine_pos(self.Machine_pos)
-            Data=self.Machine_pos
-        return Data   
-        
-
-    def Set_Machine_pos(self,Machine_pos):
-        if Machine_pos is not None:
-            self.DRui.lineEdit_RTD_Machine_pos_x.setText(str("{0:.2f}".format(Machine_pos[0])))
-            self.DRui.lineEdit_RTD_Machine_pos_y.setText(str("{0:.2f}".format(Machine_pos[1])))
-            self.DRui.lineEdit_RTD_Machine_pos_z.setText(str("{0:.2f}".format(Machine_pos[2])))
-
-    def Get_Canvas_pos(self):
-        Data=self.Canvas_pos
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Canvas_pos_x.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Canvas_pos_y.text())            
-        except:
-            self.Set_Canvas_pos(self.Canvas_pos)
-            Data=self.Canvas_pos
-        return Data           
-
-    def Set_Canvas_pos(self,Canvas_pos):
-        if Canvas_pos is not None:
-            self.DRui.lineEdit_RTD_Canvas_pos_x.setText(str("{0:.2f}".format(Canvas_pos[0])))
-            self.DRui.lineEdit_RTD_Canvas_pos_y.setText(str("{0:.2f}".format(Canvas_pos[1])))
-
-    def Get_Canvas_Size(self):
-        Data=self.Canvas_Size
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Canvas_Size_W.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Canvas_Size_H.text())            
-        except:
-            self.Set_Canvas_Size(self.Canvas_Size)
-            Data=self.Canvas_Size
-        return Data  
-        
-    def Set_Canvas_Size(self,Canvas_Size):
-        if Canvas_Size is not None:
-            self.DRui.lineEdit_RTD_Canvas_Size_W.setText(str("{0:.2f}".format(Canvas_Size[0])))
-            self.DRui.lineEdit_RTD_Canvas_Size_H.setText(str("{0:.2f}".format(Canvas_Size[1])))    
-
-    def Get_Image_pos(self):
-        Data=self.Image_pos
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Image_pos_x.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Image_pos_y.text())            
-        except:
-            self.Set_Image_pos(self.Image_pos)
-            Data=self.Image_pos
-        return Data          
-
-    def Set_Image_pos(self,Image_pos):
-        if Image_pos is not None:
-            self.DRui.lineEdit_RTD_Image_pos_x.setText(str("{0:.2f}".format(Image_pos[0])))
-            self.DRui.lineEdit_RTD_Image_pos_y.setText(str("{0:.2f}".format(Image_pos[1])))
-
-    def Get_Image_Size(self):
-        Data=self.Image_Size
-        try:
-            Data[0]=float(self.DRui.lineEdit_RTD_Image_Size_W.text())
-            Data[1]=float(self.DRui.lineEdit_RTD_Image_Size_H.text())            
-        except:
-            self.Set_Image_Size(self.Image_Size)
-            Data=self.Image_Size
-        return Data             
-
-    def Set_Image_Size(self,Image_Size):
-        if Image_Size is not None:
-            self.DRui.lineEdit_RTD_Image_Size_W.setText(str("{0:.2f}".format(Image_Size[0])))
-            self.DRui.lineEdit_RTD_Image_Size_H.setText(str("{0:.2f}".format(Image_Size[1])))
-
-    def Get_Frame(self):
-        Data=self.Frame
-        try:
-            Data=int(self.DRui.spinBox_RTD_Frame.value())            
-        except:
-            self.Set_Frame(self.Frame)
-        return Data             
-                
-    def Set_Frame(self,Frame):
-        if Frame >= 0:
-            self.DRui.spinBox_RTD_Frame.setValue(int(Frame))
-
-    def Get_Data_List(self):        
-        Machine_Size=self.Get_Machine_Size()
-        Machine_pos=self.Get_Machine_pos()
-        Canvas_pos=self.Get_Canvas_pos()    
-        Canvas_Size=self.Get_Canvas_Size()   
-        Image_pos=self.Get_Image_pos()   
-        Image_Size=self.Get_Image_Size()     
-        Frame=self.Get_Frame()    
-        Data_List=[Machine_Size,Machine_pos,Canvas_pos,Canvas_Size,Image_pos,Image_Size,Frame]
-        
-    def Set_Unit_tooltip_info(self,RTD_dict):
-        self.DRui.label_RTD_Machine_Size_unit.setText(RTD_dict['RSize'+'_Unit'])
-        self.DRui.label_RTD_Machine_pos_unit.setText(RTD_dict['Rpos'+'_Unit'])
-        self.DRui.label_RTD_Canvas_pos_unit.setText(RTD_dict['Cpos'+'_Unit'])
-        self.DRui.label_RTD_Canvas_Size_unit.setText(RTD_dict['CSize'+'_Unit'])
-        self.DRui.label_RTD_Image_pos_unit.setText(RTD_dict['Ipos'+'_Unit'])
-        self.DRui.label_RTD_Image_Size_unit.setText(RTD_dict['ISize'+'_Unit'])
-        #RTD_dict['Frame'+'_Unit'])
-
-        self.DRui.label_RTD_Machine_Size_unit.setToolTip(RTD_dict['RSize'+'_Info'])
-        self.DRui.label_RTD_Machine_pos_unit.setToolTip(RTD_dict['Rpos'+'_Info'])
-        self.DRui.label_RTD_Canvas_pos_unit.setToolTip(RTD_dict['Cpos'+'_Info'])
-        self.DRui.label_RTD_Canvas_Size_unit.setToolTip(RTD_dict['CSize'+'_Info'])
-        self.DRui.label_RTD_Image_pos_unit.setToolTip(RTD_dict['Ipos'+'_Info'])
-        self.DRui.label_RTD_Image_Size_unit.setToolTip(RTD_dict['ISize'+'_Info'])
-        self.DRui.spinBox_RTD_Frame.setToolTip(RTD_dict['Frame'+'_Info'])
-
-    def Actualize_labels_positions(self):        
-        self.Set_Scale()
-        self.Set_Machine_label()
-        self.Set_Canvas_label()    
-        self.Set_Image_label()  
-        self.Set_Machine_Point_label()  
-
-    def Set_Scale(self):
-        self.Scale=1
-        if self.Machine_Size[0]>0 and self.Machine_Size[1]>0:
-            FRect=self.DRui.frame_RTD_Images.frameRect()
-            FH=FRect.height()
-            FW=FRect.width()
-            S1=(FW/self.Machine_Size[0])
-            S2=(FH/self.Machine_Size[1])
-            self.Scale=min(S1,S2)
-            #print('Scale->'+str(self.Scale))
-
-    def Set_Machine_label(self):
-        try:
-            Geo=self.DRui.frame_RTD_Images.geometry()
-            MGeo=self.DRui.label_RTD_Machine.geometry()
-            x_F,y_F,W_F,H_F=Geo.getRect()            
-            MGeo.setRect(0, 0, int(self.Machine_Size[0]*self.Scale), int(self.Machine_Size[1]*self.Scale))
-            self.DRui.label_RTD_Machine.setGeometry(MGeo)
-        except:
-            pass
-    
-    def TL_to_BL(self,xtl,ytl,W,H,Htlbl):
-        return xtl,Htlbl-ytl,W,H
-
-    def BL_to_TL(self,xbl,ybl,W,H,Htlbl):
-        return xbl,Htlbl+ybl,W,H    
-
-    def Set_Canvas_label(self):        
-        try:
-            MGeo=self.DRui.label_RTD_Machine.geometry()
-            CGeo=self.DRui.label_RTD_Canvas.geometry()
-            x_M,y_M,W_M,H_M=MGeo.getRect() # top, left
-            x_MO=int(self.Canvas_pos[0]*self.Scale)
-            y_MO=int(self.Canvas_pos[1]*self.Scale)
-            W_C=int(self.Canvas_Size[0]*self.Scale)
-            H_C=int(self.Canvas_Size[1]*self.Scale)                
-            pos=[x_M+x_MO,y_M+(H_M-(y_MO+H_C)),W_C,H_C]        
-            CGeo.setRect(pos[0],pos[1],pos[2],pos[3])        
-            self.DRui.label_RTD_Canvas.setGeometry(CGeo)    
-        except:
-            pass    
-
-    def Set_Image_label(self):        
-        try:
-            #MGeo=self.DRui.label_RTD_Machine.geometry()
-            CGeo=self.DRui.label_RTD_Canvas.geometry()
-            IGeo=self.DRui.label_RTD_Image.geometry()
-            x_C,y_C,W_C,H_C=CGeo.getRect() # top, left
-            x_IO=int(self.Image_pos[0]*self.Scale)
-            y_IO=int(self.Image_pos[1]*self.Scale)
-            W_I=int(self.Image_Size[0]*self.Scale)
-            H_I=int(self.Image_Size[1]*self.Scale)         
-            pos=[x_C+x_IO,y_C+(H_C-(y_IO+H_I)),W_I,H_I]        
-            IGeo.setRect(pos[0],pos[1],pos[2],pos[3])        
-            self.DRui.label_RTD_Image.setGeometry(IGeo) 
-        except:
-            pass     
-
-    def Set_Image_to_Image_label(self,im):
-        self.im=im
-        qim = ImageQt(im)
-        self.the_pixmap=QtGui.QPixmap.fromImage(qim)        
-        self.DRui.label_RTD_Image.setPixmap(self.the_pixmap.scaled(
-                    self.DRui.label_RTD_Image.size(), QtCore.Qt.KeepAspectRatio,
-                    QtCore.Qt.SmoothTransformation))       
-        self.IsRTDim=True      
-        self.Put_Frame()
-    def Set_Machine_Point_label(self):         
-        try:
-            MGeo=self.DRui.label_RTD_Machine.geometry()
-            MPGeo=self.DRui.label_RTD_Machine_Point.geometry()
-            x_,y_,W_MP,H_MP=MPGeo.getRect() # top, left
-            x_M,y_M,W_M,H_M=MGeo.getRect() # top, left
-            x_MPO=int(self.Machine_pos[0]*self.Scale)
-            y_MPO=int(self.Machine_pos[1]*self.Scale)            
-            W_M=int(self.Machine_Size[0]*self.Scale)
-            H_M=int(self.Machine_Size[1]*self.Scale)         
-            pos=[x_M+x_MPO-int(W_MP/2),y_M+(H_M-(y_MPO+H_MP-int(H_MP/2))),W_MP,H_MP]        
-            MPGeo.setRect(pos[0],pos[1],pos[2],pos[3])        
-            self.DRui.label_RTD_Machine_Point.setGeometry(MPGeo) 
-        except:
-            pass  
-
 
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
@@ -804,7 +287,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Fill_COM_Combo()
         self.Connect_Actions()
         self.init_Values()
-        
+        #Init Commands configuration class
+        self.CCDialog=class_CCD.CommandConfigurationDialog(self.Actual_Interface)
         # Set Icons and status off
         self.Set_Icons_Status_OnOFF(False)
         
@@ -841,8 +325,21 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
 
         self.actionSave_Config.triggered.connect(self.Save_config_to_file)
+        '''
+        self.actionOpen.triggered.connect()         
+        self.actionLoad_Gcode.triggered.connect() 
+        self.actionSave_Gcode.triggered.connect() 
+        self.actionSave_Gimage_Config.triggered.connect() 
+        self.actionLoad_Gimage_Config.triggered.connect() 
+        self.actionLoad_Image.triggered.connect() 
+        self.actionSave_Processed_Image.triggered.connect() 
+        self.actionSave_Gimage_Gcode.triggered.connect() 
+        self.actionSave_svg_Gimage.triggered.connect() 
+        '''
         self.actionLayer_Selection.triggered.connect(self.Open_LayerSelectionToolDialog)
         self.actionResize.triggered.connect(self.Open_ResizeToolDialog)
+        self.actionCommand_Configuration.triggered.connect(self.Open_CommandConfigurationDialog)
+        
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
         self.pushButton_SetConfig.clicked.connect(self.Set_Config_Value)
@@ -892,6 +389,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Process_Image.clicked.connect(self.PB_Process_Image)
 
         self.pushButton_Generate_Gimage_Code.clicked.connect(self.PB_Generate_Gimage_Code)
+
+        
 
         """
         for i,self.tabWidget in enumerate(bars):
@@ -944,6 +443,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.label_Image_Preview_Processed.setToolTip("Double Click to Open Image")
         self.connect_label_actions()
         self.Fill_Image_process_Tool_Technique_Combo()
+        self.Actual_Interface=0 #0=Grbl,1=TinyG,2=Marlin
 
     def connect_label_actions(self):    
         #self.label_Image_Preview.clicked.connect(self.Image_Preview_Clicked) 
@@ -955,9 +455,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.label_Image_Preview_Processed.left_clicked[int].connect(self.left_click_P)
         self.label_Image_Preview_Processed.right_clicked[int].connect(self.right_click_P)
 
+    def Open_CommandConfigurationDialog(self):        
+        self.CCDialog.openCommandConfigDialog()
+
     def Open_ResizeToolDialog(self):
         RTD_List=self.G_Image.RTD_Get_Data_List()
-        self.RTDialog=ResizeToolDialog(RTD_List)
+        self.RTDialog=class_RTD.ResizeToolDialog(RTD_List)
         RTD_Info=self.G_Image.RTD_Get_Units_Info_List()   
         self.RTDialog.Set_Unit_tooltip_info(RTD_Info)
         self.RTDialog.DRui.buttonBox_RTD.accepted.connect(lambda: self.RTD_buttonClicked(self.RTDialog.Resize_Data_List))             
@@ -993,13 +496,18 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def Open_LayerSelectionToolDialog(self):   
         S_L=self.G_Image.LSTD_Get_Selected_Layers()
         N_L=self.G_Image.LSTD_Get_Num_Layers()            
-        self.LSTDialog=LayerSelectionToolDialog(N_L,S_L)   
+        self.LSTDialog=class_LSTD.LayerSelectionToolDialog(N_L,S_L)   
         self.LSTDialog.DSLui.buttonBox_LSTD.accepted.connect(lambda: self.LSTD_buttonClicked(self.LSTDialog.Selected_Layers))             
         self.LSTDialog.DSLui.pushButton_LSTD_Set_Preview.clicked.connect(lambda: self.LSTD_Set_buttonClicked(self.LSTDialog.Selected_Layers))
+        self.LSTDialog.DSLui.checkBox_LSTD_checkall.clicked.connect(self.LSTR_Checkall_checkbox)
         self.Fill_comboBox_LSTD_Image_Process() 
         Color_Palette=self.G_Image.Get_Color_Palette()
         self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)
-   
+    
+    def LSTR_Checkall_checkbox(self):
+        val=self.LSTDialog.DSLui.checkBox_LSTD_checkall.isChecked()
+        self.LSTDialog.Clear_allcheckbox(val)
+        
 
     def LSTD_Set_buttonClicked(self,S_L):
         self.LSTD_buttonClicked(S_L)        
@@ -2110,10 +1618,6 @@ class ConsolePanelHandler(logging.Handler):
     def emit(self, record):
         self.parent.write_GUI_Log(self.format(record))
 
-
-
-
-
 class XYZ_Update(threading.Thread):
     def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,button_hold_start_1,frame_hold_stop):
         threading.Thread.__init__(self, name="XYZ Update")
@@ -2380,7 +1884,7 @@ class XYZ_Gcode_Stream(threading.Thread):
             num_events=self.linesfinalized_count-self.lastlinesfinalized_count+1
             logging.info("Type 0 Number Lines Finished->"+str(self.linesfinalized_count))    
             logging.info("Type 0 Number Lines Acknowledged->"+str(linesacknowledged_count))    
-            
+
             logging.info("Type 0 Number events Finished->"+str(num_events))    
 
         if typeofstream==2:              

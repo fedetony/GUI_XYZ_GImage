@@ -9,6 +9,8 @@ from collections import deque
 from io import StringIO
 import threading
 
+#import numba  # for GPU compile and usage
+ 
 class Vectorization(threading.Thread):
     """
         A thread class Get vector data out of pillow and images in rgba form
@@ -59,7 +61,7 @@ class Vectorization(threading.Thread):
         <svg width="%d" height="%d"
             xmlns="http://www.w3.org/2000/svg" version="1.1">
         """ % (width, height)    
-
+    #@numba.jit
     def joined_edges(self,assorted_edges, keep_every_point=False):
         pieces = []
         piece = []
@@ -97,7 +99,7 @@ class Vectorization(threading.Thread):
             else:
                 raise Exception ("Failed to find connecting edge")
         return pieces
-
+    
     def rgba_image_to_svg_contiguous(self,im, opaque=None, keep_every_point=False):
         # collect contiguous pixel groups
         self.Pbarini=0
@@ -119,6 +121,7 @@ class Vectorization(threading.Thread):
         self.Pbarend=100
         return svg
     
+    #@numba.jit
     def collect_contiguous_pixel_groups(self,im, opaque=None, keep_every_point=False):
         # collect contiguous pixel groups        
         adjacent = ((1, 0), (0, 1), (-1, 0), (0, -1))
@@ -160,10 +163,11 @@ class Vectorization(threading.Thread):
                     color_pixel_lists[rgba] = []
                 color_pixel_lists[rgba].append(piece)
 
-        del adjacent
-        del visited
+        #del adjacent
+        #del visited
         return color_pixel_lists
-
+    
+    #@numba.jit
     def calculate_clockwise_edges_of_pixel_groups(self,color_pixel_lists, opaque=None, keep_every_point=False):
         edges = {
             (-1, 0):((0, 0), (0, 1)),
@@ -194,11 +198,12 @@ class Vectorization(threading.Thread):
                     color_edge_lists[rgba] = []
                 color_edge_lists[rgba].append(edge_set)
 
-        del color_pixel_lists
-        del edges
+        #del color_pixel_lists
+        #del edges
 
         return color_edge_lists
-
+    
+    #@numba.jit
     def join_edges_of_pixel_groups(self,color_edge_lists,opaque=None, keep_every_point=False):
         color_joined_pieces = {}
         lenlist=len(color_edge_lists.items())
