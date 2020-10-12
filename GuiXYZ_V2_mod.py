@@ -29,7 +29,9 @@ import logging
 import queue
 
 import threading
-from xyz_grbl_ThreadNC import XYZGrbl
+from thread_xyz_grbl import XYZGrbl
+import thread_Gcode_Stream
+import thread_XYZ_Update
 from Gimage_V1 import Image_Gcode_Stream 
 from Gimage_V1 import GImage 
 import GuiXYZ_V1
@@ -42,9 +44,7 @@ import class_CCD
 import class_LSTD 
 import class_RTD
 class QLabel_altered(QLabel):
-    
     resize=pyqtSignal()
-    
     #clicked=pyqtSignal()
     #def __init__(self, parent=None):
     #    QLabel.__init__(self, parent)
@@ -52,7 +52,7 @@ class QLabel_altered(QLabel):
 
     #def mousePressEvent(self, ev):        
     #    self.clicked.emit()    
-      
+     
     left_clicked= QtCore.pyqtSignal(int)
     right_clicked = QtCore.pyqtSignal(int)
 
@@ -946,12 +946,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             Baudrate=int(self.COMBaudRate)
             self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
             self.xyz_thread.start()
-            self.xyz_update_thread=XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
+            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
             self.xyz_update_thread.setName("XYZ Update") 
             self.xyz_update_thread.start()
             self.stream_event_stop= threading.Event()
             self.stream_event_stop.clear()
-            self.xyz_gcodestream_thread=XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
+            self.xyz_gcodestream_thread=thread_Gcode_Stream.XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
             self.xyz_gcodestream_thread.setName("XYZ Gcode Stream") 
             self.xyz_gcodestream_thread.start()
             if self.IsImageThread==False:
@@ -1170,8 +1170,6 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         
                 
         return data            
-
-
 
     def Is_Image_Config_Table_Empty(self):
         #logging.info('Numrows->'+str(self.Config_Table_NumRows))
@@ -1618,88 +1616,7 @@ class ConsolePanelHandler(logging.Handler):
     def emit(self, record):
         self.parent.write_GUI_Log(self.format(record))
 
-class XYZ_Update(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,button_hold_start_1,frame_hold_stop):
-        threading.Thread.__init__(self, name="XYZ Update")
-        logging.info("XYZ Update Started")
-        self.xyz_thread=xyz_thread
-        self.cycle_time=0.1
-        self.label_XactPos=label_XactPos
-        self.label_YactPos=label_YactPos
-        self.label_ZactPos=label_ZactPos
-        self.killer_event=killer_event
-        self.button_hold_start_1=button_hold_start_1
-        self.frame_hold_stop=frame_hold_stop
-        self.state_xyz=0
-        self.oldstate_xyz=0
-
-
-    def run(self):                
-        count=0
-        while not self.killer_event.wait(self.cycle_time):   
-            try:
-                self.data = self.xyz_thread.read()
-                self.Set_Actual_Position_Values(self.data['XPOS'],self.data['YPOS'],self.data['ZPOS']) 
-                self.state_xyz=self.data['STATE_XYZ'] 
-                self.Enable_Disable_Hold_Start()
-                #time.sleep(self.cycle_time)
-            except:
-                if count==0:
-                    logging.info("XYZ Update can't get data to update")                         
-                else:
-                   count=count+1
-                if count>=2000:
-                    count=0        
-        logging.info("XYZ Update killed")          
-
-    def read(self):
-        return self.data
-
-    def Enable_Disable_Hold_Start(self):
-         #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
-        if self.state_xyz==1:
-            self.button_hold_start_1.setEnabled(False) 
-            self.frame_hold_stop.setEnabled(False) 
-        elif self.state_xyz==2:
-            self.button_hold_start_1.setEnabled(True)  
-            self.frame_hold_stop.setEnabled(True)    
-        elif self.state_xyz==3:
-            self.button_hold_start_1.setEnabled(False)
-            self.frame_hold_stop.setEnabled(False) 
-        elif self.state_xyz==4:
-            self.button_hold_start_1.setEnabled(False) 
-            self.frame_hold_stop.setEnabled(False)  
-        elif self.state_xyz==5:
-            self.button_hold_start_1.setEnabled(True)
-            self.frame_hold_stop.setEnabled(True)
-        elif self.state_xyz==6:
-            self.button_hold_start_1.setEnabled(True)
-            self.frame_hold_stop.setEnabled(True)
-        elif self.state_xyz==7:
-            self.button_hold_start_1.setEnabled(True) 
-            self.frame_hold_stop.setEnabled(True)
-        elif self.state_xyz==8:
-            self.button_hold_start_1.setEnabled(True) 
-            self.frame_hold_stop.setEnabled(True)     
-        elif self.state_xyz==9:
-            self.button_hold_start_1.setEnabled(True)
-            self.frame_hold_stop.setEnabled(True)  
-        else:
-            self.button_hold_start_1.setEnabled(False)
-            self.frame_hold_stop.setEnabled(False)                      
-
-    def Set_Actual_Position_Values(self,xxx,yyy,zzz):                            
-        self.x_pos = xxx
-        self.y_pos = yyy
-        self.z_pos = zzz
-        _translate = QtCore.QCoreApplication.translate
-        self.label_XactPos.setText(_translate("MainWindow","X = "+str(xxx)))
-        self.label_XactPos.adjustSize()
-        self.label_YactPos.setText(_translate("MainWindow","Y = "+str(yyy)))
-        self.label_YactPos.adjustSize()
-        self.label_ZactPos.setText(_translate("MainWindow","Z = "+str(zzz)))
-        self.label_ZactPos.adjustSize()    
-
+'''
 class Running_Event_Count_Update(object):
     def __init__(self,IsRunning_event):
         self._observers = []
@@ -1732,275 +1649,7 @@ class Running_Event_Count_Update(object):
     def bind_to(self, callback):
         logging.info('Running Event has been bound')
         self._observers.append(callback)
-
-class XYZ_Gcode_Stream(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,holding_event,stoping_event,IsRunning_event):
-        threading.Thread.__init__(self, name="XYZ Gcode Stream")
-        logging.info("XYZ Gcode Stream Started")        
-        self.IsRunning_event=IsRunning_event 
-        self.xyz_thread=xyz_thread
-        self.killer_event=killer_event
-        self.holding_event=holding_event
-        self.stoping_event=stoping_event        
-        self.cycle_time=0.1                       
-        # typeofstream=0 Wait until each Command returns finish signal to send next one.(Slow) Works:Marlin
-        # typeofstream=1 Send all to machine and dont wait for response. Works:Marlin
-        # typeofstream=2 Send a number of lines and count the returns.
-        self.type_of_stream=0 
-        self.state_xyz=0
-        self.oldstate_xyz=0
-        self.istext2stream=False
-        self.text_queue = queue.Queue()
-        self.streamsize=0
-        self.line_count=0
-        self.bufflines=0
-        self.bufflinesize=5   
-        self.linesfinalized_count=0
-        self.lastlinesfinalized_count=0
-        self.lastRunningstate=self.IsRunning_event.is_set()
-
-        
-    '''    
-        #self.linesfin_count=Running_Event_Count_Update(self.IsRunning_event) 
-        #self.linesfin_count.bind_to(self.Update_RunningCount)   
-             
-                
-    #def Update_RunningCount(self):
-    #    self.linesfinalized_count=self.linesfin_count.Count_events()
-
-    def Count_Running_Events(self):
-        if not self.IsRunning_event.is_set() and self.lastRunningstate==True:        
-            self.linesfinalized_count=self.linesfinalized_count+1  
-        self.lastRunningstate=self.IsRunning_event.is_set() 
-    '''
-    def get_state(self):        
-        self.state_xyz=self.data['STATE_XYZ'] 
-
-    def run(self):                
-        count=0
-        while not self.killer_event.wait(self.cycle_time):   
-            try:
-                self.data = self.xyz_thread.read()                
-                self.get_state()
-                if self.stoping_event.is_set()==True:
-                    self.Stop_Clear()
-                if self.holding_event.is_set()==False:                    
-                    self.Do_the_streaming(self.type_of_stream)            
-            except Exception as e:
-                if count==0:
-                    logging.error(e)
-                    logging.info("XYZ Gcode Stream can't get data to update")                         
-                else:
-                   count=count+1
-                if count>=2000:
-                    count=0        
-        logging.info("XYZ Gcode Stream killed")         
-
-    def Do_the_streaming(self,typeofstream=0):
-        # typeofstream=0 Wait until each Command returns finish singl to send next one.(Slow)
-        # typeofstream=1 Send all to machine and dont wait for response. 
-        # typeofstream=2 Send a number of lines and count the returns.
-        if typeofstream==0:
-            try:                                        
-                if not self.IsRunning_event.is_set():      
-                    if self.text_queue.qsize()>0:
-                        self.Do_line_count()
-                        self.istext2stream=True
-                    line2stream= self.text_queue.get_nowait()                            
-                    logging.info("Sending command->("+str(self.line_count)+") "+line2stream)
-                    self.stream_one_line(line2stream)                                      
-                    self.data = self.xyz_thread.read()                
-                    self.get_state()
-                    if self.state_xyz==11: # error
-                        logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                        self.Stop_Clear()                                
-                    self.wait_until_finished(typeofstream)    #Clears Running_event
-            except queue.Empty:                    
-                pass   
-        elif typeofstream==1:
-            try:                      
-                if not self.IsRunning_event.is_set() or self.text_queue.qsize()>0:      
-                    #logging.info(' type 1 stream Is running event->'+str(self.IsRunning_event.is_set()))                                  
-                    if self.text_queue.qsize()>0:
-                        self.Do_line_count()
-                        self.istext2stream=True
-                    line2stream= self.text_queue.get_nowait()                            
-                    logging.info("Sending command->("+str(self.line_count)+") "+line2stream)
-                    self.stream_one_line(line2stream)                                      
-                    self.data = self.xyz_thread.read()                
-                    self.get_state()
-                    if self.state_xyz==11: # error
-                        logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                        self.Stop_Clear()   
-                    #self.IsRunning_event.clear()                                 
-            except queue.Empty:                    
-                pass    
-        elif typeofstream==2:
-            try:                        
-                
-                if self.bufflines<self.bufflinesize:                        
-                    if self.text_queue.qsize()>0:                        
-                        self.Do_buffline_count()
-                        self.Do_line_count()
-                        self.istext2stream=True                    
-                    line2stream= self.text_queue.get_nowait()                            
-                    logging.info("Sending command->("+str(self.line_count)+") "+line2stream)
-                    #logging.info("Buffline->"+str(self.bufflines))
-                    self.stream_one_line(line2stream)                                      
-                    self.data = self.xyz_thread.read()                
-                    self.get_state()
-                    if self.state_xyz==11: # error
-                        logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                        self.Stop_Clear()                       
-                    self.wait_until_finished(typeofstream)    #Clears Running_event                                    
-                else:
-                    self.wait_until_finished(typeofstream)    
-            except queue.Empty:                    
-                pass            
-
-    def wait_until_finished(self,typeofstream):  
-        if typeofstream==1:
-            time.sleep(self.cycle_time)
-            self.data = self.xyz_thread.read()                
-            self.get_state()        
-            if self.oldstate_xyz!=self.state_xyz:
-                self.oldstate_xyz=self.state_xyz                 
-            self.IfEnd_of_Stream()
-
-        if typeofstream==0:            
-            while self.IsRunning_event.wait(self.cycle_time): 
-                time.sleep(self.cycle_time)
-                if self.stoping_event.is_set()==True:
-                    self.Stop_Clear()
-                if self.killer_event.is_set()==True:
-                    break    
-                self.data = self.xyz_thread.read()                
-                self.get_state()        
-                if self.oldstate_xyz!=self.state_xyz:
-                    self.oldstate_xyz=self.state_xyz
-                self.IfEnd_of_Stream()
-            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()  
-            linesacknowledged_count=self.xyz_thread.Get_linesacknowledgedCount()
-            num_events=self.linesfinalized_count-self.lastlinesfinalized_count+1
-            logging.info("Type 0 Number Lines Finished->"+str(self.linesfinalized_count))    
-            logging.info("Type 0 Number Lines Acknowledged->"+str(linesacknowledged_count))    
-
-            logging.info("Type 0 Number events Finished->"+str(num_events))    
-
-        if typeofstream==2:              
-            #logging.info("Debug Buffline->"+str(self.bufflines))                 
-            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()  
-            linesacknowledged_count=self.xyz_thread.Get_linesacknowledgedCount()
-            num_events=self.linesfinalized_count-self.lastlinesfinalized_count+1
-            logging.info("Number events Finished->"+str(num_events))
-            if num_events>=self.bufflinesize:    
-                self.bufflines=0
-                self.lastlinesfinalized_count=self.linesfinalized_count            
-            self.IfEnd_of_Stream()
-    
-    def IfEnd_of_Stream(self):                
-        if self.text_queue.qsize()==0:   #Nothing in queue             
-            self.istext2stream=False
-            self.line_count=0
-            #self.streamsize=0  
-            self.bufflines=0     
-            #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error                         
-            if self.state_xyz<5 or self.state_xyz==11:     # is not running    
-                logging.info("End of Gcode Stream :)")       
-                self.IsRunning_event.clear() #Event is cleared in INIT state only here else in XYZ thread        
-    
-    def Do_buffline_count(self):
-        if self.line_count==0:
-            self.bufflines=0            
-        elif self.line_count>self.streamsize:
-            self.line_count=0
-            self.bufflines=0                
-        elif self.line_count<=self.streamsize and self.streamsize>0 and self.line_count>0:            
-            if self.bufflines<=self.bufflinesize:       
-                self.bufflines=self.bufflines+1  
-        else:
-            self.bufflines=self.bufflinesize
-
-        
-
-    def Do_line_count(self):
-        if self.line_count==0:
-            self.bufflines=0
-            self.streamsize=self.text_queue.qsize()
-            self.line_count=1
-            self.xyz_thread.Reset_linesexecutedCount()            
-            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()
-            self.lastlinesfinalized_count=self.linesfinalized_count
-            self.lastRunningstate=self.IsRunning_event.is_set()
-            #logging.info('A reset Here')
-        elif self.line_count>self.streamsize:
-            self.line_count=0
-            self.bufflines=0                
-        elif self.line_count<=self.streamsize and self.streamsize>0 and self.line_count>0:
-            self.line_count=self.line_count+1                        
-        try:
-            if self.streamsize>0:
-                self.Pbarupdate.SetStatus(self.line_count/self.streamsize*100)  
-        except:
-            pass      
-        self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()
-        
-
-    def Stop_Clear(self):
-        if self.istext2stream==True:
-            self.text_queue.empty()
-            self.istext2stream=False
-            logging.info("Gcode Stream Stopped!")
-        self.stoping_event.clear()
-
-    def read(self):
-        return self.data
-
-    def Stream(self,text2stream,Pbar):
-        self.Pbarupdate=Pbar
-        self.Pbarupdate.SetStatus(0)
-        self.istext2stream=True        
-        line=''
-        linecount=1
-        for lll in text2stream:            
-            if lll=='\n':
-                if self.killer_event.is_set():
-                    break
-                if self.stoping_event.is_set():
-                    logging.info("Queueing Stopped! ("+str(linecount)+') '+ line )
-                    self.Stop_Clear()
-                    return                                       
-                logging.info("Queueing Line-> ("+str(linecount)+") "+ line)                                            
-                self.text_queue.put(line)                    
-                self.data = self.xyz_thread.read()                
-                self.get_state()                              
-                if self.state_xyz==11: # error
-                    logging.info("Error in Gcode! ("+str(linecount)+') '+ line )
-                    self.Stop_Clear()
-                    break                       
-                linecount=linecount+1
-                line=''
-            else:
-                line=line+lll   
-        logging.info("Queueing Line-> ("+str(linecount)+") "+ line)                                            
-        self.text_queue.put(line)                     
-        self.istext2stream=False    
-        logging.info("End of Queue to Stream!")  
-        #Initialize count
-        self.line_count=0
-        self.Do_line_count()  
-
-    def Islinecontent_ok(self,line):
-        contents=line.strip(' ')
-        contents=contents.strip('\n')        
-        if line=='' or contents=='':
-            return False
-        return True    
-
-    def stream_one_line(self,line2stream):
-        if self.istext2stream==True:                    
-            self.xyz_thread.grbl_gcode_cmd(line2stream)
-            #logging.info("Sent->"+line2stream)             
+'''
         
 class ProgressBar_Update(QtCore.QThread):
     tick = QtCore.pyqtSignal(int, name="valchanged") #New style signal

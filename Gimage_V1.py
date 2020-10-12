@@ -15,7 +15,7 @@ from typing import List
 # install pySerial NOT serial!!!
 import serial
 
-import Vectorize_Thread
+import thread_Vectorize
 
 logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s')
@@ -1443,7 +1443,7 @@ class Image_Gcode_Stream(threading.Thread):
 
     def Get_Vectorized_color_joined_pieces(self,im,Pbar=None,opaque=None, keep_every_point=False):
         imageRGBA = im.convert('RGBA')        
-        Vectorize=Vectorize_Thread.Vectorization(imageRGBA,self.killer_event,self.plaintextEdit_GcodeScript,Pbar)
+        Vectorize=thread_Vectorize.Vectorization(imageRGBA,self.killer_event,self.plaintextEdit_GcodeScript,Pbar)
         Vectorize.start()        
         logging.info('Vectorization Thread Started! :)')      
         color_joined_pieces = Vectorize.Get_color_joined_pieces_from_rgba_image(imageRGBA, opaque, keep_every_point)
