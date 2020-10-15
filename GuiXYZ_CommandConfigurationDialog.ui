@@ -34,10 +34,34 @@
           <enum>QFrame::Raised</enum>
          </property>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
+          <item row="1" column="0">
            <widget class="QPushButton" name="pushButton_CCD_set_commands">
             <property name="text">
              <string>Set Commands</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QComboBox" name="comboBox_CCD_interface"/>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_CCD_interfaceName">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_test">
+            <property name="text">
+             <string>TextLabel</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="pushButton_test">
+            <property name="text">
+             <string>PushButton_test</string>
             </property>
            </widget>
           </item>
