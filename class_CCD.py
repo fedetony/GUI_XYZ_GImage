@@ -92,11 +92,13 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         #Connect buttons
         self.DCCui.pushButton_CCD_set_commands.clicked.connect(self.PB_CCD_set_commands)
         self.DCCui.comboBox_CCD_interface.currentIndexChanged.connect(self.ComboBox_Select_interface)
+        self.DCCui.comboBox_CCD_action.currentIndexChanged.connect(self.ComboBox_Select_action)
         self.DCCui.pushButton_test.clicked.connect(self.PB_test)
 
     def PB_CCD_set_commands(self):
         self.Set_Config_info_To_TableWidget()
         self.Fill_interface_combobox()
+        self.Fill_action_combobox()
 
     def Set_Config_info_To_TableWidget(self):
         self.DCCui.tableWidget_CCD.clear()
@@ -133,6 +135,18 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.comboBox_CCD_interface.setCurrentIndex(index)    
         aname=self.Get_action_format_from_id(self.Configdata,'interfaceName',self.id)
         self.DCCui.label_CCD_interfaceName.setText(aname)    
+    
+    def Fill_action_combobox(self):
+        self.DCCui.comboBox_CCD_action.clear()
+        for iii in self.Configdata:           
+            self.DCCui.comboBox_CCD_action.addItem(iii)          
+        #index= self.DCCui.comboBox_CCD_action.findText('interfaceName',QtCore.Qt.MatchFixedString)
+        index=1
+        self.DCCui.comboBox_CCD_action.setCurrentIndex(index)    
+        self.Selected_action=self.DCCui.comboBox_CCD_action.currentText()
+
+    def ComboBox_Select_action(self):
+        self.Selected_action=self.DCCui.comboBox_CCD_action.currentText()       
 
     def ComboBox_Select_interface(self):
         anid=self.DCCui.comboBox_CCD_interface.currentText()
@@ -209,7 +223,15 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         except:
             pass
         return ActionFormat
-    
+
+    def getGformatforActionid(self,action,id):
+        ActionFormat=None
+        try:            
+            ActionFormat=self.Actual_Interface_Formats[action]
+        except:
+            pass
+        return ActionFormat
+
     def getListofActions(self):        
         alist=[]
         for action in self.Actual_Interface_Formats:
@@ -264,11 +286,22 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         return Gcode    
 
     def PB_test(self):
+        '''
+        newFormat='[a][b][c][d][4][?{7}]{8}'
+        print(self.get_list_in_between_txt(newFormat,'[',']'))
+
+        print(self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}') ) 
+        print(self.Format_which_Inside_Parenthesees(newFormat) ) 
+        '''
         action='test'    
         Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}    
         Gcode=self.Get_Gcode_for_Action(action,Parameters)
         print(Gcode)        
-        self.DCCui.label_test.setText(Gcode)
+        self.DCCui.label_test.setText(Gcode)    
+        Params=self.Get_Parameters_Needed_for_action(self.Selected_action,self.id)
+        print(Params)
+        print(self.Get_list_of_all_parameters_in_interface(self.id))
+        
 
     def num_groups(self,match):
         if match is not None:
@@ -285,36 +318,56 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         amounts=[NS-NSC,NSC]
         return amounts
 
+    def get_text_split_separatorfromregex(self,regex_sep):
+        ppp=re.findall(regex_sep,'[({<>})]')
+        if len(ppp)>0:
+            return ppp[0] #separate first
+        else:
+            return regex_sep
+    
+    def get_list_in_between_txt(self,txt,inis,ends):
+        alist=[]
+        astr=''
+        doappend=False
+        count=0
+        for achar in txt:
+            if achar==ends and inis!=ends:
+                doappend=False
+            if achar==inis and inis!=ends:
+                doappend=True
+                count=count+1
+            if inis==ends and achar==ends:
+                doappend= not doappend   
+            if doappend==True:
+                if achar!=inis and achar!=ends:
+                    astr=astr+achar    
+            if  doappend==False and count>=1:
+                alist.append(astr)
+                astr=''
+                count=0
+
+        return alist        
 
     def Format_which_Inside_Parenthesees(self,aFormat,IniP=r'\[',EndP=r'\]'):
         try:
             alist=[]
+            Inisep=self.get_text_split_separatorfromregex(IniP)
+            Endsep=self.get_text_split_separatorfromregex(EndP)
+            #print(Inisep+'hola'+Endsep)
             txtlist,Nopini=self.Split_text(IniP,aFormat) 
             txtlist,Nopend=self.Split_text(EndP,aFormat) 
+            #print(Nopini,Nopend)
             if Nopini!=Nopend:
-                #logging.error('Bad Format [] in '+aFormat)
-                Nopini=0
-            else:    
-                if Nopini>0:    
-                    txt=str(aFormat)            
-                    for jjj in range(Nopini):
-                        ppp=re.findall(IniP,'[({<>})]')
-                        if len(ppp)>0:
-                            sTxtlist = txt.split(ppp[0],1) #separate first
-                        else:
-                            sTxtlist = txt.split(IniP,1) #separate first
-                        stxt=sTxtlist[1]
-                        ppp=re.findall(EndP,'[({<>})]')
-                        if len(ppp)>0:
-                            ilist=stxt.split(ppp[0])    
-                        else:
-                            ilist=stxt.split(EndP)                        
-                        item=ilist[0]
-                        if len(ilist)>1:
-                            txt=ilist[1]
-                        alist.append(item)                    
+                logging.error('Bad Format '+Inisep+Endsep+' in '+aFormat)
+                #Nopini=0
+            #else:    
+            #    if Nopini>0:    
+            txt=str(aFormat)                             
+            alist=self.get_list_in_between_txt(txt,Inisep,Endsep)    
+            Nopini=len(alist)              
         except Exception as e:            
-            logging.error(e)                        
+            logging.error(e)     
+            logging.error('Inside Parentheses')                        
             alist=[]
             Nopini=0
             pass            
@@ -466,9 +519,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 #if Numvarleft>0:            
                 #    The_code=self.Get_code(The_code,Parameters,countnumoptions)
                 newFormat=The_code    
-                #params={}
-                #for iii in range(Numspecimain):
-                #        params.update({varlist[iii]: iii*10})            
+                            
                 #countnumoptions=self.countnumoptions
             if countnumoptions<minnumoptions:
                 logging.error('Minimum '+ str(minnumoptions)+' Option parameters are Required: '+str(countnumoptions)+' found! '+str(minnumoptions-countnumoptions)+' missing!')        
@@ -502,7 +553,59 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     Pardict.update({var: Parameters[param]})           
                     break        
         #print(Pardict)                                                 
-        return  Pardict    
+        return  Pardict  
+
+    def Get_list_of_all_parameters_in_interface(self,interface_id):
+        action_list=self.getListofActions()
+        allParams=[]
+        for action in action_list:
+            ParamsReca=self.Get_Parameters_Needed_for_action(action,interface_id)
+            for ParaR in ParamsReca:
+                if ParaR not in allParams:
+                    allParams.append(ParaR) 
+        return allParams           
+
+
+    def Get_Parameters_Needed_for_action(self,action,interface_id):
+        Params={}
+        aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
+        newFormat=''
+        count=0
+        while aFormat!=newFormat:
+            if count>0:
+                aFormat=newFormat
+            newFormat=self.Format_replace_actions(aFormat)        
+            count=count+1            
+            if count>20:
+                aFormat=newFormat
+        #print(newFormat)
+        allvarlist,Numallvar=self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}')  
+        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(newFormat) #in []
+        opvarlist=[]        
+        atleast=[]        
+        #print(allvarlist,Numallvar)
+        #print(optionslist,Numoptions)
+        addatleast=False
+        for option in optionslist:  
+            if '&&' in option:
+                addatleast=True   
+                optxt=option
+            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in []             
+            for opjjj in varoptlist:                
+                if addatleast==True:       
+                    atleast.append([opjjj,optxt])                   
+                opvarlist.append(opjjj)
+        #print('OP:',opvarlist,'-AND-All:',allvarlist)    
+        for avar in allvarlist:
+            if avar in opvarlist:
+                Params.update({avar: 'optional' })
+                for aaa in atleast:
+                    if avar in aaa:
+                        Params.update({avar: 'optional'+aaa[1] })
+                        break
+            else:
+                Params.update({avar: 'required' })    
+        return Params
                
 
 
