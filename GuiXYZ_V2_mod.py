@@ -2,10 +2,11 @@
 """
 Created on 16.06.2020
 Python 3.7 pyQt5
-@author: F.Garcia
+@author: F. Garcia
 """
+__author__ = "F. Garcia <fedetony@yahoo.com>"
 # Form implementation generated from reading ui file 'GuiXYZ_V1.ui'
-#
+# All Ui interfaces:
 # Created by: PyQt5 UI code generator 5.13.0
 
 from PyQt5 import QtCore, QtGui, QtWidgets

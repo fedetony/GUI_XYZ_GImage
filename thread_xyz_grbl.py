@@ -7,6 +7,7 @@ from common import *
 
 # install pySerial NOT serial!!!
 import serial
+import class_CH
 
 logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s')
@@ -1009,6 +1010,7 @@ class XYZGrbl:
         self.grbl_event_softreset.clear()     
         self.grbl_event_stop.clear()
         self.ser_read_thread = SerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_start,self.grbl_event_status,self.grbl_event_softreset,self.grbl_event_stop,self.IsRunning_event)
+        #self.G_H=class_CCD.Command_Handler()
 
     def join(self):
         self.ser_read_thread.join()
