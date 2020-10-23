@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>764</width>
+    <width>880</width>
     <height>654</height>
    </rect>
   </property>
@@ -125,704 +125,650 @@
         <attribute name="title">
          <string>Move</string>
         </attribute>
-        <widget class="QGroupBox" name="groupBox_XYZ">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>10</y>
-           <width>721</width>
-           <height>541</height>
-          </rect>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="title">
-          <string>XYZ Mover</string>
-         </property>
-         <widget class="QGroupBox" name="groupBox_actPosition">
-          <property name="geometry">
-           <rect>
-            <x>590</x>
-            <y>20</y>
-            <width>104</width>
-            <height>148</height>
-           </rect>
-          </property>
-          <property name="title">
-           <string>Actual Position</string>
-          </property>
-          <layout class="QFormLayout" name="formLayout_4">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_XactPos">
-             <property name="text">
-              <string>X=  NA</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_YactPos">
-             <property name="text">
-              <string>Y=  NA</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_ZactPos">
-             <property name="text">
-              <string>Z=  NA</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QPushButton" name="pushButton_SetPos">
-             <property name="text">
-              <string>Set</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Map-Marker-Push-Pin-1-Right-Chartreuse-icon.png</normaloff>img/Map-Marker-Push-Pin-1-Right-Chartreuse-icon.png</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>50</width>
-               <height>50</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QGroupBox" name="groupBox_DeltaMove">
-          <property name="geometry">
-           <rect>
-            <x>580</x>
-            <y>170</y>
-            <width>131</width>
-            <height>111</height>
-           </rect>
-          </property>
-          <property name="title">
-           <string>Delta</string>
-          </property>
-          <layout class="QFormLayout" name="formLayout_5">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_DeltaX">
-             <property name="text">
-              <string>X</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="lineEdit_DeltaX"/>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_DeltaY">
-             <property name="text">
-              <string>Y</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="lineEdit_DeltaY"/>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_DeltaZ">
-             <property name="text">
-              <string>Z</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QLineEdit" name="lineEdit_DeltaZ"/>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>10</x>
-            <y>20</y>
-            <width>556</width>
-            <height>192</height>
-           </rect>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
-           <item>
-            <layout class="QFormLayout" name="formLayout_3">
-             <item row="0" column="0">
-              <layout class="QGridLayout" name="gridLayout">
-               <item row="2" column="1">
-                <widget class="QPushButton" name="pushButton_YDown">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-Down-icon.png</normaloff>img/Actions-go-Down-icon.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
+        <layout class="QVBoxLayout" name="verticalLayout_13">
+         <item>
+          <widget class="QGroupBox" name="groupBox_XYZ">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="title">
+            <string>XYZ Mover</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_14">
+            <item row="0" column="0" rowspan="2" colspan="3">
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
+              <item>
+               <layout class="QFormLayout" name="formLayout_3">
+                <item row="0" column="0">
+                 <layout class="QGridLayout" name="gridLayout">
+                  <item row="2" column="1">
+                   <widget class="QPushButton" name="pushButton_YDown">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-Down-icon.png</normaloff>img/Actions-go-Down-icon.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QPushButton" name="pushButton_XYLU">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-icon-DiagLU.png</normaloff>img/Actions-go-next-icon-DiagLU.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pushButton_YUp">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-Up-icon.png</normaloff>img/Actions-go-Up-icon.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QPushButton" name="pushButton_XLeft">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-Left-icon.png</normaloff>img/Actions-go-Left-icon.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="2">
+                   <widget class="QPushButton" name="pushButton_XRight">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-icon.png</normaloff>img/Actions-go-next-icon.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QPushButton" name="pushButton_XYRU">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-icon-DiagRU.png</normaloff>img/Actions-go-next-icon-DiagRU.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QPushButton" name="pushButton_XYLD">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-icon-DiagLD.png</normaloff>img/Actions-go-next-icon-DiagLD.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="QLabel" name="label_XY">
+                    <property name="text">
+                     <string>XY</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="2">
+                   <widget class="QPushButton" name="pushButton_XYRD">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-icon-DiagRD.png</normaloff>img/Actions-go-next-icon-DiagRD.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="0" column="1">
+                 <layout class="QVBoxLayout" name="verticalLayout_2">
+                  <item>
+                   <widget class="QPushButton" name="pushButton_ZUp">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-view-icon_ZUp.png</normaloff>img/Actions-go-next-view-icon_ZUp.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_Z">
+                    <property name="text">
+                     <string>Z</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="pushButton_ZDown">
+                    <property name="text">
+                     <string/>
+                    </property>
+                    <property name="icon">
+                     <iconset>
+                      <normaloff>img/Actions-go-next-view-icon_Zdown.png</normaloff>img/Actions-go-next-view-icon_Zdown.png</iconset>
+                    </property>
+                    <property name="iconSize">
+                     <size>
+                      <width>50</width>
+                      <height>50</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_2">
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_4">
+                  <item>
+                   <widget class="QLabel" name="label_YZ">
+                    <property name="text">
+                     <string>  YZ</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout_3">
+                    <item row="0" column="0">
+                     <widget class="QPushButton" name="pushButton_YZLU">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagLU.png</normaloff>img/Actions-go-next-view-icon_DiagLU.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QPushButton" name="pushButton_YZLD">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagLD.png</normaloff>img/Actions-go-next-view-icon_DiagLD.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QPushButton" name="pushButton_YZRU">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagRU.png</normaloff>img/Actions-go-next-view-icon_DiagRU.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="pushButton_YZRD">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagRD.png</normaloff>img/Actions-go-next-view-icon_DiagRD.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_3">
+                  <item>
+                   <widget class="QLabel" name="label_XZ">
+                    <property name="text">
+                     <string>  XZ</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout_2">
+                    <item row="0" column="0">
+                     <widget class="QPushButton" name="pushButton_XZLU">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagLU.png</normaloff>img/Actions-go-next-view-icon_DiagLU.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QPushButton" name="pushButton_XZRU">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagRU.png</normaloff>img/Actions-go-next-view-icon_DiagRU.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QPushButton" name="pushButton_XZLD">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagLD.png</normaloff>img/Actions-go-next-view-icon_DiagLD.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="pushButton_XZRD">
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="icon">
+                       <iconset>
+                        <normaloff>img/Actions-go-next-view-icon_DiagRD.png</normaloff>img/Actions-go-next-view-icon_DiagRD.png</iconset>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>50</width>
+                        <height>50</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item row="0" column="3">
+             <widget class="QGroupBox" name="groupBox_actPosition">
+              <property name="title">
+               <string>Actual Position</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_4">
                <item row="0" column="0">
-                <widget class="QPushButton" name="pushButton_XYLU">
+                <widget class="QLabel" name="label_XactPos">
                  <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-icon-DiagLU.png</normaloff>img/Actions-go-next-icon-DiagLU.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="1">
-                <widget class="QPushButton" name="pushButton_YUp">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-Up-icon.png</normaloff>img/Actions-go-Up-icon.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
+                  <string>X=  NA</string>
                  </property>
                 </widget>
                </item>
                <item row="1" column="0">
-                <widget class="QPushButton" name="pushButton_XLeft">
+                <widget class="QLabel" name="label_YactPos">
                  <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-Left-icon.png</normaloff>img/Actions-go-Left-icon.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="2">
-                <widget class="QPushButton" name="pushButton_XRight">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-icon.png</normaloff>img/Actions-go-next-icon.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="2">
-                <widget class="QPushButton" name="pushButton_XYRU">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-icon-DiagRU.png</normaloff>img/Actions-go-next-icon-DiagRU.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
+                  <string>Y=  NA</string>
                  </property>
                 </widget>
                </item>
                <item row="2" column="0">
-                <widget class="QPushButton" name="pushButton_XYLD">
+                <widget class="QLabel" name="label_ZactPos">
                  <property name="text">
-                  <string/>
+                  <string>Z=  NA</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QPushButton" name="pushButton_SetPos">
+                 <property name="text">
+                  <string>Set</string>
                  </property>
                  <property name="icon">
                   <iconset>
-                   <normaloff>img/Actions-go-next-icon-DiagLD.png</normaloff>img/Actions-go-next-icon-DiagLD.png</iconset>
+                   <normaloff>img/Map-Marker-Push-Pin-1-Right-Chartreuse-icon.png</normaloff>img/Map-Marker-Push-Pin-1-Right-Chartreuse-icon.png</iconset>
                  </property>
                  <property name="iconSize">
                   <size>
                    <width>50</width>
                    <height>50</height>
                   </size>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item row="1" column="3" rowspan="2">
+             <widget class="QGroupBox" name="groupBox_DeltaMove">
+              <property name="title">
+               <string>Delta</string>
+              </property>
+              <layout class="QFormLayout" name="formLayout_5">
+               <item row="0" column="0">
+                <widget class="QLabel" name="label_DeltaX">
+                 <property name="text">
+                  <string>X</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLineEdit" name="lineEdit_DeltaX"/>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_DeltaY">
+                 <property name="text">
+                  <string>Y</string>
                  </property>
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="QLabel" name="label_XY">
-                 <property name="text">
-                  <string>XY</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
+                <widget class="QLineEdit" name="lineEdit_DeltaY"/>
                </item>
-               <item row="2" column="2">
-                <widget class="QPushButton" name="pushButton_XYRD">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-icon-DiagRD.png</normaloff>img/Actions-go-next-icon-DiagRD.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item row="0" column="1">
-              <layout class="QVBoxLayout" name="verticalLayout_2">
-               <item>
-                <widget class="QPushButton" name="pushButton_ZUp">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-view-icon_ZUp.png</normaloff>img/Actions-go-next-view-icon_ZUp.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_Z">
+               <item row="2" column="0">
+                <widget class="QLabel" name="label_DeltaZ">
                  <property name="text">
                   <string>Z</string>
                  </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
                 </widget>
                </item>
-               <item>
-                <widget class="QPushButton" name="pushButton_ZDown">
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="icon">
-                  <iconset>
-                   <normaloff>img/Actions-go-next-view-icon_Zdown.png</normaloff>img/Actions-go-next-view-icon_Zdown.png</iconset>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>50</width>
-                   <height>50</height>
-                  </size>
-                 </property>
-                </widget>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="lineEdit_DeltaZ"/>
                </item>
               </layout>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <item>
-              <layout class="QVBoxLayout" name="verticalLayout_4">
-               <item>
-                <widget class="QLabel" name="label_YZ">
-                 <property name="text">
-                  <string>  YZ</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <layout class="QGridLayout" name="gridLayout_3">
-                 <item row="0" column="0">
-                  <widget class="QPushButton" name="pushButton_YZLU">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagLU.png</normaloff>img/Actions-go-next-view-icon_DiagLU.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QPushButton" name="pushButton_YZLD">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagLD.png</normaloff>img/Actions-go-next-view-icon_DiagLD.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="1">
-                  <widget class="QPushButton" name="pushButton_YZRU">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagRU.png</normaloff>img/Actions-go-next-view-icon_DiagRU.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QPushButton" name="pushButton_YZRD">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagRD.png</normaloff>img/Actions-go-next-view-icon_DiagRD.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <layout class="QVBoxLayout" name="verticalLayout_3">
-               <item>
-                <widget class="QLabel" name="label_XZ">
-                 <property name="text">
-                  <string>  XZ</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <layout class="QGridLayout" name="gridLayout_2">
-                 <item row="0" column="0">
-                  <widget class="QPushButton" name="pushButton_XZLU">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagLU.png</normaloff>img/Actions-go-next-view-icon_DiagLU.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="1">
-                  <widget class="QPushButton" name="pushButton_XZRU">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagRU.png</normaloff>img/Actions-go-next-view-icon_DiagRU.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QPushButton" name="pushButton_XZLD">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagLD.png</normaloff>img/Actions-go-next-view-icon_DiagLD.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QPushButton" name="pushButton_XZRD">
-                   <property name="text">
-                    <string/>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Actions-go-next-view-icon_DiagRD.png</normaloff>img/Actions-go-next-view-icon_DiagRD.png</iconset>
-                   </property>
-                   <property name="iconSize">
-                    <size>
-                     <width>50</width>
-                     <height>50</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-              </layout>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>10</x>
-            <y>220</y>
-            <width>150</width>
-            <height>100</height>
-           </rect>
-          </property>
-          <layout class="QFormLayout" name="formLayout_6">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_Xpos">
-             <property name="text">
-              <string>X</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="lineEdit_X"/>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_Ypos">
-             <property name="text">
-              <string>Y</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="lineEdit_Y"/>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_Zpos">
-             <property name="text">
-              <string>Z </string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QLineEdit" name="lineEdit_Z"/>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_Feedrate">
-             <property name="text">
-              <string>F</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1">
-            <widget class="QLineEdit" name="lineEdit_Feedrate"/>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>180</x>
-            <y>230</y>
-            <width>181</width>
-            <height>81</height>
-           </rect>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="pushButton_Go">
-             <property name="text">
-              <string>GO</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Alarm-Tick-icon.png</normaloff>img/Alarm-Tick-icon.png</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>50</width>
-               <height>50</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="pushButton_Pause_Resume">
-             <property name="text">
-              <string>Hold</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Button-Pause-icon.png</normaloff>img/Button-Pause-icon.png</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>50</width>
-               <height>50</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>480</x>
-            <y>220</y>
-            <width>91</width>
-            <height>101</height>
-           </rect>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_5">
-           <item>
-            <widget class="QPushButton" name="pushButton_CleanAlarm">
-             <property name="text">
-              <string>Clear Alarm</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Clear-icon.png</normaloff>img/Clear-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushButton_Home">
-             <property name="text">
-              <string>Home</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pushButton_Reset">
-             <property name="text">
-              <string>Reset Signal</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Reset-icon.png</normaloff>img/Reset-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>590</x>
-            <y>290</y>
-            <width>239</width>
-            <height>31</height>
-           </rect>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_5">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="pushButton_Home_X">
-             <property name="text">
-              <string>X</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="pushButton_Home_Y">
-             <property name="text">
-              <string>Y</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="pushButton_Home_Z">
-             <property name="text">
-              <string>Z</string>
-             </property>
-             <property name="icon">
-              <iconset>
-               <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
+             </widget>
+            </item>
+            <item row="2" column="0" rowspan="2">
+             <layout class="QFormLayout" name="formLayout_6">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_Xpos">
+                <property name="text">
+                 <string>X</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="lineEdit_X"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_Ypos">
+                <property name="text">
+                 <string>Y</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="lineEdit_Y"/>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_Zpos">
+                <property name="text">
+                 <string>Z </string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLineEdit" name="lineEdit_Z"/>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_Feedrate">
+                <property name="text">
+                 <string>F</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QLineEdit" name="lineEdit_Feedrate"/>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="1" rowspan="2">
+             <layout class="QGridLayout" name="gridLayout_4">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButton_Go">
+                <property name="text">
+                 <string>GO</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Alarm-Tick-icon.png</normaloff>img/Alarm-Tick-icon.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>50</width>
+                  <height>50</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QPushButton" name="pushButton_Pause_Resume">
+                <property name="text">
+                 <string>Hold</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Button-Pause-icon.png</normaloff>img/Button-Pause-icon.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>50</width>
+                  <height>50</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="2" column="2" rowspan="2">
+             <layout class="QVBoxLayout" name="verticalLayout_5">
+              <item>
+               <widget class="QPushButton" name="pushButton_CleanAlarm">
+                <property name="text">
+                 <string>Clear Alarm</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Clear-icon.png</normaloff>img/Clear-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_Home">
+                <property name="text">
+                 <string>Home</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_Reset">
+                <property name="text">
+                 <string>Reset Signal</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Reset-icon.png</normaloff>img/Reset-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="3" column="3">
+             <layout class="QGridLayout" name="gridLayout_5">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="pushButton_Home_X">
+                <property name="text">
+                 <string>X</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QPushButton" name="pushButton_Home_Y">
+                <property name="text">
+                 <string>Y</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QPushButton" name="pushButton_Home_Z">
+                <property name="text">
+                 <string>Z</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Actions-go-home-icon.png</normaloff>img/Actions-go-home-icon.png</iconset>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
        </widget>
        <widget class="QWidget" name="tab_2">
         <attribute name="title">
@@ -1331,7 +1277,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>764</width>
+     <width>880</width>
      <height>21</height>
     </rect>
    </property>
@@ -1367,9 +1313,16 @@
      <addaction name="separator"/>
      <addaction name="actionSave_svg_Gimage"/>
     </widget>
+    <widget class="QMenu" name="menuInterface">
+     <property name="title">
+      <string>Interface</string>
+     </property>
+     <addaction name="actionReload_Interface_Configuration"/>
+    </widget>
     <addaction name="menuConfig"/>
     <addaction name="menuGcode"/>
     <addaction name="menuGimage"/>
+    <addaction name="menuInterface"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -1433,12 +1386,12 @@
   </action>
   <action name="actionLayer_Selection">
    <property name="text">
-    <string>Layer Selection</string>
+    <string>GImage Layer Selection</string>
    </property>
   </action>
   <action name="actionResize">
    <property name="text">
-    <string>Resize</string>
+    <string>GImage Resize and Positioning</string>
    </property>
   </action>
   <action name="actionSave_svg_Gimage">
@@ -1448,7 +1401,12 @@
   </action>
   <action name="actionCommand_Configuration">
    <property name="text">
-    <string>Command Configuration</string>
+    <string>Interface Configuration</string>
+   </property>
+  </action>
+  <action name="actionReload_Interface_Configuration">
+   <property name="text">
+    <string>Reload Interface Configuration</string>
    </property>
   </action>
  </widget>

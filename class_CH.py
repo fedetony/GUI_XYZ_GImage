@@ -9,10 +9,20 @@ class Command_Handler:
         self.Required_actions=Required_actions
         if configfile==None:
             self.filename='config/MachineCommandConfig.config'
+            self.Interfacefilename='config/InterfaceConfig.config'    
+            self.Readfilename='config/ReadConfig.config'   
         else:
-            self.filename=configfile    
+            self.filename=configfile[0]    
+            self.Interfacefilename=configfile[1]
+            self.Readfilename=configfile[2]
         self.Setup_Command_Handler()
-            
+
+    def Set_Interfacefilename(self,filename):
+        self.Interfacefilename=filename
+    
+    def Set_Readfilename(self,filename):
+        self.Readfilename=filename
+
     def Set_id(self,selected_interface_id):
         self.id=str(selected_interface_id) #equivalent to is_tinyg
 
@@ -124,8 +134,9 @@ class Command_Handler:
             Num=Num+1
         return Num    
 
-    def Load_command_config_from_file(self):        
-        filename=self.filename
+    def Load_command_config_from_file(self,filename=None):       
+        if filename is None: 
+            filename=self.filename
         data={}
         if filename is not None:            
             logging.info('Opening:'+filename)
@@ -150,14 +161,27 @@ class Command_Handler:
             item=''
             lineinfolist=[]
             countnum=0
+            regextxt=''
+            isregex=False
             for achar in line:
                 if achar=='#' and countnum==0:                    
                     break
-                if achar =='<':
+                if achar=='r' and lastchar=='<':
+                   regextxt=='r'
+                if achar=="'" and lastchar=='r' and isregex==False:
+                    isregex=True
+                    regextxt=regextxt+achar
+                elif achar=="'" and isregex==True:
+                    isregex=False    
+                
+                if (achar =='<' or achar=='>') and isregex==True:
+                    Nomismatch=True
+                    #item=item+achar
+                if achar =='<' and isregex==False:
                     #print(countnum)
                     item=''
                     countnum=countnum+1
-                elif achar=='>':
+                elif achar=='>' and isregex==False:
                     lastchar=achar    
                     if countnum==1:
                         actionname=item
@@ -196,10 +220,11 @@ class Command_Handler:
             pass
         return ActionFormat
 
-    def getListofActions(self):        
+    def getListofActions(self,exceptlist=[]):        
         alist=[]
         for action in self.Actual_Interface_Formats:
-            alist.append(action)
+            if action not in exceptlist:
+                alist.append(action)
         return alist              
     
     def Split_text(self,separator,line):
@@ -235,7 +260,8 @@ class Command_Handler:
         else:
             return 0 
 
-    def Format_Number_of_formatspecifiers(self,aFormat):        
+    def Format_Number_of_formatspecifiers(self,aFormat):   
+        aFormat=str(aFormat)     
         NS=0
         NSC=0
         txtlist,NSC=self.Split_text(r'\%\%',aFormat)        
@@ -274,6 +300,7 @@ class Command_Handler:
         return alist        
 
     def Format_which_Inside_Parenthesees(self,aFormat,IniP=r'\[',EndP=r'\]'):
+        aFormat=str(aFormat)
         try:
             alist=[]
             Inisep=self.get_text_split_separatorfromregex(IniP)
@@ -298,6 +325,32 @@ class Command_Handler:
             pass            
         return alist,Nopini
     
+    def Format_Get_optionlist_parameterlist(self,aFormat):
+        aFormat=str(aFormat)
+        minnumoptions=0
+        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat)
+        for option in optionslist:
+            if '&&' in option:
+                minvaluelist,Numminval=self.Format_which_Inside_Parenthesees(option,r'\(',r'\)') #in [] 
+                minop=option
+                if Numminval>0:
+                    minnumoptions=int(minvaluelist[0])
+                else:
+                    minnumoptions=1
+        paramlist=[]            
+        for option in optionslist:                
+            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
+            for jjj in varoptlist: 
+                paramlist.append(jjj)    
+        # remove &&(#) option
+        oplist=[]
+        for jjj in optionslist:
+            if '&&' not in jjj:
+                oplist.append(jjj)    
+        optionslist=oplist                    
+        return optionslist,paramlist,minnumoptions
+
+
     def Format_Get_main_Command(self,aFormat,Numoptions=None):
         if Numoptions==None:
             optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat)
@@ -309,7 +362,8 @@ class Command_Handler:
             stxt=sTxtlist[0]
             return stxt
     
-    def Format_Get_options(self,aFormat,Parameters):
+    def Format_select_options_ored_parameters(self,aFormat,Parameters):
+        aFormat=str(aFormat)
         orsplit,Norsplit=self.Split_text(r'\]\|\|\[',aFormat)
         if Norsplit>0:
             newFormat=aFormat            
@@ -348,6 +402,7 @@ class Command_Handler:
             return aFormat
     
     def Format_replace_actions(self,aFormat):
+        aFormat=str(aFormat)
         varlist,Numvars=self.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}') 
         action_list=self.getListofActions()
         newFormat=aFormat
@@ -393,25 +448,27 @@ class Command_Handler:
 
     def Get_Gcode_for_Action(self,action,Parameters={},Parammustok=True):
         Gcode=''
+        paramok=False        
         if self.Is_action_in_Config(action)==True:
             aFormat=self.getGformatforAction(action)
-            print(aFormat)  
+            #print(aFormat)  
             paramok=self.Are_Parameters_ok(action,Parameters)
-            print('Paramok=',paramok)
+            #print('Paramok=',paramok)
             if paramok==True or Parammustok==False:
                 Gcode=self.Get_code(aFormat,Parameters)
         else:
             logging.error('No action defined as '+action+' in configuration file!')    
-        return Gcode    
+        return Gcode,paramok    
 
     def Get_code(self,aFormat,Parameters):
+        aFormat=str(aFormat)
         try:
             countnumoptions=0
             Numvarleft=1   
             newFormat=aFormat         
             while Numvarleft>0:            
                 newFormat=self.Format_replace_actions(newFormat)
-                newFormat=self.Format_Get_options(newFormat,Parameters)        
+                newFormat=self.Format_select_options_ored_parameters(newFormat,Parameters)        
                 optionslist,Numoptions=self.Format_which_Inside_Parenthesees(newFormat)
                 The_code=''
                 MCommand=self.Format_Get_main_Command(newFormat,Numoptions)
@@ -509,6 +566,12 @@ class Command_Handler:
             logging.error('action missing to get needed Parameters!')
             return Params
         aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
+        Params=self.Get_Parameters_Needed_for_Format(aFormat) 
+        return Params
+
+    def Get_Parameters_Needed_for_Format(self,aFormat):
+        aFormat=str(aFormat)
+        Params={}                
         newFormat=''
         count=0
         while aFormat!=newFormat:
@@ -518,24 +581,10 @@ class Command_Handler:
             count=count+1            
             if count>20:
                 aFormat=newFormat
-        #print(newFormat)
-        allvarlist,Numallvar=self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}')  
-        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(newFormat) #in []
-        opvarlist=[]        
-        atleast=[]        
-        #print(allvarlist,Numallvar)
-        #print(optionslist,Numoptions)
-        addatleast=False
-        for option in optionslist:  
-            if '&&' in option:
-                addatleast=True   
-                optxt=option
-            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in []             
-            for opjjj in varoptlist:                
-                if addatleast==True:       
-                    atleast.append([opjjj,optxt])                   
-                opvarlist.append(opjjj)
-        #print('OP:',opvarlist,'-AND-All:',allvarlist)    
+        #print(newFormat)        
+        allvarlist,Numallvar=self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}')          
+        opvarlist,atleast=self.Get_option_list(newFormat)
+
         for avar in allvarlist:
             if avar in opvarlist:
                 Params.update({avar: 'optional' })
@@ -585,12 +634,12 @@ class Command_Handler:
             return True
         return False
     
-    def Check_command_config_file_Content(self,filename,Reqactions,Checkstrickt=False):
+    def Check_command_config_file_Content(self,filename,Reqactions,Checkstrickt=False,logcheck=True):
         #filename=self.filename        
         data={}
         if filename is not None:            
-            
-            logging.info('Checking configuration in:'+filename)
+            if logcheck==True:
+                logging.info('Checking configuration in:'+filename)
             try:                
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
@@ -602,29 +651,36 @@ class Command_Handler:
                 logging.info("File"+filename+" could not be Checked!")
                 pass        
             achk=self.Check_num_actions_in_Data(data)
+            if logcheck==True:    
+                logging.info('\t-Minimum Amount Check Passed:'+str(achk))                      
             if achk==False:
                 return False      
-            logging.info('\t-Minimum Amount Check Passed:'+str(achk))                      
-
+            
             achk=self.Check_id_in_Data(data,1)
+            if logcheck==True:
+                logging.info('\t-Id Check Passed:'+str(achk))    
             if achk==False:
                 return False      
-            logging.info('\t-Id Check Passed:'+str(achk))    
+            
             
             achk=self.Check_number_Formats_in_Data(data)
+            if logcheck==True:
+                logging.info('\t-Amount of Formats Check Passed:'+str(achk))    
             if achk==False:
                 return False      
-            logging.info('\t-Amount of Formats Check Passed:'+str(achk))    
+            
             
             achk=self.Check_Req_actions_are_in_Data(Reqactions,data)
+            if logcheck==True:
+                logging.info('\t-Required actions Check Passed:'+str(achk))    
             if achk==False:
-                return False      
-            logging.info('\t-Required actions Check Passed:'+str(achk))    
+                return False                  
 
             achk=self.Check_Parenthesees_in_all_Formats(data)
+            if logcheck==True:
+                logging.info('\t-Parenthesees Check Passed:'+str(achk)) 
             if achk==False and Checkstrickt==True:
                 return False   
-            logging.info('\t-Parenthesees Check Passed:'+str(achk)) 
 
             return True
                 
@@ -688,6 +744,7 @@ class Command_Handler:
         return [Nopini,Nopend]
 
     def Check_one_Parenthesees(self,aFormat,IniP=r'\[',EndP=r'\]',logerr=True):
+        aFormat=str(aFormat)
         try:            
             Inisep=self.get_text_split_separatorfromregex(IniP)
             Endsep=self.get_text_split_separatorfromregex(EndP)
@@ -737,9 +794,7 @@ class Command_Handler:
                     isok=self.Check_entangled_Parenthesees(ppp3,False)
                     if isok == False:
                         return False        
-                return True        
-            
-
+                return True                    
         else:
             if logerr==True:
                 logging.error('Different amounts of opening and closing Parenthesees')
@@ -781,8 +836,351 @@ class Command_Handler:
                         allok=False
 
         return allok
+    
+    def Check_id_match_configs(self,data1,data2):
+        isok=True
+        try:
+            d1list=data1['interfaceId']
+            d2list=data2['interfaceId']
+            if len(d1list)!=len(d2list):
+                logging.error('interfaceId with different amount of items!')    
+                return False
+            for l1 in d1list:
+                if l1 not in d2list:
+                    logging.error('id '+str(l1) +' Not found in one interfaceId configurations!')    
+                    return False    
+        except:
+            logging.error('No interfaceId found!')    
+            isok=False
+            pass
+        return isok
 
+    def fill_parameters(self,parnamelist,parvallist):
+        numpar=len(parnamelist)
+        numval=len(parvallist)
+        if numpar!=numval:
+            numpar=min(numpar,numval)
+            numval=numpar            
+        param={}    
+        if numpar>0:
+            parlist={}
+            for iii in range(numpar):
+                parlist.update({parnamelist[iii]:parvallist[iii]})
+            allparams=self.Get_list_of_all_parameters_in_interface(self.id)            
+            try:
+                for par in parnamelist:
+                    if par in allparams:
+                        param.update({par:parlist[par]})
+            except:
+                pass
+        return param    
+    
+    def Get_list_of_all_parameters_all_interfaces(self):
+        allid=self.getGformatforAction('interfaceId')
+        allparams=[]
+        for ids in allid:
+            aparams=self.Get_list_of_all_parameters_in_interface(ids)
+            for ppp in aparams:
+                if ppp not in allparams:
+                    allparams.append(ppp)
+        return allparams    
+
+    def Get_option_list(self,aFormat):
+        aFormat=str(aFormat)
+        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat) #in []
+        opvarlist=[]        
+        atleast=[]                
+        addatleast=False
+        for option in optionslist:  
+            if '&&' in option:
+                addatleast=True   
+                optxt=option
+            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in []             
+            for opjjj in varoptlist:                
+                if addatleast==True:       
+                    atleast.append([opjjj,optxt])                   
+                opvarlist.append(opjjj)
+        return opvarlist,atleast  
+
+    
+    def get_regex_codes_to_find_parameters(self,aFormat):
+        aFormat=str(aFormat)
+        # ([XYZ][^\sXYZ]+) will match in any order parameters XYZ with or without spaces from gcode
+        newFormat=self.Format_replace_actions(aFormat)        
+        allparams=self.Get_list_of_all_parameters_all_interfaces() 
+        opvarlist,atleast=self.Get_option_list(newFormat)                
+        Parameters={}
+        foundparameters=[]
+        #Emptyreplace={}
+        for param in allparams:            
+            Parameters.update({param:'(.*)'})
+            foundparameters.append(param)
+            #Emptyreplace.update({param:''})
+        justoptxt=''
+        justoplist=[]
+        for opiii in opvarlist:
+            if '&&' not in opiii:
+                aoptxt=self.Get_code(opiii,Parameters)
+                aoptxt=aoptxt.replace('(.*)','')
+                justoptxt=justoptxt+aoptxt
+                justoplist.append(aoptxt.strip(' '))
+
+        ch=chr(92)  # character \      
+        justoptxt=justoptxt.replace(' ',ch+'s',1)        
+        justoptxt=justoptxt.replace(' ','')          
+        #print(justoptxt)
+        #print(justoplist)
+        varandval='(['+justoptxt+'][^'+ch+'s'+justoptxt+']+)'
+        allval='['+justoptxt+']([^'+ch+'s'+justoptxt+']+)'
+        allvar='(['+justoptxt+'])'
+        P_opread={'all_var_txt':justoptxt,'var_list':justoplist,'num_var':len(justoplist),'all_var_val':varandval,'all_val':allval,'all_var':allvar,'paramslist':foundparameters}
+        for optxtiii in justoplist:
+            P_opread.update({optxtiii:'['+optxtiii+']([^'+ch+'s'+justoptxt+']+)'})
+        '''        
+        newFormat=newFormat.replace(ch,ch+ch)                               
+        newFormat=newFormat.replace('||','?')         
+        newFormat=newFormat.replace('.',ch+'.') 
+        newFormat=newFormat.replace('^',ch+'^')                   
+        newFormat=newFormat.replace('$',ch+'$')                       
+        regexGcode=self.Get_code(newFormat,Parameters)        
+
+        for iii in range(len(justoplist)):
+            atxt='['+justoptxt+']'
+            regexGcode=regexGcode.replace(justoplist[iii]+'(.*)',atxt+'(.*)')                                
+        regexGcode=regexGcode.replace(' ',ch+'s?')
+        return regexGcode
+        '''    
+        return P_opread    
+
+    def get_main_code_from_gcode(self,Gcode,interface_id):
+        '''
+        Search all actions gcode format excluding optional parameters to match the gcode string
+        '''
+        allactions=self.getListofActions(exceptlist=['interfaceId','interfaceName'])
+        if interface_id is None:
+            interface_id=self.id
+        foundcodeslist=[]  
+        foundactionslist=[]  
+        for action in allactions:
+            aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
+            aFormat=self.Format_replace_actions(aFormat)
+            ParamsNeed=self.Get_Parameters_Needed_for_Format(aFormat)
+            Maincmd=self.Format_Get_main_Command(aFormat)
+            for ppp in ParamsNeed:
+                if 'required' in ParamsNeed[ppp]:
+                    Maincmd.replace('{'+ppp+'}','')            
+            Maincmd_strip=Maincmd.strip()            
+            if Maincmd_strip!='':                
+                stripfound=False
+                if Maincmd_strip in Gcode:
+                    stripfound=True                
+                if Maincmd in Gcode:
+                    foundcodeslist.append(Maincmd)        
+                    foundactionslist.append(action)
+                elif Maincmd not in Gcode and stripfound==True:
+                    foundcodeslist.append(Maincmd_strip)          
+                    foundactionslist.append(action)    
+        return foundcodeslist,foundactionslist
+    
+    def get_parameters_from_Gcode(self,Gcode,actionlist,interface_id,logerr=False):
+        '''
+        returns actions and parameters found in the Gcode
+        '''
+        actionparamsfound={}
+        for action in actionlist:
+            Params={}
+            aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)                        
+            ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
+            P_opread=self.get_regex_codes_to_find_parameters(aFormat)
+            if P_opread['num_var']==0:
+                actionparamsfound.update({action:Params})
+            if P_opread['num_var']>0:
+                mg=re.search(P_opread['all_var_val'],Gcode)
                 
+                try:
+                    numfound=len(mg.groups())                    
+                    if numfound>0:                        
+                        nmplist=P_opread['num_var']                              
+                        mplist=P_opread['var_list']                           
+                        for iii in range(nmplist):                            
+                            var=mplist[iii]                                
+                            #print(var)                  
+                            par=re.search(P_opread[var],Gcode)
+                            try:                                                        
+                                Params.update({var : par.group(1)})   
+                                print(var,par.group(1))                                     
+                            except:
+                                pass                                                                
+                    actionparamsfound.update({action:Params})                    
+                except Exception as e:
+                    if logerr==True:
+                        logging.error(e)                     
+                    pass
+        return actionparamsfound        
+
+    def get_action_from_gcode(self,Gcode,interface_id=None):        
+        actionparamsfound={}
+        if Gcode is not None or Gcode is not '':
+            #allactions=self.getListofActions(exceptlist=['interfaceId','interfaceName'])
+            if interface_id is None:
+                interface_id=self.id            
+            foundcodeslist,foundactionslist=self.get_main_code_from_gcode(Gcode,interface_id)
+            #print('foundMain->',foundactionslist)
+            if len(foundcodeslist)==0: #when no Main code but just parameters
+                #already seached inside all parameters in get_main_code_from_gcode
+                #actionparamsfound=self.get_parameters_from_Gcode(Gcode,allactions,interface_id)
+                actionparamsfound={}                
+            else:
+                actionparamsfound=self.get_parameters_from_Gcode(Gcode,foundactionslist,interface_id)     
+            actioncode=self.get_action_code(actionparamsfound,Gcode,interface_id)    
+            actionparamsfound.update({'_action_code_':actioncode})
+        return actionparamsfound                   
+
+    def get_action_code(self,actionsparamsfound,Gcode,interface_id):
+        modGcode=Gcode
+        print(actionsparamsfound)
+        for actpar in actionsparamsfound:            
+            aFormat=self.getGformatforActionid(actpar,interface_id)
+            aFormat=self.Format_replace_actions(aFormat)
+            #print('Here 1',modGcode,aFormat,actpar)
+            if aFormat in Gcode:
+                modGcode=modGcode.replace(aFormat,'{'+actpar+'}')
+                #print('Here 2',modGcode,aFormat,actpar)
+            else:                    
+                #print('Here 3')
+                MainComm=self.Format_Get_main_Command(aFormat)
+                modGcode=modGcode.replace(MainComm,'{'+actpar+'}')
+                Parneed=self.Get_Parameters_Needed_for_action(actpar,interface_id)
+                P_get=self.get_regex_codes_to_find_parameters(aFormat)
+                for sss in range(P_get['num_var']):
+                    mp=re.search(P_get['all_var_val'],modGcode)
+                    try:
+                        nmp=len(mp.groups())
+                        #print('Here 4')
+                        for iii in range(nmp):
+                            pareval=mp.group(iii+1)
+                            modGcode=modGcode.replace(pareval,'')
+                            #print('Here 5')
+                    except:
+                        pass        
+        while '  ' in modGcode: #replace all double spaces to single spaces
+            modGcode=modGcode.replace('  ',' ')                            
+        return modGcode    
+
+    def action_code_match_action(self,action_code,action,justin=False):
+        atxt='{'+str(action)+'}'
+        if  atxt in action_code:
+            if action_code.strip() is atxt:
+                return True
+            return justin    
+        else:
+            return False         
+
+    def get_all_info_from_Format(self,aFormat):
+        aFormat=str(aFormat)
+        All_data={}
+        All_data.update({'Format':aFormat})
+        regexcmd='' 
+        # if regex code
+        isregex=False
+        if "r'" in aFormat:
+            #rlist=self.get_list_in_between_txt(aFormat,"'","'")
+            #p2list,Nump2=self.Format_which_Inside_Parenthesees(p1,r"r\'",r'\]')
+            rm=re.search("r'(.*)'",aFormat)
+            try:                
+                regexcmd=rm.group(1)
+                isregex=True
+            except:
+                isregex=False
+                pass    
+        #print(regexcmd)        
+            
+        
+        if isregex==True:
+            MainComm=regexcmd
+            newFormat=aFormat.replace(MainComm,'')
+            optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)
+            
+        else:
+            MainComm=self.Format_Get_main_Command(aFormat)
+            newFormat=self.Format_replace_actions(aFormat)
+            optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)            
+            #Parameters={}
+            #for iii in paramlist:
+            #    Parameters.update({iii})
+            #newFormat=self.Format_select_options_ored_parameters(newFormat,Parameters)        
+        
+        isored=False        
+        if '||' in newFormat:
+            isored=True        
+        All_data.update({'IsOred':isored})    
+        All_data.update({'IsRegex':isregex})
+        All_data.update({'MainCommand':MainComm})
+        All_data.update({'RegexCommand':regexcmd})  
+        #if '<' in  regexcmd: 
+        #    print(regexcmd)
+        All_data.update({'processedFormat':newFormat})
+
+        All_data.update({'Parameterlist':paramlist})
+        All_data.update({'Optionlist':optionslist})
+        All_data.update({'minRequiredOptions':minnumoptions})
+        
+        opttxtlist=self.Get_option_text(paramlist,optionslist)
+        All_data.update({'Optiontxtlist':opttxtlist})
+
+        P_regex=self.get_regex_codes_to_find_parameters(newFormat)         
+        All_data.update({'AllOptiontxt':P_regex['all_var_txt']})
+        All_data.update({'lenOptionlist':P_regex['num_var']}) 
+        All_data.update({'AllParametersavailable':P_regex['paramslist']})         
+
+        #print(optionslist)
+        #print(paramlist)
+
+        #print(P_regex['paramslist'])
+        return All_data
+    
+    def Get_option_text(self,paramlist,optionlist):
+        txtoplist=[]        
+        for op in optionlist:
+            for ppp in paramlist:            
+                if '{'+ppp+'}' in op:
+                    optiontxt=op.replace('{'+ppp+'}','')                    
+                    txtoplist.append(optiontxt)   
+        return txtoplist      
+
+    def read_from_format(self,receivedline,aFormat,logerr=False):
+        ParamRead={}
+        aFormat=str(aFormat)
+        All_data=self.get_all_info_from_Format(aFormat)
+        success_=-1
+        if All_data['IsRegex']==True:
+            rgexcmd=All_data['RegexCommand']
+            rmatch=re.search(rgexcmd,receivedline)
+            success_=0
+            try:
+                num_match=len(rmatch.groups())
+                paramlist=All_data['Parameterlist']
+                optiontxtlist=All_data['Optiontxtlist']                
+                nump=len(paramlist)
+                numo=len(optiontxtlist)
+                if numo==nump:
+                    for iii in range(numo):
+                        opttxt=optiontxtlist[iii]
+                        ppp=paramlist[iii]
+                        mmm=int(opttxt.strip())
+                        ParamRead.update({ppp:rmatch.group(mmm)})
+                        success_=success_+1
+            except Exception as e:
+                if logerr==True:
+                    logging.error(e) 
+                pass
+        ParamRead.update({'__success__':success_})  #-1 No regex format, 0 No matches in format, # of matches found          
+        return ParamRead
+        
+
+
+
+            
 
 
             

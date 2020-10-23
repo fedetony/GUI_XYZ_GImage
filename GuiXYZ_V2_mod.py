@@ -30,7 +30,8 @@ import logging
 import queue
 
 import threading
-from thread_xyz_grbl import XYZGrbl
+#from thread_xyz_grbl import XYZGrbl
+from thread_xyz_multi_interface import XYZMulti
 import thread_Gcode_Stream
 import thread_XYZ_Update
 from Gimage_V1 import Image_Gcode_Stream 
@@ -326,6 +327,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
 
         self.actionSave_Config.triggered.connect(self.Save_config_to_file)
+        self.actionReload_Interface_Configuration(self.Reload_Interface_Configuration)
         '''
         self.actionOpen.triggered.connect()         
         self.actionLoad_Gcode.triggered.connect() 
@@ -411,14 +413,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.killer_event.clear() 
         self.IsRunning_event= threading.Event()
         self.IsRunning_event.clear()
-        self.XYZRobot_com_port ='COM10'
-        self.Version ='2.0.1'
+        self.XYZRobot_com_port ='COM12'
+        self.Version ='2.0.3'
+        self.author=__author__ 
         self.x_pos = 0
         self.y_pos = 0
         self.z_pos = 0
         self.DeltaX= 1
         self.DeltaY= 1
         self.DeltaZ= 1
+        self.Feedrate= None
         self.XYZRobot_found=0
         self.Config_Table_NumRows=0
         self.Config_Table_NumCols=0
@@ -835,6 +839,14 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.DeltaZ=value
         except:       
             self.lineEdit_DeltaZ.setText(str(self.DeltaZ)) 
+        try:
+            if self.lineEdit_Feedrate.text() is not '':
+                value=int(self.lineEdit_Feedrate.text())
+                self.Feedrate=value
+                self.lineEdit_Feedrate.setText(str(self.Feedrate))    
+        except:      
+            self.Feedrate=None 
+            self.lineEdit_Feedrate.setText('')    
         #self.Fill_Deltas()    
 
     def Move_Delta(self,DeltaX,DeltaY,DeltaZ):    
@@ -846,8 +858,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         self.end_pos=[self.ini_pos[0]+DeltaX,self.ini_pos[1]+DeltaY,self.ini_pos[2]+DeltaZ]               
         if self.XYZRobot_found==1:
-            logging.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))            
-            self.xyz_thread.goto_xyz(self.end_pos[0],self.end_pos[1],self.end_pos[2])
+            logging.info("Going to: X = " + str(self.end_pos[0]) + ", Y = " + str(self.end_pos[1])+", Z = " + str(self.end_pos[2]))            
+            if self.Feedrate==None:
+                self.xyz_thread.goto_xyz(self.end_pos[0],self.end_pos[1],self.end_pos[2])
+            else:
+                self.xyz_thread.goto_xyzf(self.end_pos[0],self.end_pos[1],self.end_pos[2],self.Feedrate)
             #usefixedtime=0
             #self.wait_response_xyz(usefixedtime,5)
         else:
@@ -945,7 +960,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             XYZRobot_port=self.COMPort            
             #Baudrate=self.COMBaudRate.encode('utf-8')
             Baudrate=int(self.COMBaudRate)
-            self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
+            #self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
+            self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)            
             self.xyz_thread.start()
             self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
             self.xyz_update_thread.setName("XYZ Update") 
@@ -1287,6 +1303,14 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 except Exception as e:
                     logging.error(e)
                     logging.info("File was not Written!")        
+    
+    def Reload_Interface_Configuration(self):
+        if self.XYZRobot_found==1:
+            try:
+                self.xyz_thread.CH.Setup_Command_Handler()
+                self.xyz_thread.Init_Configurations(Logcheck=True)
+            except:
+                pass    
 
     def Save_config_to_file(self):
         if self.Is_Config_Table_Empty()==False: 
@@ -1458,7 +1482,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.Z = float(self.lineEdit_Z.text())
         except:
             self.Z = self.z_pos    
-            self.lineEdit_Z.setText(str(self.Z))   
+            self.lineEdit_Z.setText(str(self.Z))  
+        try :
+            if self.lineEdit_Feedrate.text() is '':
+                self.Feedrate=None
+            else:    
+                self.Feedrate = int(self.lineEdit_Feedrate.text())
+        except:
+            self.Feedrate=None
+            self.lineEdit_Feedrate.setText('')
+            
             
 
     def PB_Set_Position(self):
@@ -1487,7 +1520,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:
             logging.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))
             #self.XYZRobot_port.write(str.encode('g0 x' + str(self.X) + ' y' + str(self.Y)+ ' z' + str(self.Z) + '\n'))
-            self.xyz_thread.goto_xyz(self.X,self.Y,self.Z)
+            if self.Feedrate==None:
+                self.xyz_thread.goto_xyz(self.X,self.Y,self.Z)
+            else:
+                self.xyz_thread.goto_xyzf(self.X,self.Y,self.Z,self.Feedrate)
+
+            
             #usefixedtime=0
             #self.wait_response_xyz(usefixedtime,5)
         else:

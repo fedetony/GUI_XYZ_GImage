@@ -121,18 +121,61 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         print(self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}') ) 
         print(self.Format_which_Inside_Parenthesees(newFormat) ) 
         '''
+        '''
         Reqactions={'test','interfaceId','interfaceName'}
         isok=self.CH.Check_command_config_file_Content('test/testConfig.config',Reqactions,False)
         print('Check Passed:',isok)
-
-        action='test'    
-        Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}    
-        Gcode=self.CH.Get_Gcode_for_Action(action,Parameters)
-        print(Gcode)        
-        self.DCCui.label_test.setText(Gcode)    
+        '''
+        
         '''
         Params=self.CH.Get_Parameters_Needed_for_action(self.Selected_action,self.id)
         print(Params)
         print(self.CH.Get_list_of_all_parameters_in_interface(self.id))
         print(self.CH.Get_Gcode_for_Action(action,Parameters))
         '''
+        '''
+        print('--------------------------------------------------')
+        Reqactions={'interfaceId'}
+        isok=self.CH.Check_command_config_file_Content('config/InterfaceConfig.config',Reqactions,False)
+        print('Check Passed:',isok)
+        data=self.CH.Load_command_config_from_file('config/InterfaceConfig.config')
+        print(data)
+        print('--------------------------------------------------')
+        action='test'    
+        Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}    
+        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
+        print(Gcode)        
+        self.DCCui.label_test.setText(Gcode)  
+        '''
+        '''
+        print('--------------------------------------------------')
+        aFormat=self.CH.getGformatforAction('linearMove')
+        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        aFormat=self.CH.getGformatforAction('rapidMove')
+        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        action=self.DCCui.comboBox_CCD_action.currentText()
+        aFormat=self.CH.getGformatforAction(action)
+        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}  
+        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
+        print(Gcode)        
+        self.DCCui.label_test.setText(Gcode) 
+        '''
+        print('--------------------------------------------------')
+        #Gcodeline='G0 X0.5 Y0.8 Z3'
+        #print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G0 X0.5 Z3 Y0.8'
+        #print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G0 X0.5 Z0.8 Y3'
+        #print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G0 Z8'
+        #print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G92 X0.5'
+        #print(self.CH.get_action_from_gcode(Gcodeline))
+        Gcodeline='G91 G0 X0.5 Y0.8 Z3'
+        print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G54 G0 X0.5 Y0.8 Z3'
+        #print(self.CH.get_action_from_gcode(Gcodeline,1))
+
+
+
