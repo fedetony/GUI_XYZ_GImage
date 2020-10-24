@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>605</width>
-    <height>439</height>
+    <width>675</width>
+    <height>570</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -33,40 +33,196 @@
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
          </property>
-         <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
-           <widget class="QComboBox" name="comboBox_CCD_interface"/>
+         <layout class="QVBoxLayout" name="verticalLayout_2">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+             <widget class="QComboBox" name="comboBox_CCD_interface"/>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_CCD_interfaceName">
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
-          <item row="0" column="2">
-           <widget class="QLabel" name="label_CCD_interfaceName">
-            <property name="text">
-             <string>mmmnn</string>
+          <item>
+           <widget class="QTabWidget" name="tabWidget_CCD_configs">
+            <property name="tabPosition">
+             <enum>QTabWidget::West</enum>
             </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="label_test">
-            <property name="text">
-             <string>TextLabel</string>
+            <property name="currentIndex">
+             <number>0</number>
             </property>
+            <widget class="QWidget" name="tab_CCD_ActionConfig" native="true">
+             <attribute name="title">
+              <string>Action Config</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_3">
+              <item row="0" column="0">
+               <widget class="QGroupBox" name="groupBox_CCD_actionFiles">
+                <property name="title">
+                 <string>Filename</string>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_2">
+                 <item row="0" column="1">
+                  <widget class="QLabel" name="label_CCD_Command_Filename">
+                   <property name="text">
+                    <string>Filename</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QPushButton" name="pushButton_CCD_Load_Commands">
+                   <property name="text">
+                    <string>Load Commands</string>
+                   </property>
+                   <property name="icon">
+                    <iconset>
+                     <normaloff>img/open-file-icon.png</normaloff>img/open-file-icon.png</iconset>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QPushButton" name="pushButton_CCD_Save_Commands">
+                   <property name="text">
+                    <string>Save Commands</string>
+                   </property>
+                   <property name="icon">
+                    <iconset>
+                     <normaloff>img/Save-as-icon.png</normaloff>img/Save-as-icon.png</iconset>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="0">
+                  <widget class="QPushButton" name="pushButton_CCD_Select_File">
+                   <property name="text">
+                    <string>Select File</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QGroupBox" name="groupBox_CCD_actionChanges">
+                <property name="title">
+                 <string>Actions</string>
+                </property>
+                <layout class="QFormLayout" name="formLayout">
+                 <item row="4" column="0" colspan="2">
+                  <widget class="QTableWidget" name="tableWidget_CCD_actionParam">
+                   <property name="toolTip">
+                    <string>Parameters of Format</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="0" colspan="2">
+                  <widget class="QComboBox" name="comboBox_CCD_action"/>
+                 </item>
+                 <item row="2" column="0" colspan="2">
+                  <widget class="QLineEdit" name="lineEdit_CCD_Format">
+                   <property name="toolTip">
+                    <string>Format Field</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="6" column="0">
+                  <widget class="QPushButton" name="pushButton_CCD_actionTest">
+                   <property name="text">
+                    <string>Test Action</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="5" column="0">
+                  <widget class="QLabel" name="label_CCD_testResultFormat">
+                   <property name="toolTip">
+                    <string>Format interpretation</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0" colspan="2">
+                  <layout class="QHBoxLayout" name="horizontalLayout_2">
+                   <item>
+                    <widget class="QLineEdit" name="lineEdit_CCD_action">
+                     <property name="toolTip">
+                      <string>action Name Field</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_actionAdd">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Add new action or Replace format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/add-icon.png</normaloff>img/add-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_actionDel">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Delete action or clear format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/math-minus-icon.png</normaloff>img/math-minus-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item row="7" column="0">
+                  <widget class="QLabel" name="label_CCD_testResult">
+                   <property name="toolTip">
+                    <string>Gcode interpretation Result</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="tab_CCD_ReadConfig">
+             <attribute name="title">
+              <string>Read Config</string>
+             </attribute>
+            </widget>
+            <widget class="QWidget" name="tab_CCD_GeneralConfig">
+             <attribute name="title">
+              <string>General Config</string>
+             </attribute>
+            </widget>
            </widget>
-          </item>
-          <item row="4" column="2">
-           <widget class="QPushButton" name="pushButton_test">
-            <property name="text">
-             <string>PushButton_test</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QPushButton" name="pushButton_CCD_set_commands">
-            <property name="text">
-             <string>Load Commands</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QComboBox" name="comboBox_CCD_action"/>
           </item>
          </layout>
         </widget>

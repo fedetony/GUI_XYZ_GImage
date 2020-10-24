@@ -218,6 +218,9 @@ class Dialogs(QWidget):
         elif filter==2:
             self.filters="All Files (*);;Text Files (*.txt)"
             self.selected_filter = "Text Files (*.txt)"
+        elif filter==3:
+            self.filters="All Files (*);;Configuration Files (*.config)"
+            self.selected_filter = "Configuration Files (*.config)"    
         else:
             self.filters="All Files (*)"
             self.selected_filter = "All Files (*)"    
@@ -291,6 +294,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.init_Values()
         #Init Commands configuration class
         self.CCDialog=class_CCD.CommandConfigurationDialog(self.Actual_Interface)
+        
+        self.CCDialog.file_update[str].connect(self.Configuration_Changed_Refresh)
         # Set Icons and status off
         self.Set_Icons_Status_OnOFF(False)
         
@@ -327,7 +332,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
 
         self.actionSave_Config.triggered.connect(self.Save_config_to_file)
-        self.actionReload_Interface_Configuration(self.Reload_Interface_Configuration)
+        self.actionReload_Interface_Configuration.triggered.connect(self.Reload_Interface_Configuration)
         '''
         self.actionOpen.triggered.connect()         
         self.actionLoad_Gcode.triggered.connect() 
@@ -577,6 +582,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def right_click_P(self, nb):
         if nb == 1: print('Single right click')
         else: print('Double right click')
+    
+    def Configuration_Changed_Refresh(self,afilename):
+        print(self.XYZRobot_found)
+        if self.XYZRobot_found==1:
+            if self.xyz_thread.CH.filename==afilename:   
+                logging.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
+                #logging.info("Refreshing Configuration in Threads using "+afilename)             
+                #while self.xyz_thread.IsRunning_event.wait(0.5):
+                #    logging.info("....waiting to refresh configuration")
+                #self.xyz_thread.CH.Setup_Command_Handler(log_check=False)
+        else:            
+            logging.info("Event filename changed!"+afilename)
+        
+
 
     def Image_Preview_Clicked(self):
         print("Image clicked!!!!! ")

@@ -1,6 +1,7 @@
 
 import re
 import logging
+import fileinput
 #from types import *
 
 class Command_Handler:    
@@ -26,8 +27,8 @@ class Command_Handler:
     def Set_id(self,selected_interface_id):
         self.id=str(selected_interface_id) #equivalent to is_tinyg
 
-    def Setup_Command_Handler(self):        
-        fileok=self.Check_command_config_file_Content(self.filename,self.Required_actions)
+    def Setup_Command_Handler(self,log_check=True):        
+        fileok=self.Check_command_config_file_Content(self.filename,self.Required_actions,logcheck=log_check)
         #open file .config
         if fileok==False:
             logging.error('Configuration File contains Errors! Configuration Will not be loaded!')
@@ -35,7 +36,7 @@ class Command_Handler:
             self.Actual_Interface_Formats={}
             self.Num_interfaces=0
             return
-        self.Configdata=self.Load_command_config_from_file()
+        self.Configdata=self.Load_command_config_from_file(Logopen=log_check)
         #read configurations
         #get number of configurations from interfaceId
         self.Num_interfaces=self.get_number_of_interfaces(self.Configdata)
@@ -77,8 +78,8 @@ class Command_Handler:
             sss=sss+1
         return sss    
     
-    def Set_new_Interface(self,interface_id):
-        self.Set_id(interface_id)        
+    #def Set_new_Interface(self,interface_id):
+    #    self.Set_id(interface_id)        
 
     def Get_action_format_from_id(self,data,action,interface_id):
         try:
@@ -134,12 +135,13 @@ class Command_Handler:
             Num=Num+1
         return Num    
 
-    def Load_command_config_from_file(self,filename=None):       
+    def Load_command_config_from_file(self,filename=None,Logopen=True):       
         if filename is None: 
             filename=self.filename
         data={}
         if filename is not None:            
-            logging.info('Opening:'+filename)
+            if Logopen==True:
+                logging.info('Opening:'+filename)
             try:                
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
@@ -452,7 +454,7 @@ class Command_Handler:
         if self.Is_action_in_Config(action)==True:
             aFormat=self.getGformatforAction(action)
             #print(aFormat)  
-            paramok=self.Are_Parameters_ok(action,Parameters)
+            paramok=self.Check_Parameters_for_Action(action,Parameters)
             #print('Paramok=',paramok)
             if paramok==True or Parammustok==False:
                 Gcode=self.Get_code(aFormat,Parameters)
@@ -461,7 +463,7 @@ class Command_Handler:
         return Gcode,paramok    
 
     def Get_code(self,aFormat,Parameters):
-        aFormat=str(aFormat)
+        aFormat=str(aFormat)        
         try:
             countnumoptions=0
             Numvarleft=1   
@@ -603,7 +605,7 @@ class Command_Handler:
         else:
             return False    
 
-    def Are_Parameters_ok(self,action,Parameters):   
+    def Check_Parameters_for_Action(self,action,Parameters):   
         if self.Is_action_in_Config(action)==False:
             return False
         RequiredParams=self.Get_Parameters_Needed_for_action(action,self.id)     
@@ -634,6 +636,36 @@ class Command_Handler:
             return True
         return False
     
+    def Check_Parameters_for_Format(self,aFormat,Parameters):     
+        #print('Format checking...')      
+        RequiredParams=self.Get_Parameters_Needed_for_Format(aFormat)     
+        minimum_required=0
+        minimum_oprequired=0
+        for reqParam in RequiredParams:
+            if '&&' in RequiredParams[reqParam]:
+                oplistmin,Numopmin=self.Format_which_Inside_Parenthesees(RequiredParams[reqParam],r'\(',r'\)') 
+                for opjjj in oplistmin:
+                        minimum_oprequired=int(opjjj)             
+            if 'required' in RequiredParams[reqParam]:           
+                minimum_required=minimum_required+1
+        minimum_req_total=minimum_required+minimum_oprequired            
+        if minimum_req_total==0:
+            return True
+        required_found=0
+        optional_found=0    
+        for reqParam in RequiredParams:
+            if 'required' in RequiredParams[reqParam]: 
+                if reqParam in Parameters:
+                    required_found=required_found+1
+                else:
+                    return False    
+            if 'optional' in RequiredParams[reqParam]: 
+                if reqParam in Parameters:
+                    optional_found=optional_found+1
+        if required_found==minimum_required and optional_found>=minimum_oprequired:
+            return True
+        return False
+
     def Check_command_config_file_Content(self,filename,Reqactions,Checkstrickt=False,logcheck=True):
         #filename=self.filename        
         data={}
@@ -778,20 +810,28 @@ class Command_Handler:
             elif Np1ini>0 and Np2ini>0:
                 p1list,Nump1=self.Format_which_Inside_Parenthesees(txt,r'\{',r'\}') 
                 for ppp1 in p1list:
-                    isok=self.Check_entangled_Parenthesees(ppp1,False)
+                    #print('+1 depth')
+                    if txt!=ppp1:
+                        isok=self.Check_entangled_Parenthesees(ppp1,False)
+                        
                     if isok == False:
                         return False
             elif Np2ini>0 and Np3ini>0:
                 p2list,Nump2=self.Format_which_Inside_Parenthesees(txt,r'\[',r'\]') 
                 for ppp2 in p2list:
-                    isok=self.Check_entangled_Parenthesees(ppp2,False)
+                    #print('+2 depth')
+                    if txt!=ppp2:
+                        isok=self.Check_entangled_Parenthesees(ppp2,False)
+
                     if isok == False:
                         return False        
                 return True    
             elif Np1ini>0 and Np3ini>0:
                 p3list,Nump3=self.Format_which_Inside_Parenthesees(txt,r'\(',r'\)') 
                 for ppp3 in p3list:
-                    isok=self.Check_entangled_Parenthesees(ppp3,False)
+                    if txt!=ppp3:
+                        isok=self.Check_entangled_Parenthesees(ppp3,False)
+
                     if isok == False:
                         return False        
                 return True                    
@@ -837,6 +877,28 @@ class Command_Handler:
 
         return allok
     
+    def Check_Parenthesees_in_one_Format(self,aFormat):
+        allok=True
+        aFor=str(aFormat)
+        P1=self.Check_one_Parenthesees(aFor,IniP=r'\[',EndP=r'\]',logerr=False)
+        if P1==False:
+            logging.error('Parenthesees Mismatch "[ ]" in Format <'+ aFor+'>')
+            allok=False
+        P2=self.Check_one_Parenthesees(aFor,IniP=r'\(',EndP=r'\)',logerr=False)
+        if P2==False:
+            logging.error('Parenthesees Mismatch "( )" in Format <'+ aFor+'>')
+            allok=False
+        P3=self.Check_one_Parenthesees(aFor,IniP=r'\{',EndP=r'\}',logerr=False)
+        if P3==False:
+            logging.error('Parenthesees Mismatch "{ }" in Format <'+ aFor+'>')
+            allok=False
+        if allok==True:
+            Pe=self.Check_entangled_Parenthesees(aFor,logerr=False)            
+            if Pe==False:
+                logging.error('Parenthesees Entangled {[( }]) in Format <'+ aFor+'>')
+                allok=False
+
+        return allok
     def Check_id_match_configs(self,data1,data2):
         isok=True
         try:
@@ -1008,7 +1070,7 @@ class Command_Handler:
                             par=re.search(P_opread[var],Gcode)
                             try:                                                        
                                 Params.update({var : par.group(1)})   
-                                print(var,par.group(1))                                     
+                                #print(var,par.group(1))                                     
                             except:
                                 pass                                                                
                     actionparamsfound.update({action:Params})                    
@@ -1038,7 +1100,7 @@ class Command_Handler:
 
     def get_action_code(self,actionsparamsfound,Gcode,interface_id):
         modGcode=Gcode
-        print(actionsparamsfound)
+        #print(actionsparamsfound)
         for actpar in actionsparamsfound:            
             aFormat=self.getGformatforActionid(actpar,interface_id)
             aFormat=self.Format_replace_actions(aFormat)
@@ -1075,10 +1137,22 @@ class Command_Handler:
             return justin    
         else:
             return False         
+    def Check_Format(self,aFormat,Parameters={}): 
+        '''
+        Checks parenthesees and if there is parameters the required parameters
+        ''' 
+        #print('check start')      
+        isok= self.Check_Parenthesees_in_one_Format(aFormat)
+        #print(isok,len(Parameters),Parameters)
+        if isok==True and len(Parameters)>0 :
+            #print('checking parameters')
+            isok=self.Check_Parameters_for_Format(aFormat,Parameters)                 
+        return isok
 
     def get_all_info_from_Format(self,aFormat):
         aFormat=str(aFormat)
         All_data={}
+        
         All_data.update({'Format':aFormat})
         regexcmd='' 
         # if regex code
@@ -1102,9 +1176,14 @@ class Command_Handler:
             optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)
             
         else:
+            isok=self.Check_Format(aFormat)
+            if isok==False:
+                logging.error('Bad Format Entangled Parenthesees')
+                return All_data
             MainComm=self.Format_Get_main_Command(aFormat)
             newFormat=self.Format_replace_actions(aFormat)
-            optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)            
+            optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)   
+                
             #Parameters={}
             #for iii in paramlist:
             #    Parameters.update({iii})
@@ -1113,9 +1192,12 @@ class Command_Handler:
         isored=False        
         if '||' in newFormat:
             isored=True        
+        ParamsNeed=self.Get_Parameters_Needed_for_Format(newFormat)           
+        All_data.update({'ReqOpParamsdict':ParamsNeed})        
         All_data.update({'IsOred':isored})    
         All_data.update({'IsRegex':isregex})
         All_data.update({'MainCommand':MainComm})
+        self.Get_only_the_Parameters_in_list
         All_data.update({'RegexCommand':regexcmd})  
         #if '<' in  regexcmd: 
         #    print(regexcmd)
@@ -1176,6 +1258,109 @@ class Command_Handler:
                 pass
         ParamRead.update({'__success__':success_})  #-1 No regex format, 0 No matches in format, # of matches found          
         return ParamRead
+
+    def replace_action_format_in_file(self,filename,anaction,aFormat,anid,Logopen=False):
+        replaced=False
+        if filename is None: 
+            filename=self.filename
+        if anaction =='':
+            return replaced            
+        if filename is not None:  
+            import fileinput
+            # Does a list of files, and
+            # redirects STDOUT to the file in question
+            oldline, newline=self.get_new_line_old_line_for_action(anaction,aFormat,anid)
+            #print(oldline, newline)
+            if Logopen==True:
+                logging.info('Opening:'+filename+'to change a format!')
+            try:     
+                for line in fileinput.input(filename, inplace = 1): 
+                    if oldline in line:
+                        line=line.replace(oldline,newline)
+                    print(line, end='')                    #here prints inside file
+                fileinput.close()                 
+                replaced=True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Action could not be replaced on File!")
+        if replaced==True and filename==self.filename:
+            self.Setup_Command_Handler(False) #don't log checking
+        return replaced
+
+    def get_new_line_old_line_for_action(self,anaction,aFormat,anid):
+        idlist=self.Configdata['interfaceId']
+        #oldFormat=self.Get_action_format_from_id(self.Configdata,anaction,anid)
+        newFormat=aFormat
+        oldline='<'+anaction+'>'
+        newline='<'+anaction+'>'
+        for ids in idlist:        
+            oldFormat=self.Get_action_format_from_id(self.Configdata,anaction,ids)   
+            if oldFormat==None:
+                oldFormat=''             
+            if str(ids) == str(anid):
+                oldline=oldline+'_<'+oldFormat+'>'
+                newline=newline+'_<'+newFormat+'>'                
+            else:
+                oldline=oldline+'_<'+oldFormat+'>'
+                newline=newline+'_<'+oldFormat+'>'
+        return oldline, newline
+
+    def create_empty_action_in_file(self,filename,anaction,Logopen=False):
+        created=False
+        if filename is None: 
+            filename=self.filename
+        if anaction =='':
+            return created            
+        if filename is not None:              
+            # Does a list of files, and
+            # redirects STDOUT to the file in question
+            newline=self.get_new_line_for_action(anaction)    
+            newline='\r\n'+newline
+            if Logopen==True:
+                logging.info('Opening:'+filename+' to create empty action!')
+            try:     
+                with open(filename, "a") as myfile:
+                    myfile.write(newline)  
+                myfile.close()              
+                created=True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Action could not be append on File!")
+        if created==True and filename==self.filename:
+            self.Setup_Command_Handler(False) #don't log checking
+        return created    
+
+    def get_new_line_for_action(self,anaction):
+        idlist=self.Configdata['interfaceId']        
+        newFormat=''        
+        newline='<'+anaction+'>'
+        for ids in idlist:        
+            newline=newline+'_<'+newFormat+'>'                
+        return newline
+    
+    def delete_action_in_file(self,filename,anaction,Logopen=False):
+        isdel=False
+        if filename is None: 
+            filename=self.filename
+        if anaction =='':
+            return isdel            
+        if filename is not None:              
+            oldline, newline=self.get_new_line_old_line_for_action(anaction,'',self.id)
+            #print(oldline, newline)
+            if Logopen==True:
+                logging.info('Opening:'+filename+' to delete action!')
+            try:     
+                for line in fileinput.input(filename, inplace = 1): 
+                    if oldline not in line:
+                        print(line, end='')                    #here prints inside file
+                fileinput.close()                 
+                isdel=True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Action could not be deleted on File!")
+        if isdel==True and filename==self.filename:
+            self.Setup_Command_Handler(False) #don't log checking
+        return isdel
         
 
 
