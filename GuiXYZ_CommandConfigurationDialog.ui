@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>675</width>
-    <height>570</height>
+    <width>808</width>
+    <height>615</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -46,10 +46,98 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_CCD_AddInterface">
+              <property name="maximumSize">
+               <size>
+                <width>25</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>img/Plus-icon.png</normaloff>img/Plus-icon.png</iconset>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_CCD_DelInterface">
+              <property name="maximumSize">
+               <size>
+                <width>25</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>img/Actions-process-stop-icon.png</normaloff>img/Actions-process-stop-icon.png</iconset>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
           <item>
+           <widget class="QGroupBox" name="groupBox_CCD_actionFiles">
+            <property name="title">
+             <string>Filename</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_2">
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_CCD_Command_Filestatus">
+               <property name="text">
+                <string>File Status</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QPushButton" name="pushButton_CCD_Load_Commands">
+               <property name="text">
+                <string>Load Commands</string>
+               </property>
+               <property name="icon">
+                <iconset>
+                 <normaloff>img/open-file-icon.png</normaloff>img/open-file-icon.png</iconset>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pushButton_CCD_Save_Commands">
+               <property name="text">
+                <string>Save Commands</string>
+               </property>
+               <property name="icon">
+                <iconset>
+                 <normaloff>img/Save-as-icon.png</normaloff>img/Save-as-icon.png</iconset>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QPushButton" name="pushButton_CCD_Refresh_Commands_File">
+               <property name="toolTip">
+                <string>Reloads information in file to the GUI if it changed manually</string>
+               </property>
+               <property name="text">
+                <string>Refresh File</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
            <widget class="QTabWidget" name="tabWidget_CCD_configs">
+            <property name="maximumSize">
+             <size>
+              <width>500</width>
+              <height>16777215</height>
+             </size>
+            </property>
             <property name="tabPosition">
              <enum>QTabWidget::West</enum>
             </property>
@@ -61,92 +149,35 @@
               <string>Action Config</string>
              </attribute>
              <layout class="QGridLayout" name="gridLayout_3">
-              <item row="0" column="0">
-               <widget class="QGroupBox" name="groupBox_CCD_actionFiles">
-                <property name="title">
-                 <string>Filename</string>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_2">
-                 <item row="0" column="1">
-                  <widget class="QLabel" name="label_CCD_Command_Filename">
-                   <property name="text">
-                    <string>Filename</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QPushButton" name="pushButton_CCD_Load_Commands">
-                   <property name="text">
-                    <string>Load Commands</string>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/open-file-icon.png</normaloff>img/open-file-icon.png</iconset>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QPushButton" name="pushButton_CCD_Save_Commands">
-                   <property name="text">
-                    <string>Save Commands</string>
-                   </property>
-                   <property name="icon">
-                    <iconset>
-                     <normaloff>img/Save-as-icon.png</normaloff>img/Save-as-icon.png</iconset>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="0">
-                  <widget class="QPushButton" name="pushButton_CCD_Select_File">
-                   <property name="text">
-                    <string>Select File</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
               <item row="1" column="0">
                <widget class="QGroupBox" name="groupBox_CCD_actionChanges">
+                <property name="toolTip">
+                 <string>No command Leave empty 
+{param} replaces the parameter param with the value given
+Example: &lt;X{x}&gt; will return X20.3 when parameter 'x'=20.3
+{actionName} will replace the action Format of the same interface 
+{actionName(interfaceId)} will replace the action Format of the specified interface id 
+{char(##)} #in decimal or {char(0x##)} #in hexadecimal will replace the special character in utf-8 
+example: {char(0x18)} is ctrl+x
+[] optional must contain parameters in {} to be taken in count 
+example: test[ X{x}] when param 'x'='_x' will return &quot;test X_x&quot;. When no parameter given returns 'test'
+example: test[ X] When no parameter given returns 'test'
+[opt1{param}]||[opt2{param}] &quot;or&quot; to select between options 
+example: [X{X}]||[X{x}] will return X5 if either parameter 'x' or 'X' are 5, first find has priority (X in this case). Will not return anything if no X or x parameters are defined.
+[&amp;&amp;(N)] at least parameters for N optional sets must be present  
+example: [&amp;&amp;(1)][X{X}]||[X{x}] will return missing parameter error if X and x are not defined
+example: [&amp;&amp;(1)][X{X}][Y{Y}] will return missing parameter error if at least 1 of them is not defined.
+separate commands with 
+ for multiple commands per command</string>
+                </property>
                 <property name="title">
                  <string>Actions</string>
                 </property>
-                <layout class="QFormLayout" name="formLayout">
-                 <item row="4" column="0" colspan="2">
-                  <widget class="QTableWidget" name="tableWidget_CCD_actionParam">
-                   <property name="toolTip">
-                    <string>Parameters of Format</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="0" colspan="2">
+                <layout class="QVBoxLayout" name="verticalLayout_5">
+                 <item>
                   <widget class="QComboBox" name="comboBox_CCD_action"/>
                  </item>
-                 <item row="2" column="0" colspan="2">
-                  <widget class="QLineEdit" name="lineEdit_CCD_Format">
-                   <property name="toolTip">
-                    <string>Format Field</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="6" column="0">
-                  <widget class="QPushButton" name="pushButton_CCD_actionTest">
-                   <property name="text">
-                    <string>Test Action</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="5" column="0">
-                  <widget class="QLabel" name="label_CCD_testResultFormat">
-                   <property name="toolTip">
-                    <string>Format interpretation</string>
-                   </property>
-                   <property name="text">
-                    <string/>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0" colspan="2">
+                 <item>
                   <layout class="QHBoxLayout" name="horizontalLayout_2">
                    <item>
                     <widget class="QLineEdit" name="lineEdit_CCD_action">
@@ -197,7 +228,41 @@
                    </item>
                   </layout>
                  </item>
-                 <item row="7" column="0">
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_CCD_Format">
+                   <property name="toolTip">
+                    <string>Format Field</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QTableWidget" name="tableWidget_CCD_actionParam">
+                   <property name="toolTip">
+                    <string>Parameters of Format</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_CCD_testResultFormat">
+                   <property name="toolTip">
+                    <string>Format interpretation</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pushButton_CCD_actionTest">
+                   <property name="toolTip">
+                    <string>Press me to test with different parameter value on table.</string>
+                   </property>
+                   <property name="text">
+                    <string>Test Action</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
                   <widget class="QLabel" name="label_CCD_testResult">
                    <property name="toolTip">
                     <string>Gcode interpretation Result</string>
@@ -216,6 +281,170 @@
              <attribute name="title">
               <string>Read Config</string>
              </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_3">
+              <item>
+               <widget class="QGroupBox" name="groupBox_CCD_readChanges">
+                <property name="maximumSize">
+                 <size>
+                  <width>600</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="toolTip">
+                 <string>Read Configuration from *.rccfg file.
+Interfaces must contain the same number and matching Ids of the ones defined in each .cccfg .rccfg and .iccfg
+in this file will store regex configurations for matching the read interface responses.
+Each interface has its own format to report data as positions,temperatures
+All actions in this file will be read in the read routine and the matching parameters will be returned in a dictionary.
+Regex pattern code is given inside the following r'code_to_match' else interpreted as string
+Incorrect regex code will not get data from the device interface response. check the correct regular expression in https://pythex.org/
+[#{param}] include the match group number as integer and the parameter to store it in the dictionary.
+example: &lt;r'XPos:([+-]?[0-9]*[.][0-9]+)'[1{Xpos}]&gt; will match the pattern in r'' and set Xpos parameter to the first matching value.
+Any read parameters are stored in a dictionary. You can call this parameters from loops.
+Required parameters to be found to read: ACK,STATUS or STATE_XYZ,XPOS,YPOS,ZPOS
+Unrecognized commands and errors will be printed in the log
+</string>
+                </property>
+                <property name="title">
+                 <string>Read actions</string>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_4">
+                 <item>
+                  <widget class="QComboBox" name="comboBox_CCD_readaction"/>
+                 </item>
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_3">
+                   <item>
+                    <widget class="QLineEdit" name="lineEdit_CCD_readaction">
+                     <property name="toolTip">
+                      <string>Read action Name Field</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_readactionAdd">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Add new Read action or Replace format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/add-icon.png</normaloff>img/add-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_readactionDel">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Delete Read action or clear format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/math-minus-icon.png</normaloff>img/math-minus-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_CCD_readFormat">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>Format Field in regex r' ' delimited</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="Line" name="line">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_CCD_testRead_text">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="toolTip">
+                    <string>type here a machine response to test the read command</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QTableWidget" name="tableWidget_CCD_readactionParam">
+                   <property name="toolTip">
+                    <string>Parameters of Format</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_CCD_testreadResultFormat">
+                   <property name="toolTip">
+                    <string>test Text interpretation Result</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pushButton_CCD_readactionTest">
+                   <property name="toolTip">
+                    <string>Do all action tests including or replacing the test format in the read sequence.
+        Read sequence is the same as in the file order. 
+        When is a new Read action then is executed after all the others.</string>
+                   </property>
+                   <property name="text">
+                    <string>Test Action</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_CCD_testreadResult">
+                   <property name="toolTip">
+                    <string>All Read process interpretation Result</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
             </widget>
             <widget class="QWidget" name="tab_CCD_GeneralConfig">
              <attribute name="title">

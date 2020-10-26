@@ -45,6 +45,7 @@ import GuiXYZ_RTD
 import class_CCD   
 import class_LSTD 
 import class_RTD
+import class_File_Dialogs
 class QLabel_altered(QLabel):
     resize=pyqtSignal()
     #clicked=pyqtSignal()
@@ -201,7 +202,7 @@ class MyWindow(QtWidgets.QMainWindow):
             event.accept()
     
             
-
+'''
 class Dialogs(QWidget):
     def __init__(self):
         super().__init__()
@@ -252,7 +253,7 @@ class Dialogs(QWidget):
             return fileName
         else:
             return None
-
+'''
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)                                     
@@ -1733,6 +1734,6 @@ if __name__ == "__main__":
     handler = ConsolePanelHandler(ui)
     log.addHandler(handler)
     handler.setFormatter(logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s'))        
-    aDialog=Dialogs()
+    aDialog=class_File_Dialogs.Dialogs()
     MainWindow.show()
     sys.exit(app.exec_())

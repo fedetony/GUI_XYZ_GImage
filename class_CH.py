@@ -8,15 +8,27 @@ class Command_Handler:
     def __init__(self,selected_interface_id,configfile=None,Required_actions={'interfaceId'}):            
         self.Set_id(selected_interface_id)
         self.Required_actions=Required_actions
-        if configfile==None:
-            self.filename='config/MachineCommandConfig.config'
-            self.Interfacefilename='config/InterfaceConfig.config'    
-            self.Readfilename='config/ReadConfig.config'   
-        else:
+        if self.Set_all_Filenames(configfile)==True:                    
+            self.Setup_Command_Handler()
+            self.Init_Read_Interface_Configurations()
+
+    def Set_all_Filenames(self,configfilelist):
+        try:
             self.filename=configfile[0]    
             self.Interfacefilename=configfile[1]
             self.Readfilename=configfile[2]
-        self.Setup_Command_Handler()
+            return True
+        except:    
+            configfile=None 
+            pass
+        if configfile==None:
+            self.filename='config/defaultConfig.cccfg'
+            self.Interfacefilename='config/defaultConfig.iccfg'    
+            self.Readfilename='config/defaultConfig.rccfg'   
+            return True
+        return False    
+        
+
 
     def Set_Interfacefilename(self,filename):
         self.Interfacefilename=filename
@@ -35,7 +47,7 @@ class Command_Handler:
             self.Configdata={}
             self.Actual_Interface_Formats={}
             self.Num_interfaces=0
-            return
+            return 
         self.Configdata=self.Load_command_config_from_file(Logopen=log_check)
         #read configurations
         #get number of configurations from interfaceId
@@ -44,6 +56,7 @@ class Command_Handler:
         self.Actual_Interface_Formats={}
         if self.Check_id_in_Config(self.id)==True:
             self.Actual_Interface_Formats=self.get_interface_config(self.Configdata,self.id)
+
     
     def Check_id_in_Config(self,id):
         try:
@@ -135,7 +148,7 @@ class Command_Handler:
             Num=Num+1
         return Num    
 
-    def Load_command_config_from_file(self,filename=None,Logopen=True):       
+    def Load_command_config_from_file(self,filename=None,Logopen=False):       
         if filename is None: 
             filename=self.filename
         data={}
@@ -221,14 +234,40 @@ class Command_Handler:
         except:
             pass
         return ActionFormat
+    
+    def getGformatforReadactionid(self,action,id):
+        ActionFormat=None
+        try:       
+            formatlist=self.ReadConfigallids[action]  
+            if self.Check_id_in_Config(id)==True:   
+                idcol=self.Get_interface_column_from_id(self.ReadConfigallids,id)
+                if idcol!=None:
+                    ActionFormat=formatlist[idcol]
+        except:
+            pass
+        return ActionFormat
 
     def getListofActions(self,exceptlist=[]):        
         alist=[]
         for action in self.Actual_Interface_Formats:
             if action not in exceptlist:
                 alist.append(action)
+        return alist    
+
+    def getListofReadactions(self,exceptlist=[]):        
+        alist=[]
+        for action in self.Read_Config:
+            if action not in exceptlist:
+                alist.append(action)
         return alist              
     
+    def getListofInterfaceactions(self,exceptlist=[]):        
+        alist=[]
+        for action in self.Int_Config:
+            if action not in exceptlist:
+                alist.append(action)
+        return alist           
+
     def Split_text(self,separator,line):
         alist=[]
         count=0
@@ -1362,7 +1401,39 @@ class Command_Handler:
             self.Setup_Command_Handler(False) #don't log checking
         return isdel
         
-
+    def Init_Read_Interface_Configurations(self,Reqactions_ic={},Reqactions_ir={},Logcheck=False): 
+        self.Required_read=Reqactions_ir   
+        self.Required_interface=Reqactions_ic
+        try:            
+            isok=self.Check_command_config_file_Content(self.Interfacefilename,Reqactions_ic,False,Logcheck)
+            if isok==True:
+                self.InterfaceConfigallids=self.Load_command_config_from_file(self.Interfacefilename)
+                isok=self.Check_id_match_configs(self.Configdata,self.InterfaceConfigallids)
+                if isok==True:
+                    self.Int_Config=self.get_interface_config(self.InterfaceConfigallids,self.id)
+            if isok==False:
+                self.Int_Config={}
+        except:
+            self.InterfaceConfigallids={}  
+            isok=False                               
+            pass
+        isokic=isok
+        try:            
+            isok=self.Check_command_config_file_Content(self.Readfilename,Reqactions_ir,False,Logcheck)
+            if isok==True:
+                self.ReadConfigallids=self.Load_command_config_from_file(self.Readfilename)
+                isok=self.Check_id_match_configs(self.Configdata,self.ReadConfigallids)
+                if isok==True:
+                    self.Read_Config=self.get_interface_config(self.ReadConfigallids,self.id)
+            if isok==False:
+                self.Read_Config={}
+        except:
+            self.ReadConfigallids={}   
+            isok=False         
+            pass
+        isokrc=isok
+        return isokrc,isokic
+    
 
 
             

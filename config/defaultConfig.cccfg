@@ -1,0 +1,155 @@
+# ------------------------------------
+# Configuration File V1.0 For different Machine interfaces
+# F. Garcia 10.2020
+# ------------------------------------
+# <action_Name>_<interface 0>_<interface 1> ... etc
+# No command Leave empty <>
+# {param} replaces the parameter param with the value given
+# Example: <X{x}> will return X20.3 when parameter 'x'=20.3
+# {actionName} will replace the action Format of the same interface 
+# {actionName(interfaceId)} will replace the action Format of the specified interface id 
+# {char(##)} ## in decimal or {char(0x##)} ## in hexadecimal will replace the special character in utf-8 
+# example: <{char(0x18)}> is ctrl+x
+# [] optional (must contain parameters in {} to be taken in count) 
+# example: test[ X{x}] when param 'x'='_x' will return "test X_x". When no parameter given returns 'test'
+# example: test[ X] When no parameter given returns 'test'
+# [opt1{param}]||[opt2{param}] "or" to select between options 
+# example: [X{X}]||[X{x}] will return X5 if either parameter 'x' or 'X' are 5, first find has priority (X in this case). Will not return anything if no X or x parameters are defined.
+# [&&(N)] at least parameters for N optional sets must be present  
+# example: [&&(1)][X{X}]||[X{x}] will return missing parameter error if X and x are not defined
+# example: [&&(1)][X{X}][Y{Y}] will return missing parameter error if at least 1 of them is not defined.
+# Special characters:
+# \n enter inside. Allows multiple commands per command
+<test>_<[&&(1)]{coordSet}>_<!\%>_<M410>_<>
+# <action>_<>_<>_<>_<>
+# ------------------------------------
+<interfaceId>_<0>_<1>_<2>_<3> # use a unique int
+<interfaceName>_<Grbl 0.9k-4 Axes>_<TinyG V.x>_<Marlin V2.0.x>_<Rep_Rap>
+# -------Coordinates and offsets -----
+<coordXYZSet>_<[ X{X}][ Y{Y}][ Z{Z}]>_<[ X{X}][ Y{Y}][ Z{Z}]>_<[ X{X}][ Y{Y}][ Z{Z}]>_<[ X{X}][ Y{Y}][ Z{Z}]>
+<offsetXYZSet>_<[ X{dX}][ Y{dY}][ Z{dZ}]>_<[ X{dX}][ Y{dY}][ Z{dZ}]>_<[ X{dX}][ Y{dY}][ Z{dZ}]>_<[ X{dX}][ Y{dY}][ Z{dZ}]>
+<coordIJKSet>_<[ I{I}][ J{J}][ K{K}]>_<[ I{I}][ J{J}][ K{K}]>_<[ I{I}][ J{J}][ K{K}]>_<[ I{I}][ J{J}][ K{K}]>
+<offsetIJKSet>_<[ I{dI}][ J{dJ}][ K{dK}]>_<[ I{dI}][ J{dJ}][ K{dK}]>_<[ I{dI}][ J{dJ}][ K{dK}]>_<[ I{dI}][ J{dJ}][ K{dK}]>
+<coordABCSet>_<[ A{A}][ B{B}][ C{C}]>_<[ A{A}][ B{B}][ C{C}]>_<[ A{A}][ B{B}][ C{C}]>_<[ A{A}][ B{B}][ C{C}]>
+<coordUVWSet>_<[ U{U}][ V{V}][ W{W}]>_<[ U{U}][ V{V}][ W{W}]>_<[ U{U}][ V{V}][ W{W}]>_<[ U{U}][ V{V}][ W{W}]>
+<offsetUVWSet>_<[ U{dU}][ V{dV}][ W{dW}]>_<[ U{dU}][ V{dV}][ W{dW}]>_<[ U{dU}][ V{dV}][ W{dW}]>_<[ U{dU}][ V{dV}][ W{dW}]>
+<coordSet>_<[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ A{A}]>_<[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}]>_<[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}]>_<[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]>
+<arcSet>_< X{X} Y{Y} I{I} J{J}>_< [&&(3)]{coordXYZSet}[ R{R}]||{coordIJKSet}>_< X{X} Y{Y} I{I} J{J}>_< X{X} Y{Y} I{I} J{J}>
+# -------Info Commands-----
+<help>_<$>_<>_<>_<>
+<reportSettings>_<$$>_<$$>_<M503>_<>
+<reportBuildInfo>_<$I>_<(TinyG Version Build)\n$fv\n$fb>_<M115>_<>
+<reportParserState>_<$G>_<>_<>_<>
+<reportGcodeParameters>_<$#>_<>_<>_<>
+<statusReport>_<?>_<?>_<M114[{par}]>_<>
+<movingstatusReport>_<?>_<?>_<S000>_<>
+<Comment>_<;{msg}>_<;{msg}>_<({msg})>_<>
+<Message>_<({msg})>_<({msg})>_<M117 {msg}>_<>
+<automaticstatusReports-Disable>_<>_<$sv=0>_<>_<>
+<automaticstatusReports-Moving>_<>_<$si={timems}>_<>_<>
+<automaticstatusReports-Filtered>_<>_<$sv=1>_<>_<>
+<automaticstatusReports-Unfiltered>_<>_<$sv=2>_<>_<>
+<requestReport>_<>_<{request}>_<>_<>
+# -------User/behavior interaction No parameters allowed-----
+<quickPause>_<!>_<!>_<P000>_<>  
+<quickResume>_<~>_<~>_<R000>_<>  
+<quickStop>_<{quickPause}\n{softReset}>_<{quickPause}{queueFlush}>_<M410>_<>  
+<queueFlush>_<{softReset}>_<%>_<>_<>  
+<userPause>_<M0>_<M0>_<M0>_<>  
+<userResume>_<~>_<M60>_<M108>_<>  
+<clearAlarm>_<^X>_<char(24)>_<M108>_<>  
+<unlockAlarm>_<$X>_<char(24)>_<>_<>  
+<softReset>_<char(0x18)>_<char(0x18)>_<M999>_<>  
+<emergencyKill>_<^X>_<char(0x18)>_<M112>_<>  
+<Home>_<$H>_<G28.2 X0 Y0 Z0>_<G28>_<>  
+<timedPause>_<M0 [P{P}]||[S{S}]>_<M0 [P{P}]||[S{S}]>_<M0 [P{P}]||[S{S}]>_<>
+# -------Gcode programs commands-----
+<programPause>_<M0 [P{P}][S{S}]>_<M0 [P{P}][S{S}]>_<M0 [P{P}][S{S}]>_<>
+<programResume>_<{userResume}>_<{userResume}>_<{userResume}>_<>
+<programStop>_<>_<M60>_<>_<>
+# -------Mode commands-----
+<checkgcodeMode>_<$C>_<>_<>_<>
+<sleepMode>_<$SLP>_<>_<>_<>
+<setUnitstoinches>_<G20>_<G20>_<G20>_<G20>
+<setUnitstomm>_<G21>_<G21>_<G21>_<G21>
+<setUnits>_<G2{par}>_<G2{par}>_<G2{par}>_<G2{par}>
+<cancelModalmode>_<G80>_<>_<>_<>
+<inversetimeFeedrateMode>_<G93>_<>_<>_<> 
+<unitsperminFeedrateMode>_<G94>_<>_<>_<> 
+<turnOffCutterRadiouscompensation>_<G40>_<>_<>_<>
+# -------Homing Probing commands-----
+<userHome>_<$H>_<G28[{par}]>_<G28[ {par}]>_<>
+<HomeX>_<>_<G28.1>_<G28 X>_<>
+<HomeY>_<>_<G28.2>_<G28 Y>_<>
+<HomeZ>_<>_<G28.3>_<G28 Z>_<>
+<parkHead>_<>_<>_<G27>_<>
+<autoBedLevel>_<>_<>_<G29[ {par}]>_<G32[ P{P}][ S{S}]>
+<setZprobeheadoffset>_<>_<G10 L2 P{P}[&&(1)]{offsetXYZSet}>_<M851 [&&(1)]{coordXYZSet}>_<>
+<singleZProbe>_<>_<>_<G30 [&&(1)]{coordXYZSet}[ P{P}][ S{S}][ H{H}]>_<G30 [&&(1)]{coordXYZSet}[ P{P}][ S{S}][ H{H}]>
+<undockZProbesled>_<>_<>_<G32>_<>
+<deltaAutocalibration>_<>_<>_<G33[ P{P}][ {T}][ C{C}][ F{F}][ V{V}][ {E}]>_<> 
+<autoalignZstepper>_<>_<>_<G34[ I{I}][ T{T}][ A{A}]>_<>
+<straightProbe>_<>_<>_<G38{par}[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ F{F}]>_<>
+<bedlevelingState>_<>_<>_<M420[ {C}][ L{L}][ {S}][ T{T}][ {V}][ Z{Z}]>_<>
+<backlashCalibrationPerform>_<>_<>_<G425[ {B}][ T{T}][ U{U}][ {V}]>_<> 
+<backlashCalibrationSet>_<>_<>_<M425[ F{F}][ S{S}]{coordXYZSet}[ {Zp}]>_<> 
+# -------Movement commands-----
+<rapidMove>_<G0{coordSet}>_<G0{coordSet}>_<G0{coordSet}>_<G0{coordSet}>
+<linearMove>_<G1{coordSet}[ F{F}]>_<G1{coordSet}[ F{F}]>_<G1{coordSet}>_<G1{coordSet}>
+<clockwiseArcMove>_<G2{arcSet}[ A{A}][ F{F}]>_<G2{arcSet}[ F{F}]>_<G2{arcSet}[ E{E}][ F{F}]>_<G2{arcSet}[ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]>
+<counterclockwiseArcMove>_<G3{arcSet}[ A{A}][ F{F}]>_<G3{arcSet}[ F{F}]>_<G3{arcSet}[ E{E}][ F{F}]>_<G3{arcSet}[ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]>
+<retractFilament>_<{relativePositioning}\nG0 A{dA}\n{absolutePositioning}>_<{relativePositioning}\nG0 E{dE}\n{absolutePositioning}>_<G10>_<G10>
+<unretractFilament>_<{relativePositioning}\nG0 A-{dA}\n{absolutePositioning}>_<{relativePositioning}\nG0 E-{dE}\n{absolutePositioning}>_<G11>_<G11>
+<dwell>_<G4 S{S}>_<G4 P{P}>_<G4 [&&(1)][S{S}]||[P{P}]>_<G4 [&&(1)][S{S}]||[P{P}]>
+<cleanTool>_<>_<>_<G12 [P{P}][ S{S}][ T{T}]>_<>
+<movetoGridpoint>_<>_<>_<G42[&&(1)][ I{I}][ J{J}][ {P}][ F{F}]>_<>
+<jogMode>_<$J=[{Gcommand}][&&(1)]{coordXYZSet}[ F{F}]>_<>_<>_<>
+<jogCancel>_<{char(0x85)}>_<>_<>_<> 
+# -------Position coordinate commands-----
+<absolutePositioning>_<G90>_<G90>_<G90>_<G90>
+<relativePositioning>_<G91>_<G91>_<G91>_<G91>
+<plainSelectionXY>_<G17>_<G17>_<G17>_<G17>
+<plainSelectionZX>_<G18>_<G18>_<G18>_<>
+<plainSelectionYZ>_<G19>_<G19>_<G19>_<>
+<PINDAprobetemperaturecalibration>_<>_<>_<G42[ {P}]>_<>
+<setPosition>_<G92{coordSet}>_<G92{coordSet}>_<G92{coordSet}>_<G92{coordSet}>
+<setHomeOffset>_<>_<>_<M206[&&(1)][ P{dP}][ T{dT}]{offsetXYZSet}>_<> 
+<setHomeOffsetHere>_<>_<>_<M428>_<> 
+<setCoordinatesystemOffsets>_<G10 L2[&&(1)][ P{P}]{offsetXYZSet}>_<G10 L2[&&(1)][ P{P}]{offsetXYZSet}{coordABCSet}>_<{useCoordinatesystem}\n{setHomeOffset}\n{saveSettings}>_<G92{par}{coordXYZSet}{coordABCSet}{coordUVWSet}> 
+<useNativeCoordinatesystem>_<G53>_<G53>_<G53>_<G53>
+<useCoordinatesystem>_<{G54toG59}>_<{G54toG59}>_<{G54toG59}>_<> 
+# -------Settings && EEPROM Commands-----
+<resetSettings>_<$RST=$>_<>_<M502>_<>
+<restoreSettings>_<>_<>_<M501>_<>
+<saveSettings>_<>_<>_<M500>_<>
+<resetWorkCoordinates>_<$RST=#>_<>_<>_<>
+<resetAllEEPROM>_<$RST=*>_<>_<M502\nM500>_<>
+<validateEEPROMcontents>_<>_<>_<M504>_<>
+<modifySetting>_<${setting}={value}>_<>_<>_<>
+# -------Override Commands-----
+<setDooropenState>_<{char(0x84)}>_<>_<>_<> 
+<feedOverride-set100per>_<{char(0x90)}>_<>_<>_<> 
+<feedOverride-increase10per>_<{char(0x91)}>_<>_<>_<> 
+<feedOverride-decrease10per>_<{char(0x92)}>_<>_<>_<> 
+<feedOverride-increase1per>_<{char(0x93)}>_<>_<>_<> 
+<feedOverride-decrease1per>_<{char(0x94)}>_<>_<>_<> 
+<rapidOverride-set100per>_<{char(0x95)}>_<>_<>_<> 
+<rapidOverride-set50per>_<{char(0x96)}>_<>_<>_<> 
+<rapidOverride-set25per>_<{char(0x97)}>_<>_<>_<> 
+<spindleSpeedOverride-set100per>_<{char(0x99)}>_<>_<>_<> 
+<spindleSpeedOverride-increase10per>_<{char(0x9A)}>_<>_<>_<> 
+<spindleSpeedOverride-decrease10per>_<{char(0x9B)}>_<>_<>_<> 
+<spindleSpeedOverride-increase1per>_<{char(0x9C)}>_<>_<>_<> 
+<spindleSpeedOverride-decrease1per>_<{char(0x9D)}>_<>_<>_<> 
+<toggleSpindleEnable>_<{char(0x9E)}>_<>_<>_<> 
+<toggleFloodCoolantEnable>_<{char(0xA0)}>_<>_<>_<> 
+<toggleMistCoolantEnable>_<{char(0xA1)}>_<>_<>_<> 
+<setStartUpGcodeBlock>_<$N{Block}={gcode}>_<>_<>_<>
+
+
+
+
+
+
+
+

@@ -1,0 +1,31 @@
+# ------------------------------------
+# Configuration File V1.0 For program configuration of different Machine interfaces
+# F. Garcia 10.2020
+# ------------------------------------
+# actions will be executed from the MachineCommandConfig.config File actions.
+# Interfaces must contain the same number and Ids of the ones defined in MachineCommandConfig.config
+# in this file will stroe values and procedures for the actions.
+# evaluation of a function that requires parameters will come to an error, just use the command as plain.
+# Example: <afterstartupSequence>_<{unlockAlarm}\nG92 X0 Y0 Z0>...
+# <action_Name>_<interface 0>_<interface 1> ... etc
+# No command Leave empty <>
+# {param} replaces the parameter param with the value given
+# Example: <X{x}> will return X20.3 when parameter 'x'=20.3
+# {actionName} will replace the action Format of the same interface 
+# {actionName(interfaceId)} will replace the action Format of the specified interface id 
+# {char(##)} ## in decimal or {char(0x##)} ## in hexadecimal will replace the special character in utf-8 
+# example: <{char(0x18)}> is ctrl+x
+# optional parameters are not allowed in this file
+# values are just read as text, then converted  
+# ------------------------------------
+<interfaceId>_<0>_<1>_<2>_<3>
+<cycletime>_<0.1>_<0.1>_<0.2>_<0.2>
+<defaultInterface>_<1>_<0>_<0>_<0>
+# No parameters commands
+<beforestartupSequence>_<>_<>_<>_<>
+<afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>
+# if interface autoreports will nor ask for position reports every cycle
+<hasautoReport>_<0>_<1>_<1>_<>
+# This allows to read the first lines from the machine to recognize the interface
+<interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<Marlin>_<>
+

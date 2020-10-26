@@ -4,18 +4,26 @@ from PyQt5.QtGui import QColor
 import re
 import logging
 import GuiXYZ_CCD
+import class_File_Dialogs
 import class_CH
 from types import *
+import os
+import shutil
+import sys
+
 
 class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     set_clicked= QtCore.pyqtSignal(list)
     file_update= QtCore.pyqtSignal(str)
+    
     #def __init__(self,NumLayers,Selected_Layers,parent=None):    
     #    super().__init__(parent)
     def __init__(self,selected_interface_id, *args, **kwargs):                
-        super(CommandConfigurationDialog, self).__init__(*args, **kwargs)       
+        super(CommandConfigurationDialog, self).__init__(*args, **kwargs)  
+        self.aDialog=class_File_Dialogs.Dialogs()     
         self.id=selected_interface_id #equivalent to is_tinyg
         self.Is_Dialog_Open=False   
+        self.Actual_Tab=0
         self.Setup_Command_Config()
         self.openCommandConfigDialog()   #comment this line to be called only when you want the dialog    
     
@@ -25,10 +33,12 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Selected_action=None
         self.Num_interfaces=self.CH.Num_interfaces
         self.Selected_action_dict={'action':'','Format':'','Parameters':{},'ReqOpParamsdict':{}}
+        self.Selected_read_dict={'action':'','Format':'','Parameters':{},'AlltestRead':{},'testRead':''}
 
 
-    def Refresh_viewed_filenames(self):
-        self.DCCui.groupBox_CCD_actionFiles.setTitle("Actual Config File:"+self.CH.filename)
+    def Refresh_viewed_filenames(self):        
+        fff=self.shorten_filename(self.extract_filename(self.CH.filename,False))
+        self.DCCui.groupBox_CCD_actionFiles.setTitle("Actual Config File:"+fff)        
 
     def quit(self):
         self.Dialog_CCD.close()
@@ -44,14 +54,35 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Refresh_after_config_File_change()
         
         #Connect buttons
+        self.DCCui.pushButton_CCD_Refresh_Commands_File.clicked.connect(self.PB_CCD_Refresh_Commands_File)
+        self.DCCui.pushButton_CCD_Save_Commands.clicked.connect(self.PB_CCD_Save_Commands)
         self.DCCui.pushButton_CCD_Load_Commands.clicked.connect(self.PB_CCD_Load_Commands)
         self.DCCui.comboBox_CCD_interface.currentIndexChanged.connect(self.ComboBox_Select_interface)
         self.DCCui.comboBox_CCD_action.currentIndexChanged.connect(self.ComboBox_Select_action)
+        self.DCCui.comboBox_CCD_readaction.currentIndexChanged.connect(self.ComboBox_Select_Readaction)        
         self.DCCui.pushButton_CCD_actionTest.clicked.connect(self.PB_CCD_actionTest)
+        self.DCCui.pushButton_CCD_readactionTest.clicked.connect(self.PB_CCD_readactionTest)
         self.DCCui.pushButton_CCD_actionAdd.clicked.connect(self.PB_CCD_actionAdd)
-        self.DCCui.pushButton_CCD_actionDel.clicked.connect(self.PB_CCD_actionDel)
+        self.DCCui.pushButton_CCD_actionDel.clicked.connect(self.PB_CCD_actionDel)        
+        self.DCCui.tabWidget_CCD_configs.currentChanged.connect(self.TW_Tab_Change)
+        #textEdited->only when user changes, not by the program
+        #textChanged-> when user changes or the program changes text
+        self.DCCui.lineEdit_CCD_testRead_text.textEdited.connect(self.Test_text_Changed) 
+        self.DCCui.lineEdit_CCD_readFormat.textChanged.connect(self.Test_text_Changed)
+        self.DCCui.lineEdit_CCD_Format.textChanged.connect(self.Test_format_Changed)
         #self.DCCui.label_CCD_testResultFormat.left_clicked[int].connect(self.left_click_P)
         #self.DCCui.label_CCD_testResultFormat.right_clicked[int].connect(self.right_click_P)
+    def Test_text_Changed(self):
+        self.Do_Test_Read()
+    
+    def Test_format_Changed(self):
+        self.Do_Test_format()
+
+    def TW_Tab_Change(self,tabindex):
+        #QtWidgets.QMessageBox.information(self,"Tab Index Changed!","Current Tab Index: %d" % tabindex )
+        self.Actual_Tab=tabindex        
+        self.Set_Config_info_To_TableWidget()
+            
 
     def PB_CCD_actionDel(self):
         action=self.DCCui.lineEdit_CCD_action.text()
@@ -159,8 +190,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     def Refresh_after_config_File_change(self):
         self.Refresh_viewed_filenames()
         self.Set_Config_info_To_TableWidget()
-        #self.Fill_interface_combobox()
+        #self.Fill_interface_combobox()        
         self.Fill_action_combobox()
+        self.Fill_read_combobox()
 
     def Delete_action_in_ConfigFile(self,afilename,anaction):        
         isok=self.CH.delete_action_in_file(afilename,anaction)
@@ -186,11 +218,162 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.file_has_updated(afilename)
             self.Refresh_after_config_File_change()
         return isok
-                
+
+    def PB_CCD_Refresh_Commands_File(self):
+        #self.Set_Config_info_To_TableWidget()
+        #self.Fill_interface_combobox()
+        #self.Fill_action_combobox()
+        self.Refresh_after_config_File_change()
+
+    def PB_CCD_Save_Commands(self):            
+        filename=self.aDialog.saveFileDialog(3)       
+        if filename == '' or filename is None:
+            return            
+        issame1,issn1,issp1=self.compare_filenames_paths(filename,self.CH.filename)         
+        issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
+        issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename)         
+        if issame1 or issame2 or issame3:            
+            logging.error("Can't overwrite files in use!")
+        if issame3==False and issame2==False and issame1==False:
+            desfn=self.extract_filename(filename,False)            
+            desfn1=desfn+'.cccfg'
+            desfn2=desfn+'.rccfg'
+            desfn3=desfn+'.iccfg'
+            desp=self.extract_path(filename)
+            src_file1=self.CH.filename 
+            src_file2=self.CH.Readfilename  
+            src_file3=self.CH.Interfacefilename         
+            temppath=self.get_appPath()+os.sep+'temp'+os.sep
+            try:
+                os.mkdir(temppath)
+            except:
+                pass  
+            #print(desfn1)    
+            shutil.copy(src_file1,temppath+'tempfile1.temp') #copy the file to destination dir
+            os.rename(temppath+'tempfile1.temp', temppath+desfn1)#rename
+            shutil.move(temppath+desfn1,desp+desfn1) #moves the file to destination dir                
+            #print(desfn2)    
+            shutil.copy(src_file2,temppath+'tempfile2.temp') #copy the file to destination dir
+            os.rename(temppath+'tempfile2.temp', temppath+desfn2)#rename
+            shutil.move(temppath+desfn2,desp+desfn2) #moves the file to destination dir            
+            #print(desfn3)    
+            shutil.copy(src_file3,temppath+'tempfile3.temp') #copy the file to destination dir
+            os.rename(temppath+'tempfile3.temp', temppath+desfn3)#rename
+            shutil.move(temppath+desfn3,desp+desfn3) #moves the file to destination dir            
+        #print(filename,self.CH.filename,issame)
+
     def PB_CCD_Load_Commands(self):
-        self.Set_Config_info_To_TableWidget()
-        self.Fill_interface_combobox()
-        self.Fill_action_combobox()
+        filename=self.aDialog.openFileNameDialog(3)   
+        if filename == '' or filename is None:
+            return     
+        issame1,issn1,issp1=self.compare_filenames_paths(filename,self.CH.filename) 
+        issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
+        issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename) 
+        if issame1 or issame2 or issame3:            
+            logging.info('Files already loaded!')
+        if issame3==False and issame2==False and issame1==False:
+            desconfig=self.extract_filename(filename,False)
+            desp=self.extract_path(filename)
+            ccname=desp+desconfig+'.cccfg'
+            rcname=desp+desconfig+'.rccfg'
+            icname=desp+desconfig+'.iccfg'
+            isfilecc=os.path.exists(ccname)
+            isfilerc=os.path.exists(rcname)
+            isfileic=os.path.exists(icname)            
+            if isfilecc==True and isfilerc==True and isfileic==True:                
+                actualcc=self.CH.filename 
+                actualrc=self.CH.Readfilename
+                actualic=self.CH.Interfacefilename                
+                self.CH.filename = ccname                
+                self.CH.Setup_Command_Handler(log_check=True)                
+                #print('Loaded')            
+                if self.CH.Num_interfaces==0:
+                    logging.error('Errors in File,'+ccname+'\nReverting to actual Configuration file!')
+                    self.CH.filename = actualcc
+                    self.CH.Setup_Command_Handler(log_check=True)    
+                else:    
+                    self.CH.Set_Readfilename(rcname)
+                    self.CH.Set_Interfacefilename(icname) 
+                    isokrc,isokic=self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},True)                  
+                    if isokrc==False:
+                        logging.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')
+                    if isokic==False:
+                        logging.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')    
+                    if isokrc==False or isokic==False:
+                        self.CH.Set_Readfilename(actualrc)
+                        self.CH.Set_Interfacefilename(actualic) 
+                        isokrc,isokic=self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},True)                  
+
+
+
+                #self.Fill_interface_combobox()
+                self.Refresh_after_config_File_change()
+                
+            else:
+                logging.info('Not all Files present! .cccfg .rccfg and .iccfg shall be in the same path!')    
+
+            
+
+    def shorten_filename(self,filename,maxsize=20):
+        apppath=self.get_appPath()
+        shortfn=filename
+        if apppath in filename:
+            shortfn=filename.replace(apppath,'')
+        if len(shortfn)>maxsize:
+            shortfn=self.extract_filename(filename)
+        return shortfn
+
+
+    def get_appPath(self):
+        # determine if application is a script file or frozen exe
+        if getattr(sys, 'frozen', False):
+            application_path = os.path.dirname(sys.executable)
+        elif __file__:
+            application_path = os.path.dirname(__file__)
+        return application_path    
+        
+    def get_selfPath(self,config_name):
+        application_path=self.get_appPath()
+        config_path = os.path.join(application_path, config_name)
+        return config_path
+
+    def compare_filenames_paths(self,filename1,filename2):
+        fname1 = os.path.basename(filename1)  # returns just the name
+        fname2 = os.path.basename(filename2)  # returns just the name
+        issamepath=False
+        issamename=False
+        issame=False
+        if fname1==fname2:
+            #print(' same names')
+            issamename=True
+        try:
+            fpath1 = os.path.abspath(filename1)  # returns complete path
+            fpath2 = os.path.abspath(filename2)  
+            if fpath1==fpath2:
+                #print(' same paths')
+                issamepath=True
+        except:
+            issamepath=False
+            pass
+        if issamename==True and issamepath==True:
+            issame=True        
+        return issame,issamename,issamepath
+
+    def extract_filename(self,filename,withextension=True):
+        fn= os.path.basename(filename)  # returns just the name
+        fnnoext, fext = os.path.splitext(fn)
+        fnnoext=fnnoext.replace(fext,'')
+        fn=fnnoext+fext        
+        if withextension==True:
+            return fn
+        else:                
+            return  fnnoext #fn.rsplit('.', 1)[0]
+    def extract_path(self,filename):
+        fn= os.path.basename(filename)  # returns just the name
+        fpath = os.path.abspath(filename)
+        fpath = fpath.replace(fn,'')
+        return fpath
+
 
     def Set_Config_info_To_TableWidget(self):
         self.DCCui.tableWidget_CCD.clear()
@@ -203,10 +386,20 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.tableWidget_CCD.setHorizontalHeaderLabels(["action", "Format"])
         self.DCCui.tableWidget_CCD.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
         iii=0
-        for ccc in self.CH.Actual_Interface_Formats:   
+        tabindex=self.Actual_Tab
+        if tabindex==0:
+            Configset=self.CH.Actual_Interface_Formats
+            Reqset=self.CH.Required_actions
+        if tabindex==1:
+            Configset=self.CH.Read_Config
+            Reqset=self.CH.Required_read    
+        if tabindex==2:
+            Configset=self.CH.Int_Config
+            Reqset=self.CH.Required_interface    
+        for ccc in Configset:   
             self.DCCui.tableWidget_CCD.setItem(iii,0, QTableWidgetItem(ccc))
-            self.DCCui.tableWidget_CCD.setItem(iii,1, QTableWidgetItem(self.CH.Actual_Interface_Formats[ccc]))
-            if ccc in self.CH.Required_actions:
+            self.DCCui.tableWidget_CCD.setItem(iii,1, QTableWidgetItem(Configset[ccc]))
+            if ccc in Reqset:
                 color=QColor('yellow')
                 self.setColortoRow(self.DCCui.tableWidget_CCD, iii, color)                
             iii=iii+1
@@ -236,14 +429,46 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.comboBox_CCD_action.setCurrentIndex(index)    
         self.CH.Selected_action=self.DCCui.comboBox_CCD_action.currentText()
 
+    def Fill_read_combobox(self):
+        self.DCCui.comboBox_CCD_readaction.clear()
+        allactions=self.CH.getListofReadactions(['interfaceId'])
+        self.DCCui.comboBox_CCD_readaction.addItem('')
+        for iii in allactions:           
+            self.DCCui.comboBox_CCD_readaction.addItem(iii)          
+        #index= self.DCCui.comboBox_CCD_readaction.findText('interfaceName',QtCore.Qt.MatchFixedString)
+        index=0
+        self.DCCui.comboBox_CCD_readaction.setCurrentIndex(index)    
+        self.Selected_read_dict.update({'action':self.DCCui.comboBox_CCD_readaction.currentText()})
+
     def ComboBox_Select_action(self):
         self.Selected_action=self.DCCui.comboBox_CCD_action.currentText()         
         self.DCCui.lineEdit_CCD_action.setText(self.Selected_action)     
         aFormat=self.CH.getGformatforActionid(self.Selected_action,self.id)
-        self.DCCui.lineEdit_CCD_action.setText(self.Selected_action)     
+        #self.DCCui.lineEdit_CCD_action.setText(self.Selected_action)     
         self.DCCui.lineEdit_CCD_Format.setText(aFormat) 
         self.fill_actionParameters_Table(aFormat)
     
+    def ComboBox_Select_Readaction(self):
+        self.Selected_Readaction=self.DCCui.comboBox_CCD_readaction.currentText()         
+        self.DCCui.lineEdit_CCD_readaction.setText(self.Selected_Readaction)     
+        aFormat=self.CH.getGformatforReadactionid(self.Selected_Readaction,self.id)
+        #self.DCCui.lineEdit_CCD_readaction.setText(self.Selected_Readaction)     
+        self.DCCui.lineEdit_CCD_readFormat.setText(aFormat) 
+        self.fill_ReadactionParameters_Table(aFormat)
+
+    def Do_Test_Read(self): 
+        #print("entered Read")       
+        aFormat=self.DCCui.lineEdit_CCD_readFormat.text()   
+        action=self.DCCui.lineEdit_CCD_readaction.text()
+        isok=False
+        if action!=self.Selected_read_dict['action']:
+            self.Selected_read_dict['action']=action
+        isok=self.fill_ReadactionParameters_Table(aFormat)    
+        if aFormat != self.Selected_read_dict['Format']:             
+            if isok==True:
+                self.Selected_read_dict.update({'Format':aFormat})                
+        return isok  
+
     def Do_Test_format(self):
         aFormat=self.DCCui.lineEdit_CCD_Format.text()   
         action=self.DCCui.lineEdit_CCD_action.text()
@@ -345,13 +570,103 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
 
         return isok    
     
+    def fill_ReadactionParameters_Table(self,aFormat):
+        isok=False
+        self.DCCui.tableWidget_CCD_readactionParam.clear()
+        Table_NumCols=4
+        self.DCCui.tableWidget_CCD_readactionParam.setColumnCount(Table_NumCols)
+        Table_NumRows=0
+        self.DCCui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
+        self.DCCui.label_CCD_testreadResult.setText("Evaluated all Read: ")
+        self.DCCui.label_CCD_testreadResultFormat.setText("Evaluated Format read: ")  
+        #Table_NumCols=self.Num_interfaces+1
+        if self.CH.Check_Format(aFormat)==False:
+            self.DCCui.label_CCD_testreadResult.setText("Wrong Parenthesis")
+            return isok
+        #print('pass check format')    
+        try:    
+            P_Allinfo=self.CH.get_all_info_from_Format(aFormat)
+            #print('pass get all info from format')   
+            #print(P_Allinfo) 
+        except:
+            P_Allinfo={}
+            self.DCCui.label_CCD_testreadResult.setText("Format contains Errors")
+            pass
+        if P_Allinfo is not {}:                        
+            if P_Allinfo['IsRegex']==False or P_Allinfo['IsOred']==True:
+                self.DCCui.label_CCD_testreadResult.setText("Format contains action Code")
+                return isok
+            #print('pass check or and regex')    
+            isok=True    
+            ReqOpParamsdict=P_Allinfo['ReqOpParamsdict']
+            paramlist=P_Allinfo['Parameterlist']
+            optionlist=P_Allinfo['Optionlist']
+            optiontxtlist=P_Allinfo['Optiontxtlist']
+            minop=P_Allinfo['minRequiredOptions']
+            regexcmd=P_Allinfo['RegexCommand']
+            self.DCCui.label_CCD_testreadResultFormat.setText("Search pattern: "+regexcmd)                            
+            
+            iii=0                        
+            Parameters={}  
+            texteval=self.DCCui.lineEdit_CCD_testRead_text.text()
+            #print(texteval)
+            rm=re.search(regexcmd,texteval)
+            try:
+                nummatch=len(rm.groups())
+                #print(nummatch)
+                if nummatch==0:
+                    self.DCCui.label_CCD_testreadResult.setText("No matches found!")
+                if nummatch>0:
+                    #logging.info('Test found '+str(nummatch)+' match(es)')
+                    self.DCCui.label_CCD_testreadResult.setText('Test found '+str(nummatch)+' match(es)!')
+                    Table_NumRows=nummatch
+                    self.DCCui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
+                    self.DCCui.tableWidget_CCD_readactionParam.setHorizontalHeaderLabels(["Match", "Parameter","Value","Option"])
+                    self.DCCui.tableWidget_CCD_readactionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+                    #print(optiontxtlist)
+                    #print(optionlist)
+                    #print(paramlist)
+                    for iii in range(nummatch):   
+                        optxt=''
+                        oppos=0
+                        op=''
+                        ptxt=''
+                        for ccc in optiontxtlist:                            
+                            if str(ccc)==str(iii+1):
+                                optxt=str(ccc)
+                                op=optionlist[oppos]
+                                ptxt=paramlist[oppos]
+                                break
+                            oppos=oppos+1
+                        readvalue=rm.group(iii+1)    
+                        self.DCCui.tableWidget_CCD_readactionParam.setItem(iii,0, QTableWidgetItem(optxt))
+                        self.DCCui.tableWidget_CCD_readactionParam.setItem(iii,1, QTableWidgetItem(ptxt))
+                        self.DCCui.tableWidget_CCD_readactionParam.setItem(iii,2, QTableWidgetItem(str(readvalue)))
+                        self.DCCui.tableWidget_CCD_readactionParam.setItem(iii,3, QTableWidgetItem(op))
+                        Parameters.update({op:readvalue})                    
+                        
+                    self.DCCui.tableWidget_CCD_readactionParam.resizeColumnsToContents()
+            except Exception as e:
+                #logging.error(e) 
+                #logging.info('Test found no matches!')
+                self.DCCui.label_CCD_testreadResult.setText("No matches found!")
+                pass
+
+            self.Selected_read_dict.update({'action':self.DCCui.lineEdit_CCD_readaction.text()})
+            self.Selected_read_dict.update({'Format':aFormat})
+            self.Selected_read_dict.update({'Parameters':Parameters})
+            self.Selected_read_dict.update({'testRead':self.DCCui.label_CCD_testreadResult.text()})
+        return isok    
+
+
     def ComboBox_Select_interface(self):
         anid=self.DCCui.comboBox_CCD_interface.currentText()
         if str(anid)!=str(self.CH.id):            
             self.CH.Set_id(str(anid))
             aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DCCui.label_CCD_interfaceName.setText(aname)  
-            self.CH.Setup_Command_Handler(False)   #Refresh info in CH    
+            self.CH.Setup_Command_Handler(False)   #Refresh info in CH 
+            self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},False)                     
             #self.Set_Config_info_To_TableWidget()                 
             self.id=self.CH.id  
             self.Refresh_after_config_File_change()
@@ -384,6 +699,71 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     
     def PB_CCD_actionTest(self):
         self.Do_Test_format()
+    
+    def PB_CCD_readactionTest(self):
+        '''
+        Do all action tests including or replacing the test format in the read sequence.
+        Read sequence is the same as in the file order. 
+        When is a new Read action then is executed after all the others.        
+        '''
+        isok=self.Do_Test_Read()
+        if isok==True:
+            ini_read_dict={}
+            for aaa in self.Selected_read_dict:
+                ini_read_dict.update({aaa:self.Selected_read_dict[aaa]})
+            iniread_done=False
+            allread={}
+            self.Selected_read_dict.update({'AlltestRead':allread})
+            iniindex=None
+            txtlog=''
+            for iii in self.CH.Read_Config:
+                if iii != 'interfaceId' and iii != '':
+                    index= self.DCCui.comboBox_CCD_readaction.findText(iii,QtCore.Qt.MatchFixedString)        
+                    try:
+                        #test runs the test auomatically when selected
+
+                        #print(iii,ini_read_dict['action'])
+                        if iii!=ini_read_dict['action']:
+                            #test runs the test auomatically when selected
+                            self.DCCui.comboBox_CCD_readaction.setCurrentIndex(index)
+                        else:
+                            #test does not run the test auomatically when selected from program
+                            #print('entered else')
+                            self.DCCui.lineEdit_CCD_readaction.setText(ini_read_dict['action'])
+                            self.DCCui.lineEdit_CCD_readFormat.setText(ini_read_dict['Format'])    
+                            self.Do_Test_Read()
+                            iniindex=index
+                            iniread_done=True
+
+                        read=self.Selected_read_dict['testRead']
+                        action=self.Selected_read_dict['action']                    
+                        evformat=self.Selected_read_dict['Format']                                        
+                        logging.info(action+'-->'+read)
+                        txtlog=txtlog+action+'-->'+read+'\n'
+                        allread.update({index:{action,read,evformat}})                        
+                    except:
+                        pass
+            
+            # set the original values   
+            if iniindex==None:
+                self.DCCui.lineEdit_CCD_readaction.setText(ini_read_dict['action'])
+                self.DCCui.lineEdit_CCD_readFormat.setText(ini_read_dict['Format'])        
+            else:
+                self.DCCui.comboBox_CCD_readaction.setCurrentIndex(iniindex)
+                self.DCCui.lineEdit_CCD_readFormat.setText(ini_read_dict['Format'])        
+
+            if iniread_done==False:
+                self.Do_Test_Read()
+                iniread_done=True
+                read=self.Selected_read_dict['testRead']
+                action=self.Selected_read_dict['action']                    
+                evformat=self.Selected_read_dict['Format']                                        
+                allread.update({index:{action,read,evformat}})
+            
+            self.Selected_read_dict.update({'AlltestRead':allread})            
+            self.Selected_read_dict.update({'testRead':txtlog})            
+            #print(self.Selected_read_dict['AlltestRead'])
+            
 
     def PB_debugtests(self):
         '''
