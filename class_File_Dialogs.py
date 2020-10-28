@@ -8,7 +8,7 @@ class Dialogs(QWidget):
         self.dir=""
     def get_filter(self,filter):
         if filter==0:
-            self.filters="All Files (*);;Gcode Files (*.gcode)"
+            self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc)"
             self.selected_filter = "Gcode Files (*.gcode)"
         elif filter==1:
             self.filters="All Files (*);;Images (*.png *.xpm *.jpg *.bmp)"

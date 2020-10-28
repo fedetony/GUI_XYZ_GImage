@@ -236,6 +236,8 @@ class Ui_Dialog_CCD(object):
         _translate = QtCore.QCoreApplication.translate
         Dialog_CCD.setWindowTitle(_translate("Dialog_CCD", "Command Configuration Dialog"))
         self.groupBox_CCD.setTitle(_translate("Dialog_CCD", "Command Configuration"))
+        self.pushButton_CCD_AddInterface.setToolTip(_translate("Dialog_CCD", "Add new or clone interface"))
+        self.pushButton_CCD_DelInterface.setToolTip(_translate("Dialog_CCD", "To delete the interface set interfaceName to DELETE"))
         self.groupBox_CCD_actionFiles.setTitle(_translate("Dialog_CCD", "Filename"))
         self.label_CCD_Command_Filestatus.setText(_translate("Dialog_CCD", "File Status"))
         self.pushButton_CCD_Load_Commands.setText(_translate("Dialog_CCD", "Load Commands"))

@@ -54,6 +54,9 @@
                 <height>16777215</height>
                </size>
               </property>
+              <property name="toolTip">
+               <string>Add new or clone interface</string>
+              </property>
               <property name="text">
                <string/>
               </property>
@@ -70,6 +73,9 @@
                 <width>25</width>
                 <height>16777215</height>
                </size>
+              </property>
+              <property name="toolTip">
+               <string>To delete the interface set interfaceName to DELETE</string>
               </property>
               <property name="text">
                <string/>

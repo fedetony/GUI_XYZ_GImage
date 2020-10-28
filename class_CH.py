@@ -5,18 +5,20 @@ import fileinput
 #from types import *
 
 class Command_Handler:    
-    def __init__(self,selected_interface_id,configfile=None,Required_actions={'interfaceId'}):            
+    def __init__(self,selected_interface_id,configfilelist=None,Required_actions={'interfaceId'}):            
         self.Set_id(selected_interface_id)
         self.Required_actions=Required_actions
-        if self.Set_all_Filenames(configfile)==True:                    
+        self.Required_read={}
+        self.Required_interface={}
+        if self.Set_all_Filenames(configfilelist)==True:                    
             self.Setup_Command_Handler()
             self.Init_Read_Interface_Configurations()
 
     def Set_all_Filenames(self,configfilelist):
         try:
-            self.filename=configfile[0]    
-            self.Interfacefilename=configfile[1]
-            self.Readfilename=configfile[2]
+            self.filename=configfilelist[0]    
+            self.Interfacefilename=configfilelist[1]
+            self.Readfilename=configfilelist[2]
             return True
         except:    
             configfile=None 
@@ -26,6 +28,7 @@ class Command_Handler:
             self.Interfacefilename='config/defaultConfig.iccfg'    
             self.Readfilename='config/defaultConfig.rccfg'   
             return True
+        logging.error("No configuration files available!")    
         return False    
         
 
@@ -76,7 +79,24 @@ class Command_Handler:
             isok=False
             pass    
         return isok
-
+    
+    def Check_id_in_dataConfig(self,data,id):
+        '''
+        checks id but does not revert if error found
+        '''
+        try:
+            isok=False
+            newid=str(id)
+            idlist=data['interfaceId']
+            #print(idlist,' Desired id->',newid)
+            if newid in idlist:
+                isok=True            
+        except Exception as e:
+            logging.error(e)
+            logging.error('Id in data error!!!!!')
+            isok=False
+            pass    
+        return isok
     
 
     def get_number_of_interfaces(self,data):
@@ -84,6 +104,7 @@ class Command_Handler:
             idlist=data['interfaceId']
         except Exception as e:
             logging.error(e)
+            logging.error('Number interfaces')
             idlist=[]
             pass
         sss=0    
@@ -101,7 +122,9 @@ class Command_Handler:
             if idcol!=None:
                 return aclist[idcol]
         except Exception as e:
-            logging.error(e)            
+            #logging.error(e)   
+            #print(data,action,interface_id)
+            #logging.error('action format from id')         
             pass        
         return None
 
@@ -110,6 +133,7 @@ class Command_Handler:
             idlist=data['interfaceId']
         except Exception as e:
             logging.error(e)
+            logging.error('interface column from id')
             idlist=[]
             pass
         ccc=0
@@ -141,9 +165,14 @@ class Command_Handler:
             Num=Num+1
         return Num    
 
-    def Get_Number_of_Actual_Interface_Formats(self):
-        Num=0
-        for jjj in self.Actual_Interface_Formats:
+    def Get_Number_of_Actual_Interface_Formats(self,cri=0):
+        Num=0        
+        aset=self.Actual_Interface_Formats
+        if cri==1:
+            aset=self.Read_Config
+        if cri==2:
+            aset=self.Int_Config    
+        for jjj in aset:
             #print(jjj)
             Num=Num+1
         return Num    
@@ -223,6 +252,18 @@ class Command_Handler:
             pass
         return ActionFormat
 
+    def getGformatforActiondataid(self,data,action,id):
+        ActionFormat=None
+        try:       
+            formatlist=data[action]  
+            if self.Check_id_in_dataConfig(data,id)==True:   
+                idcol=self.Get_interface_column_from_id(data,id)
+                if idcol!=None:
+                    ActionFormat=formatlist[idcol]
+        except:
+            pass
+        return ActionFormat
+
     def getGformatforActionid(self,action,id):
         ActionFormat=None
         try:       
@@ -288,7 +329,8 @@ class Command_Handler:
             else:
                 alist.append(line)
         except Exception as e:            
-            logging.error(e)                        
+            logging.error(e)  
+            logging.error('split text')                      
             alist=[]
             pass
         return alist,count                   
@@ -462,7 +504,8 @@ class Command_Handler:
                             else:                                
                                 fff=chr(int(valstr))
                     except Exception as e:            
-                        logging.error(e)                        
+                        logging.error(e)  
+                        logging.error('format replace actions')
                         fff=''
                         pass
                     if fff is not None:    
@@ -482,7 +525,8 @@ class Command_Handler:
                                 fff='{'+fff+'}'
                             newFormat=newFormat.replace('{'+var+'}',fff)
         except Exception as e:            
-            logging.error(e)                        
+            logging.error(e)  
+            logging.error('Format Replace actions!')                       
             newFormat=aFormat
             pass                     
         return newFormat
@@ -561,7 +605,8 @@ class Command_Handler:
                 logging.error('Minimum '+ str(minnumoptions)+' Option parameters are Required: '+str(countnumoptions)+' found! '+str(minnumoptions-countnumoptions)+' missing!')        
         
         except Exception as e:            
-            logging.error(e)                        
+            logging.error(e)  
+            logging.error('Get Code!')                       
             #The_code=''
             pass        
         return The_code    
@@ -1115,7 +1160,8 @@ class Command_Handler:
                     actionparamsfound.update({action:Params})                    
                 except Exception as e:
                     if logerr==True:
-                        logging.error(e)                     
+                        logging.error(e) 
+                        logging.error('Parameters from Gcode!')                     
                     pass
         return actionparamsfound        
 
@@ -1294,21 +1340,21 @@ class Command_Handler:
             except Exception as e:
                 if logerr==True:
                     logging.error(e) 
+                    logging.error('Read From Format!') 
                 pass
         ParamRead.update({'__success__':success_})  #-1 No regex format, 0 No matches in format, # of matches found          
         return ParamRead
 
-    def replace_action_format_in_file(self,filename,anaction,aFormat,anid,Logopen=False):
+    def replace_action_format_in_file(self,filename,anaction,aFormat,anid,data,Logopen=False):
         replaced=False
         if filename is None: 
             filename=self.filename
         if anaction =='':
             return replaced            
-        if filename is not None:  
-            import fileinput
+        if filename is not None:              
             # Does a list of files, and
             # redirects STDOUT to the file in question
-            oldline, newline=self.get_new_line_old_line_for_action(anaction,aFormat,anid)
+            oldline, newline=self.get_new_line_old_line_for_action(data,anaction,aFormat,anid)
             #print(oldline, newline)
             if Logopen==True:
                 logging.info('Opening:'+filename+'to change a format!')
@@ -1322,18 +1368,20 @@ class Command_Handler:
             except Exception as e:
                 logging.error(e)
                 logging.info("Action could not be replaced on File!")
-        if replaced==True and filename==self.filename:
+        if replaced==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
+            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
+            
         return replaced
 
-    def get_new_line_old_line_for_action(self,anaction,aFormat,anid):
-        idlist=self.Configdata['interfaceId']
-        #oldFormat=self.Get_action_format_from_id(self.Configdata,anaction,anid)
+    def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid):
+        idlist=data['interfaceId']
+        #oldFormat=self.Get_action_format_from_id(data,anaction,anid)
         newFormat=aFormat
         oldline='<'+anaction+'>'
         newline='<'+anaction+'>'
         for ids in idlist:        
-            oldFormat=self.Get_action_format_from_id(self.Configdata,anaction,ids)   
+            oldFormat=self.Get_action_format_from_id(data,anaction,ids)   
             if oldFormat==None:
                 oldFormat=''             
             if str(ids) == str(anid):
@@ -1353,8 +1401,7 @@ class Command_Handler:
         if filename is not None:              
             # Does a list of files, and
             # redirects STDOUT to the file in question
-            newline=self.get_new_line_for_action(anaction)    
-            newline='\r\n'+newline
+            newline=self.get_new_line_for_action(anaction)                
             if Logopen==True:
                 logging.info('Opening:'+filename+' to create empty action!')
             try:     
@@ -1365,26 +1412,29 @@ class Command_Handler:
             except Exception as e:
                 logging.error(e)
                 logging.info("Action could not be append on File!")
-        if created==True and filename==self.filename:
+                pass
+        if created==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
+            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
         return created    
 
     def get_new_line_for_action(self,anaction):
-        idlist=self.Configdata['interfaceId']        
+        numint=self.Num_interfaces        
         newFormat=''        
         newline='<'+anaction+'>'
-        for ids in idlist:        
-            newline=newline+'_<'+newFormat+'>'                
+        for interfacess in range(numint): 
+            newline=newline+'_<'+newFormat+'>'     
+        newline=newline+'\n'
         return newline
     
-    def delete_action_in_file(self,filename,anaction,Logopen=False):
+    def delete_action_in_file(self,filename,anaction,data,Logopen=False):
         isdel=False
         if filename is None: 
             filename=self.filename
         if anaction =='':
             return isdel            
         if filename is not None:              
-            oldline, newline=self.get_new_line_old_line_for_action(anaction,'',self.id)
+            oldline, newline=self.get_new_line_old_line_for_action(data,anaction,'',self.id)
             #print(oldline, newline)
             if Logopen==True:
                 logging.info('Opening:'+filename+' to delete action!')
@@ -1397,11 +1447,14 @@ class Command_Handler:
             except Exception as e:
                 logging.error(e)
                 logging.info("Action could not be deleted on File!")
-        if isdel==True and filename==self.filename:
+                pass
+        if isdel==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
+            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
+        
         return isdel
         
-    def Init_Read_Interface_Configurations(self,Reqactions_ic={},Reqactions_ir={},Logcheck=False): 
+    def Init_Read_Interface_Configurations(self,Reqactions_ic={'interfaceId'},Reqactions_ir={'interfaceId'},Logcheck=False): 
         self.Required_read=Reqactions_ir   
         self.Required_interface=Reqactions_ic
         try:            
@@ -1434,7 +1487,78 @@ class Command_Handler:
         isokrc=isok
         return isokrc,isokic
     
+    def create_new_interface_in_file(self,filename,anid,data,dorefresh,Logopen=False,newname='New Interface',cloneid=None):
+        createdint=False
+        if filename is None: 
+            return False
+                    
+        if filename is not None:                          
+            if Logopen==True:
+                logging.info('Opening:'+filename+'to create an interface!')
+            try:     
+                for line in fileinput.input(filename, inplace = 1): 
+                    onedata=self.Get_Command_Config_Data_From_List([line])
+                    for action in onedata:
+                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'',self.id)
+                        newline=oldline    
+                        if action !='':                            
+                            if 'interfaceId' == action:
+                                newline=newline+'_<'+str(anid)+'>'
+                            elif 'interfaceName' == action:
+                                newline=newline+'_<'+str(newname)+'>'    
+                            else:      
+                                if cloneid is not None:                                    
+                                    aFormat=self.getGformatforActiondataid(data,action,self.id)
+                                else:
+                                    aFormat=''                                        
+                                newline=newline+'_<'+aFormat+'>'                        
+                            line=line.replace(oldline,newline)
+                    # Does a list of files, and
+                    # redirects STDOUT to the file in question    
+                    print(line, end='')                    #here prints inside file
+                fileinput.close()                 
+                createdint=True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Interface could not be created on File!")
+        #only refresh if the 3 files have the new interface        
+        if dorefresh==True:
+            if createdint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
+                self.Setup_Command_Handler(False) #don't log checking
+                self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
+                
+        return createdint
 
+    def delete_interface_in_file(self,filename,anid,data,dorefresh,Logopen=False):
+        deletedint=False
+        if filename is None: 
+            return False
+                    
+        if filename is not None:                          
+            if Logopen==True:
+                logging.info('Opening:'+filename+'to delete an interface!')
+            try:     
+                for line in fileinput.input(filename, inplace = 1): 
+                    onedata=self.Get_Command_Config_Data_From_List([line])
+                    for action in onedata:
+                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'_*_delete_*_',anid)
+                        newline=newline.replace('_<_*_delete_*_>','')                                      
+                        line=line.replace(oldline,newline)
+                    # Does a list of files, and
+                    # redirects STDOUT to the file in question    
+                    print(line, end='')                    #here prints inside file
+                fileinput.close()                 
+                deletedint=True
+            except Exception as e:
+                logging.error(e)
+                logging.info("Interface could not be created on File!")
+        #only refresh if the 3 files have the new interface        
+        if dorefresh==True:
+            if deletedint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
+                self.Setup_Command_Handler(False) #don't log checking
+                self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
+                
+        return deletedint
 
             
 

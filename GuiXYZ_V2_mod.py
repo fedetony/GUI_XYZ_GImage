@@ -486,7 +486,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 self.RTDialog.Set_Image_to_Image_label(self.G_Image.im)
         
     def RTD_buttonClicked(self,R_D_List):                    
-        print(R_D_List)
+        #print(R_D_List)
         self.G_Image.RTD_Set_Data_List(R_D_List)        
         self.Fill_Image_Config_Table()
         self.PB_Process_Image()        
@@ -585,7 +585,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         else: print('Double right click')
     
     def Configuration_Changed_Refresh(self,afilename):
-        print(self.XYZRobot_found)
+        #print(self.XYZRobot_found)
         if self.XYZRobot_found==1:
             if self.xyz_thread.CH.filename==afilename:   
                 logging.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
@@ -1008,7 +1008,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             logging.error(e)
             logging.error("Failed to initialise xyz_thread :( -> No Robot ")
             self.Show_Message("Error","Failed to Initialize XYZ Robot :( (Check Port)")
-            print("Is XYZRobot in port "+ XYZRobot_port + "?")
+            #print("Is XYZRobot in port "+ XYZRobot_port + "?")
         #finally:
         #    self.App_Close_Event()
 
