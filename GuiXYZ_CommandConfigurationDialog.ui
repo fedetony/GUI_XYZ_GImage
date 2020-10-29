@@ -456,6 +456,118 @@ Unrecognized commands and errors will be printed in the log
              <attribute name="title">
               <string>General Config</string>
              </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_7">
+              <item>
+               <widget class="QGroupBox" name="groupBox_CCD_IntChanges">
+                <property name="toolTip">
+                 <string/>
+                </property>
+                <property name="title">
+                 <string>General Configuration</string>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_6">
+                 <item>
+                  <widget class="QComboBox" name="comboBox_CCD_Intaction"/>
+                 </item>
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_4">
+                   <item>
+                    <widget class="QLineEdit" name="lineEdit_CCD_Intaction">
+                     <property name="toolTip">
+                      <string>action Name Field</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_IntactionAdd">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Add new action or Replace format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/add-icon.png</normaloff>img/add-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_CCD_IntactionDel">
+                     <property name="maximumSize">
+                      <size>
+                       <width>25</width>
+                       <height>25</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Delete action or clear format in action</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset>
+                       <normaloff>img/math-minus-icon.png</normaloff>img/math-minus-icon.png</iconset>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_CCD_IntFormat">
+                   <property name="toolTip">
+                    <string>Format Field</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="comboBox_CCD_Inttype">
+                   <property name="toolTip">
+                    <string>Here the type for the configuration. If defined makes type check</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_CCD_testIntResultFormat">
+                   <property name="toolTip">
+                    <string>Format interpretation</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pushButton_CCD_IntactionTest">
+                   <property name="toolTip">
+                    <string>Press me to test with different parameter value on table.</string>
+                   </property>
+                   <property name="text">
+                    <string>Test Action</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="label_CCD_testIntResult">
+                   <property name="toolTip">
+                    <string>Gcode interpretation Result</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </widget>
           </item>

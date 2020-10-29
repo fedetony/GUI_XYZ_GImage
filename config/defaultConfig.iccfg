@@ -17,15 +17,33 @@
 # example: <{char(0x18)}> is ctrl+x
 # optional parameters are not allowed in this file
 # values are just read as text, then converted  
+# Information and Type information does not have to exist. action_info stores the info for the action,action_type stores the type
+# Information and Type use format *(id) to use the same information of id, instead of storing same info/type for each interface.
+# for interfaceId file without _info and _type will prompt errors, but will run.
 # ------------------------------------
 <interfaceId>_<0>_<1>_<2>_<3>
+
 <cycletime>_<0.1>_<0.1>_<0.2>_<0.2>
-<defaultInterface>_<1>_<0>_<0>_<0>
+<cycletime_info>_<Cycle time in seconds send read/Write requesats to the machine>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<float>_<*(0)>_<*(0)>_<*(0)>
+<defaultInterface>_<0>_<0>_<0>_<0>
+<defaultInterface_info>_<Default Interface Id>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<str>_<*(0)>_<*(0)>_<*(0)>
 # No parameters commands
 <beforestartupSequence>_<>_<>_<>_<>
+<beforestartupSequence_info>_<Commands to be sent after serial connection is stablished.>_<*(0)>_<*(0)>_<*(0)>
 <afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>
-# if interface autoreports will nor ask for position reports every cycle
+<afterstartupSequence_info>_<Commands to be sent after startup sequence.>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport>_<0>_<1>_<1>_<>
-# This allows to read the first lines from the machine to recognize the interface
+<hasautoReport_info>_<If interface autoreports will not ask for position reports every cycle.>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
 <interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<Marlin>_<>
-
+<interfaceidentifyer_info>_<This allows to identify the interface by the response of the machine in startup sequence.>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<str>_<*(0)>_<*(0)>_<*(0)>
+<new>_<0>_<>_<>_<>
+<new_type>_<bool>_<>_<>_<>
+<beforestartupSequence_type>_<str>_<*(0)>_<*(0)>_<*(0)>
+<defaultInterface_type>_<int>_<*(0)>_<*(0)>_<*(0)>
+<cycletime_type>_<float>_<*(0)>_<*(0)>_<*(0)>
+<afterstartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
+<interfaceidentifyer_type>_<str>_<*(0)>_<*(0)>_<*(0)>

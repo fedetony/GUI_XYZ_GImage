@@ -41,6 +41,14 @@ class Command_Handler:
 
     def Set_id(self,selected_interface_id):
         self.id=str(selected_interface_id) #equivalent to is_tinyg
+    
+    def join_datasets(self,data1,txtext1,data2,txtext2):
+        datajoined={}
+        for iii in data2:
+            datajoined.update({iii+txtext2:data2[iii]})
+        for iii in data1:
+            datajoined.update({iii+txtext1:data1[iii]})
+        return datajoined    
 
     def Setup_Command_Handler(self,log_check=True):        
         fileok=self.Check_command_config_file_Content(self.filename,self.Required_actions,logcheck=log_check)
@@ -48,10 +56,16 @@ class Command_Handler:
         if fileok==False:
             logging.error('Configuration File contains Errors! Configuration Will not be loaded!')
             self.Configdata={}
+            self.Configdata_info={}
+            self.Configdata_type={}
             self.Actual_Interface_Formats={}
+            self.Actual_Interface_FInfo={}
+            self.Actual_Interface_FTypes={}
             self.Num_interfaces=0
             return 
-        self.Configdata=self.Load_command_config_from_file(Logopen=log_check)
+        self.Configdata=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=0)
+        self.Configdata_info=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=1)
+        self.Configdata_type=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=2)
         #read configurations
         #get number of configurations from interfaceId
         self.Num_interfaces=self.get_number_of_interfaces(self.Configdata)
@@ -59,6 +73,8 @@ class Command_Handler:
         self.Actual_Interface_Formats={}
         if self.Check_id_in_Config(self.id)==True:
             self.Actual_Interface_Formats=self.get_interface_config(self.Configdata,self.id)
+            self.Actual_Interface_FInfo=self.get_interface_config(self.Configdata_info,self.id)
+            self.Actual_Interface_FTypes=self.get_interface_config(self.Configdata_type,self.id)
 
     
     def Check_id_in_Config(self,id):
@@ -177,7 +193,13 @@ class Command_Handler:
             Num=Num+1
         return Num    
 
-    def Load_command_config_from_file(self,filename=None,Logopen=False):       
+    def Load_command_config_from_file(self,filename=None,Logopen=False,typeofload=0):      
+        '''
+        typeofload=-1 loads all
+        typeofload=0 loads actions
+        typeofload=1 loads info
+        typeofload=2 loads type
+        ''' 
         if filename is None: 
             filename=self.filename
         data={}
@@ -188,15 +210,25 @@ class Command_Handler:
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
                     linelist=yourFile.readlines() #makes list of lines  
-                data=self.Get_Command_Config_Data_From_List(linelist)                                                
+                data=self.Get_Command_Config_Data_From_List(linelist,typeofload)     
+                #if typeofload==1:
+                #    print(data)                                           
                 yourFile.close()                
             except Exception as e:
                 logging.error(e)
                 logging.info("Command Configuration File could not be read!")
         return data        
     
-    def Get_Command_Config_Data_From_List(self,linelist):
+    def Get_Command_Config_Data_From_List(self,linelist,typeofload=0):
         data={}
+        '''
+        interfaceId in any typeofload
+
+        typeofload=-1 loads all
+        typeofload=0 loads actions
+        typeofload=1 loads info (except interfaceId)
+        typeofload=2 loads type (except interfaceId)
+        '''
         for line in linelist:
             #logging.info(line)          
             Nomismatch=self.Check_one_Parenthesees(line,IniP='<',EndP='>')  
@@ -241,7 +273,32 @@ class Command_Handler:
                     logging.info('Parenthesees <> Mismatch in:'+actionname)
                 #logging.info('action:'+actionname)   
                 #print(lineinfolist)
-                data[actionname]=lineinfolist                             
+                isinfo=False
+                istype=False
+                isid=False
+                if '_info' in actionname:
+                    isinfo=True
+                if '_type' in actionname:
+                    istype=True    
+                if 'interfaceId' == actionname:                     
+                    isid=True   
+                if 'interfaceId_info' == actionname or 'interfaceId_type' == actionname:    
+                    isid=True
+                if isid==True:
+                    data.update({actionname:list(lineinfolist)})
+                else:            
+                    if typeofload==-1: # loads all
+                        data.update({actionname:list(lineinfolist)})     
+                    if typeofload==0 and isinfo==False and istype==False: # loads actions
+                        data.update({actionname:list(lineinfolist)})                             
+                    if typeofload==1 and isinfo==True and istype==False: # loads info                                               
+                        if 'interfaceId' not in actionname:                                     
+                            actionname=actionname.replace('_info','')
+                            data.update({actionname:list(lineinfolist)})
+                    if typeofload==2 and isinfo==False and istype==True: # loads type
+                        if 'interfaceId' not in actionname:                                                                 
+                            actionname=actionname.replace('_type','')
+                            data.update({actionname:list(lineinfolist)})                                     
         return data    
 
     def getGformatforAction(self,action):
@@ -255,7 +312,7 @@ class Command_Handler:
     def getGformatforActiondataid(self,data,action,id):
         ActionFormat=None
         try:       
-            formatlist=data[action]  
+            formatlist=data[action]              
             if self.Check_id_in_dataConfig(data,id)==True:   
                 idcol=self.Get_interface_column_from_id(data,id)
                 if idcol!=None:
@@ -288,26 +345,34 @@ class Command_Handler:
             pass
         return ActionFormat
 
-    def getListofActions(self,exceptlist=[]):        
+    def getGformatforIntactionid(self,action,id):
+        ActionFormat=None
+        try:       
+            formatlist=self.InterfaceConfigallids[action]  
+            if self.Check_id_in_Config(id)==True:   
+                idcol=self.Get_interface_column_from_id(self.InterfaceConfigallids,id)
+                if idcol!=None:
+                    ActionFormat=formatlist[idcol]
+        except:
+            pass
+        return ActionFormat    
+
+    def getListofAnyactionsindata(self,data,exceptlist=[]):        
         alist=[]
-        for action in self.Actual_Interface_Formats:
+        for action in data:
             if action not in exceptlist:
                 alist.append(action)
-        return alist    
+        return alist
+
+    def getListofActions(self,exceptlist=[]): 
+        return self.getListofAnyactionsindata(self.Actual_Interface_Formats,exceptlist)       
 
     def getListofReadactions(self,exceptlist=[]):        
-        alist=[]
-        for action in self.Read_Config:
-            if action not in exceptlist:
-                alist.append(action)
-        return alist              
+        return self.getListofAnyactionsindata(self.Read_Config,exceptlist)                             
     
     def getListofInterfaceactions(self,exceptlist=[]):        
-        alist=[]
-        for action in self.Int_Config:
-            if action not in exceptlist:
-                alist.append(action)
-        return alist           
+        return self.getListofAnyactionsindata(self.Int_Config,exceptlist)                             
+        
 
     def Split_text(self,separator,line):
         alist=[]
@@ -511,7 +576,7 @@ class Command_Handler:
                     if fff is not None:    
                         newFormat=newFormat.replace('{'+var+'}',fff)    
                 for action in action_list:
-                    if action in var:
+                    if action==var: # action in var:
                         vlist,Numv=self.Format_which_Inside_Parenthesees(var,r'\(',r'\)') 
                         if Numv>0:                        
                             fff=self.Get_action_format_from_id(self.Configdata,action,vlist[0])
@@ -760,7 +825,7 @@ class Command_Handler:
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
                     linelist=yourFile.readlines() #makes list of lines  
-                data=self.Get_Command_Config_Data_From_List(linelist)                                                
+                data=self.Get_Command_Config_Data_From_List(linelist,typeofload=-1)                                                
                 yourFile.close()
             except Exception as e:
                 logging.error(e)
@@ -1374,12 +1439,19 @@ class Command_Handler:
             
         return replaced
 
-    def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid):
+    def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid,typeofload=0):
         idlist=data['interfaceId']
-        #oldFormat=self.Get_action_format_from_id(data,anaction,anid)
+        #oldFormat=self.Get_action_format_from_id(data,anaction,anid)       
+        if anaction is None or anaction is '':
+            return '','' 
         newFormat=aFormat
         oldline='<'+anaction+'>'
-        newline='<'+anaction+'>'
+        newline='<'+anaction+'>'        
+        if typeofload!=-1:
+            if '_info' in anaction:
+                anaction=anaction.replace('_info','')
+            if '_type' in anaction:
+                anaction=anaction.replace('_type','')    
         for ids in idlist:        
             oldFormat=self.Get_action_format_from_id(data,anaction,ids)   
             if oldFormat==None:
@@ -1460,28 +1532,48 @@ class Command_Handler:
         try:            
             isok=self.Check_command_config_file_Content(self.Interfacefilename,Reqactions_ic,False,Logcheck)
             if isok==True:
-                self.InterfaceConfigallids=self.Load_command_config_from_file(self.Interfacefilename)
+                self.InterfaceConfigallids=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=0)
+                self.InterfaceConfigallids_info=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=1)                
+                self.InterfaceConfigallids_type=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=2)
                 isok=self.Check_id_match_configs(self.Configdata,self.InterfaceConfigallids)
+                #print(isok)
                 if isok==True:
                     self.Int_Config=self.get_interface_config(self.InterfaceConfigallids,self.id)
+                    self.Int_Config_info=self.get_interface_config(self.InterfaceConfigallids_info,self.id)                    
+                    self.Int_Config_type=self.get_interface_config(self.InterfaceConfigallids_type,self.id)
+                    #print(self.Int_Config)
+                    #print(self.Int_Config_info)
             if isok==False:
                 self.Int_Config={}
+                self.Int_Config_info={}
+                self.Int_Config_type={}
         except:
             self.InterfaceConfigallids={}  
+            self.InterfaceConfigallids_info={}  
+            self.InterfaceConfigallids_type={}  
             isok=False                               
-            pass
+            pass        
         isokic=isok
+        
         try:            
             isok=self.Check_command_config_file_Content(self.Readfilename,Reqactions_ir,False,Logcheck)
             if isok==True:
-                self.ReadConfigallids=self.Load_command_config_from_file(self.Readfilename)
+                self.ReadConfigallids=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=0)
+                self.ReadConfigallids_info=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=1)
+                self.ReadConfigallids_type=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=2)
                 isok=self.Check_id_match_configs(self.Configdata,self.ReadConfigallids)
                 if isok==True:
                     self.Read_Config=self.get_interface_config(self.ReadConfigallids,self.id)
+                    self.Read_Config_info=self.get_interface_config(self.ReadConfigallids_info,self.id)
+                    self.Read_Config_type=self.get_interface_config(self.ReadConfigallids_type,self.id)
             if isok==False:
                 self.Read_Config={}
+                self.Read_Config_info={}
+                self.Read_Config_type={}
         except:
             self.ReadConfigallids={}   
+            self.ReadConfigallids_info={} 
+            self.ReadConfigallids_type={} 
             isok=False         
             pass
         isokrc=isok
@@ -1491,18 +1583,20 @@ class Command_Handler:
         createdint=False
         if filename is None: 
             return False
-                    
+        #print('--------------------------------------------------')   
+        #print(filename)            
         if filename is not None:                          
             if Logopen==True:
                 logging.info('Opening:'+filename+'to create an interface!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
-                    onedata=self.Get_Command_Config_Data_From_List([line])
+                    onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
                     for action in onedata:
-                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'',self.id)
+                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'',self.id,typeofload=-1) #-1-> do not replace _info or _type
                         newline=oldline    
-                        if action !='':                            
-                            if 'interfaceId' == action:
+                        if action !='':
+                            #logging.info(action+'->'+newline)                                  
+                            if 'interfaceId' == action: 
                                 newline=newline+'_<'+str(anid)+'>'
                             elif 'interfaceName' == action:
                                 newline=newline+'_<'+str(newname)+'>'    
@@ -1539,9 +1633,9 @@ class Command_Handler:
                 logging.info('Opening:'+filename+'to delete an interface!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
-                    onedata=self.Get_Command_Config_Data_From_List([line])
+                    onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
                     for action in onedata:
-                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'_*_delete_*_',anid)
+                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'_*_delete_*_',anid,typeofload=-1) #-1 -> not replace _info or _type
                         newline=newline.replace('_<_*_delete_*_>','')                                      
                         line=line.replace(oldline,newline)
                     # Does a list of files, and
@@ -1559,6 +1653,37 @@ class Command_Handler:
                 self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
                 
         return deletedint
+    
+    def get_info_type_from_id(self,data,action,anid):
+        '''
+        Returns the info id *(id) returns the correspondant id info
+        '''
+        try:
+            infolist=data[action]            
+            info=str(self.getGformatforActiondataid(data,action,anid))
+            
+        except Exception as e:
+            #logging.error(e)
+            #logging.error('get info type id')
+            info=''
+            pass
+        #print('before:',info)
+        if info is '':
+            return info    
+        readid=anid    
+        #print('here ',readid)
+        rm=re.search("[*]\((.*)\)",info)
+        try:                
+            readid=rm.group(1)                
+        except:
+            readid=anid
+            pass  
+        if readid!=anid:
+            info=self.getGformatforActiondataid(data,action,readid)
+        #print('after:',info)       
+        return info        
+
+        
 
             
 

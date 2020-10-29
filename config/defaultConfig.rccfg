@@ -14,8 +14,12 @@
 # You can call parameters after from loops
 # Required parameters to be found to read: ACK,STATUS or STATE_XYZ,XPOS,YPOS,ZPOS
 # Unrecognized commands will be printed in the log
+# Information and Type information does not have to exist. action_info stores the info for the action,action_type stores the type
+# Information and Type use format *(id) to use the same information of id, instead of storing same info/type for each interface.
+# for interfaceId file without _info and _type will prompt errors, but will run.
 # ------------------------------------
 <interfaceId>_<0>_<1>_<2>_<3>
+
 <acknowledgecommandexecutedRead>_<>_<>_<r'([oO][kK])'[1{ACK}]>_<>
 <acknowledgecommandreceivedRead>_<r'([oO][kK])'[1{ACKCMD}]>_<>_<>_<>
 <errorRead>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<>
