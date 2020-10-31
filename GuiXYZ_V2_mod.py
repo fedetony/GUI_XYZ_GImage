@@ -201,59 +201,6 @@ class MyWindow(QtWidgets.QMainWindow):
             ui.killer_event.set()            
             event.accept()
     
-            
-'''
-class Dialogs(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.options = QFileDialog.Options()
-        self.options |= QFileDialog.DontUseNativeDialog
-        self.dir=""
-    def get_filter(self,filter):
-        if filter==0:
-            self.filters="All Files (*);;Gcode Files (*.gcode)"
-            self.selected_filter = "Gcode Files (*.gcode)"
-        elif filter==1:
-            self.filters="All Files (*);;Images (*.png *.xpm *.jpg *.bmp)"
-            self.selected_filter = "Images (*.png *.xpm *.jpg *.bmp)"
-        elif filter==2:
-            self.filters="All Files (*);;Text Files (*.txt)"
-            self.selected_filter = "Text Files (*.txt)"
-        elif filter==3:
-            self.filters="All Files (*);;Configuration Files (*.config)"
-            self.selected_filter = "Configuration Files (*.config)"    
-        else:
-            self.filters="All Files (*)"
-            self.selected_filter = "All Files (*)"    
-
-    def openFileNameDialog(self,filter=0):
-                
-        #dir = self.sourceDir
-        self.get_filter(filter)        
-        
-        fileObj = QFileDialog.getOpenFileName(self, "Open File dialog ", self.dir, self.filters, self.selected_filter, options=self.options)
-        fileName, _ = fileObj
-        if fileName:
-            return fileName
-        else:
-            return None    
-    
-    def openFileNamesDialog(self,filter=0):
-        self.get_filter(filter) 
-        files, _ = QFileDialog.getOpenFileNames(self, "Open File Names Dialog", self.dir, self.filters, self.selected_filter, options=self.options)
-        if files:
-            return files
-        else:
-            return None    
-    
-    def saveFileDialog(self,filter=0): #";;Text Files (*.txt)"       
-        self.get_filter(filter)         
-        fileName, _ = QFileDialog.getSaveFileName(self, "Save File dialog ", self.dir, self.filters, self.selected_filter, options=self.options)
-        if fileName:
-            return fileName
-        else:
-            return None
-'''
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)                                     
@@ -352,6 +299,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
         self.pushButton_SetConfig.clicked.connect(self.Set_Config_Value)
+        self.pushButton_RefreshConfig.clicked.connect(self.PB_RefreshConfig)
 
         self.pushButton_XLeft.clicked.connect(self.PB_XLeft)
         self.pushButton_XRight.clicked.connect(self.PB_XRight)
@@ -1057,9 +1005,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:       
             self.comboBox_ConfigItem.clear()  
             if self.Is_Config_Table_Empty()==True:
-                config=self.xyz_thread.read_grbl_config(True,0)
+                config=self.xyz_thread.read_grbl_config(True,False)
             else:
-                config=self.xyz_thread.read_grbl_config(False,0)   
+                config=self.xyz_thread.read_grbl_config(False,False)   
             for ccc in config:
                 if not '_Info' in ccc and not '_Type' in ccc:
                     self.comboBox_ConfigItem.addItem(ccc) 
@@ -1096,7 +1044,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def Fill_Config_Table(self):
         if self.XYZRobot_found==1:       
             self.tableWidget_Config.clear()
-            config=self.xyz_thread.read_grbl_config(True,0)   
+            config=self.xyz_thread.read_grbl_config(True,False)   
             Num_Items=0
             for ccc in config:
                 if not '_Info' in ccc and not '_Type' in ccc:
@@ -1137,7 +1085,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Combo_config_Select(self):
         self.Combo_Config_Selected=self.comboBox_ConfigItem.currentText()        
-        config=self.xyz_thread.read_grbl_config(False,0)   
+        config=self.xyz_thread.read_grbl_config(False,False)   
         for ccc in config:
             if not '_Info' in ccc and not '_Type' in ccc:
                 if ccc == self.Combo_Config_Selected:
@@ -1147,7 +1095,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                     break
     
     def Is_Config_Table_diff_to_device(self):
-        config=self.xyz_thread.read_grbl_config(True,0)
+        config=self.xyz_thread.read_grbl_config(True,False)
         is_different=False
         for row in range(self.Config_Table_NumRows):                        
             hhh=self.tableWidget_Config.item(row, 0).text()
@@ -1159,7 +1107,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         return is_different        
             
     def write_Config_to_device(self):
-        config=self.xyz_thread.read_grbl_config(False,0)
+        config=self.xyz_thread.read_grbl_config(False,False)
 
         for row in range(self.Config_Table_NumRows):                        
             hhh=self.tableWidget_Config.item(row, 0).text()            
@@ -1221,6 +1169,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             return True
         else:
             return False
+    
+    def PB_RefreshConfig(self):
+        self.tableWidget_Config.clear()
+        self.Fill_Config_Combo()
+
 
     def Set_Config_Value(self):
         if self.Is_Config_Table_Empty()==True:
@@ -1392,6 +1345,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:      
             self.StatusConnected=True                  
             logging.info("Waiting for XYZ Robot Setup to finish")
+            #logging.info('-------------Reading device configuration-----------------------')
+            #config=self.xyz_thread.read_grbl_config(True,True)
+            #logging.info('----------------------------------------------------------------')
             """
             count=1
             while not self.xyz_thread.Is_system_ready() and count<100:

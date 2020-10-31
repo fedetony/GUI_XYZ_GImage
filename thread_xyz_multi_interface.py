@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO,
 class InterfaceSerialReaderWriterThread(threading.Thread):
     """
         A thread class to control XYZ machine read/write
-    """
+    """    
     def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_resume,grbl_event_status,grbl_event_softreset,grbl_event_stop,IsRunning_event,CH):
         threading.Thread.__init__(self, name="XYZ thread")
         self.CH=CH
@@ -29,44 +29,66 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.grbl_event_softreset=grbl_event_softreset
         self.grbl_event_stop=grbl_event_stop
         self.port = port
-        self.baudrate=baudrate   
+        self.baudrate=baudrate           
         self.Init_Configurations()    
-        self.Init_Values()  
-        self.Connect_Serial_and_identify_Interface()
+        self.Init_Values() 
+        if self.canIuseCH==True: 
+            self.Connect_Serial_and_identify_Interface()
+        else:
+            self.join() #end thread   
         
-    def Init_Configurations(self,Logcheck=False):    
-        try:
-            Reqactions={'interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}
-            isok=self.CH.Check_command_config_file_Content(self.CH.Interfacefilename,Reqactions,False,Logcheck)
+    def Init_Configurations(self,Logcheck=False):  
+        self.canIuseCH=False  
+        self.Set_Required_actions_to_CH(None,None,None)
+        try:            
+            isok=self.CH.Check_command_config_file_Content(self.CH.Interfacefilename,self.CH.Required_interface,False,Logcheck)
             if isok==True:
                 self.InterfaceConfigallids=self.CH.Load_command_config_from_file(self.CH.Interfacefilename)
                 isok=self.CH.Check_id_match_configs(self.CH.Configdata,self.InterfaceConfigallids)
-                if isok==True:
+                if isok==True:                    
                     self.Int_Config=self.CH.get_interface_config(self.InterfaceConfigallids,self.CH.id)
+                    self.canIuseCH=True
+                    logging.info("Successfully Loaded command handler form config Files!")
             if isok==False:
+                logging.info("Errors in configuration files, Loading hard programed limited interface!")
+                self.canIuseCH=False
                 self.Int_Config=self.Default_Interface_Config()
         except:
             self.InterfaceConfigallids={}
-            #raise
-            pass
+            self.canIuseCH=False
+            logging.error("Fatal Errors in configuration files!")
+            raise
+            
         
-        try:
-            Reqactions={'interfaceId','acknowledgecommandreceivedRead','acknowledgecommandexecutedRead','errorRead','alarmRead','infoRead','configRead','stateRead','positionResponseRead'}
-            isok=self.CH.Check_command_config_file_Content(self.CH.Readfilename,Reqactions,False,Logcheck)
+        try:            
+            isok=self.CH.Check_command_config_file_Content(self.CH.Readfilename,self.CH.Required_read,False,Logcheck)
             if isok==True:
                 self.ReadConfigallids=self.CH.Load_command_config_from_file(self.CH.Readfilename)
                 isok=self.CH.Check_id_match_configs(self.CH.Configdata,self.ReadConfigallids)
                 if isok==True:
                     self.Read_Config=self.CH.get_interface_config(self.ReadConfigallids,self.CH.id)
             if isok==False:
+                logging.info("Errors in read configuration file, Loading hard programed limited interface!")
+                self.canIuseCH=False
                 self.Read_Config=self.Default_Read_Config()
         except:
             self.ReadConfigallids={}
-            #raise
-            pass
-    
-    def Init_Values(self):        
-               
+            logging.error("Fatal Errors in configuration files!")
+            self.canIuseCH=False
+            raise
+
+    def Set_Required_actions_to_CH(self,Reqcc,Reqic,Reqrc):
+        if Reqcc is None or Reqcc is {}:
+            Reqcc={'interfaceId','interfaceName'}
+        if Reqic is None or Reqic is {}:
+            Reqic={'logpositionoutputFormat','logPosition','logAllReadData','logStateChange','timeforMachineStartup','showOK','timetowaitafterresume','interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}         
+        if Reqrc is None or Reqrc is {}:
+            Reqrc={'interfaceId','acknowledgecommandreceivedRead','acknowledgecommandexecutedRead','errorRead','alarmRead','infoRead','configRead','stateRead','positionResponseRead'}
+        self.CH.Required_read=Reqrc           
+        self.CH.Required_actions=Reqcc    
+        self.CH.Required_interface=Reqic
+
+    def Init_Values(self):                       
         self.cycle_time = float(self.Int_Config['cycletime'])
         self.is_tinyg=self.Int_Config['interfaceId']
         self.xyzsetupready=False
@@ -76,9 +98,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.linesacknkowledged=0
         self.IscheckmodeOn=False
         self.Actualcmdneedstimetoexec=False
-
-       
-        logging.info("Thread init XYZ")
+        # data       
+        logging.info("Thread init XYZ ini values set")
         self.AllReadData= {}
         self.data = {}
         self.data['EPOS'] = float(0)
@@ -100,11 +121,11 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             self.olddata[aaa]=self.data[aaa]              
 
     def Default_Interface_Config(self):
-        DefaultInt_Config={'interfaceidentifyer':'grbl','interfaceId':0,'cycletime':0.1,'defaultInterface':1,'beforestartupSequence':'','afterstartupSequence':'','hasautoReport':0}        
+        DefaultInt_Config={'interfaceidentifyer':'','interfaceId':0,'cycletime':0.2,'defaultInterface':'0','beforestartupSequence':'','afterstartupSequence':'','hasautoReport':False}        
         return DefaultInt_Config
 
     def Default_Read_Config(self):
-        DefaultRead_Config=DefaultRead_Config={
+        DefaultRead_Config={
             'interfaceId':0 ,
             'acknowledgeRead': "r'([oO][kK])'[1{ACK}]" ,
             'errorRead':"r'[Ee]rror(.*)'[1{ERROR}]",
@@ -126,9 +147,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             selid=0
             interfaceidentified=False
             while count<100:
-                grbl_out = self.Wait_for_serial_response(0.1,1000)
-                #grbl_out = str(self.ser_port.readline())
-                
+                grbl_out = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=20)                                
                 identifierlist=self.Int_Config['interfaceidentifyer']
                 namelist=self.CH.Configdata['interfaceName']
                 idlist=self.CH.Configdata['interfaceId']                                
@@ -140,79 +159,173 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                         interfaceidentified=True
                         count=count+100
                         break
-                        
-                '''
-                if "Grbl" in grbl_out or "grbl" in grbl_out :
-                    self.is_tinyg=0
-                    logging.info("Grbl identified")
-                    count=count+100
-                if "TinyG" in grbl_out or "tinyG" in grbl_out or "tinyg" in grbl_out:
-                    self.is_tinyg=1
-                    logging.info("TinyG identified")
-                    count=count+100
-                if "Marlin" in grbl_out:
-                    self.is_tinyg=2
-                    logging.info("Marlin identified")
-                    count=count+100        
-                '''                    
+                                 
                 count=count+1            
         except Exception as eee:
             logging.error(eee)
             pass
+        
         if interfaceidentified==False:
-            logging.info("Fail: Device Not identified. Check your identifyer <interfaceidentifyer> in InterfaceConfig.config File") 
-
+            logging.info("Fail: Device Not identified. Check your identifyer <interfaceidentifyer> in InterfaceConfig.config File")             
+            selectedid=self.get_config_value('defaultInterface',selid)
+            if selectedid is not None:
+                selid=selectedid
+                logging.info("Selecting Default interface from file Configuration! ID:"+str(selid)) 
 
         self.is_tinyg=selid
-        self.CH.Set_new_Interface(self.is_tinyg)
+        self.CH.Set_id(self.is_tinyg)
 
         InterfaceName=self.CH.getGformatforAction('interfaceName')
         logging.info("Changed Interface to id "+ str(self.CH.id)+' ->'+InterfaceName)  
-        #logging.info("passed here 4 -> "+ str(self.is_tinyg))     
         
         self.Initialize_Interface()
-        #self.Read_Actual_Config()
         
-        '''
-        if self.is_tinyg==1:
-            logging.info("setting up TinyG")
-            self.cycle_time=0.1
-            self.Initialize_Tinyg()
-        if self.is_tinyg==2:
-            logging.info("setting up Marlin")
-            self.cycle_time=0.2
-            self.Initialize_Marlin()    
-        else:
-            logging.info("setting up grbl")
-            self.cycle_time=0.1    
-            self.Initialize_Grbl()
-        '''
-    def Wait_for_serial_response(self,waittime,exitcount=1000000):
+        
+    def Wait_for_serial_response(self,waittime,exitcount=1000000,loginfo=True,teaseini=20):
         wake=threading.Event()
         wake.clear()
         count=0
         grbl_out=''
-        teaseini=10
-        logging.info('Waiting for identification response...')
+        
+        if loginfo==True:
+            logging.info('Waiting for any response...')
         while not wake.wait(waittime) and not self.killer_event.is_set():
             #logging.info('wait')
-            grbl_out = str(self.ser_port.readline())                        
-            text=grbl_out.replace("b'",'')
-            text=text.replace("'",'')
-            text=text.replace('\n','')
-            text=text.replace("\\n",'')
-            text=text.replace('\r','')
-            text=text.replace("\\r",'')
+            theread=self.ser_port.readline()            
+            grbl_out =self.serialread_to_str(theread)            
+                        
+            if count<teaseini and count>=teaseini-5:
+               self.port_write('\n',True,logcmd=True) 
             if count>=teaseini and count<=teaseini+self.CH.Num_interfaces:
                 self.tease_serial(count)
-            if len(text)>0:
+            if len(grbl_out)>0:
+                if loginfo==True:
+                    logging.info("Machine response detected: "+grbl_out)
                 wake.set()
             if count>exitcount:
                grbl_out=None 
                wake.set()     
             count=count+1   
-            
+        if count>=exitcount:
+            logging.error('Wait Timeout exit...')    
         return grbl_out
+    
+    def serialread_to_str(self,theread,coding=None):
+        if type(theread)==bytes:
+            if coding!= None:
+                return str(theread.decode(coding))    
+            return str(theread.decode())
+        else:    
+            return str(therad)
+
+    def get_config_value(self,configaction,anid):
+        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
+        atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,anid)
+        isok,avalue=self.get_Format_type_to_value(atype,aFormat)
+        if isok==True:
+            return avalue
+        else:
+            return None    
+
+    def get_Format_type_to_value(self,atype,aFormat,showlog=False):
+        isok=False
+        if atype=='':
+            val=aFormat
+            isok=True
+        elif atype=='bool':
+            try:
+                aFormat=str(aFormat)
+                if aFormat.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly']:                
+                    val=True
+                    isok=True
+                elif aFormat.lower() in ['false', '0', 'f', 'n', 'no', 'naah', 'not', 'maybe']:
+                    val=False
+                    isok=True
+                else:
+                    val=None                       
+                    isok=False
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None   
+                isok=False                
+                pass        
+                
+        elif atype=='str' or atype=='string':
+            try:
+                val=str(aFormat)
+                isok=True
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None 
+                isok=False                   
+                pass                    
+        elif atype=='int':
+            try:
+                val=int(aFormat)
+                isok=True    
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None
+                isok=False    
+                pass
+        elif atype=='float':
+            try:
+                val=float(aFormat)
+                isok=True    
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None
+                isok=False    
+                pass    
+        elif atype=='byte':
+            try:
+                val=bytes(aFormat.encode())
+                isok=True    
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None
+                isok=False    
+                pass    
+        elif atype=='char':
+            try:
+                val=chr(int(aFormat))
+                isok=True    
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)     
+                val=None
+                isok=False    
+                pass                         
+        elif atype=='read' or atype=='regex' or atype=='action':
+            try:    
+                P_Allinfo=self.CH.get_all_info_from_Format(aFormat)            
+                val=P_Allinfo
+                isok=True
+            except Exception as e:
+                if showlog==True:
+                    logging.error(e)
+                P_Allinfo={}    
+                isok=False   
+                pass
+            if P_Allinfo is {}:
+                isok=False   
+            val=P_Allinfo     
+        else:
+            isok=True
+            val=aFormat    
+        if showlog==True:
+            if isok == False:
+                msgtxt="Bad format of type "+atype
+                logging.error(msgtxt)                
+            else:                
+                msgtxt="Format of type "+atype+" accepted"                
+                logging.info(msgtxt)                
+        return isok,val    
 
     def tease_serial(self,nnn):
         col=nnn % self.CH.Num_interfaces
@@ -239,7 +352,15 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         #logging.info("killer_event->"+ str(self.killer_event.wait(self.cycle_time)))
         #logging.info("grbl_event_hold->"+ str(self.grbl_event_hold.wait(self.cycle_time)))
         while not self.killer_event.wait(self.cycle_time):            
-            #logging.info("Run entered 1")            
+            #logging.info("Run entered 1")  
+            if self.xyzsetupready==False:
+                logging.info('Holding Run while setup or EEPROM read...')
+                countsetup=0
+                while self.xyzsetupready==False and countsetup<=10000000:
+                    time.sleep(self.cycle_time)
+                    countsetup=countsetup+1
+                self.xyzsetupready=True    
+
             if  self.grbl_event_hold.is_set():
                 self.Send_Hold(1) #clears start flag
                 logging.info("Holding !!")
@@ -287,12 +408,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.rx_queue.queue.clear()                 
             if self.killer_event.is_set():
                 self.Send_Kill(1)
-                '''
-                if self.is_tinyg==2:
-                    self.Send_Kill(1)
-                else:    
-                    self.Send_SoftReset(1)
-                '''    
+                
                 #logging.info("Run entered 6")
             else:
                 # check if there is something we should send to the serial
@@ -339,6 +455,606 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.LastPlannedPos['YPOS']=self.data['YPOS']
         self.LastPlannedPos['ZPOS']=self.data['ZPOS']
 
+        
+    def Initialize_Interface(self):
+        
+        timefMS=self.get_config_value('timeforMachineStartup',self.CH.id)
+        try:    
+            if float(timefMS)>20:
+                timefMS=20
+            if float(timefMS)<=0:
+                timefMS=0.1    
+            logging.info('Waiting for '+str(timefMS)+'[s] before Startup!')    
+            time.sleep(float(timefMS))
+        except:
+            logging.info('Waiting for 1(s) before Startup!')
+            time.sleep(1)    
+            pass
+        
+        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,'beforestartupSequence',self.CH.id)
+        Gcode=self.CH.Get_code(aFormat,{})
+        self.port_write(Gcode,True)
+        if Gcode!='':
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)                       
+        InterfaceName=self.CH.getGformatforAction('interfaceName')
+        logging.info("setting up "+str(InterfaceName))
+        cmd='Message'
+        amsg={'msg':'Inteface id '+ str(self.CH.id)+ ' Connected'}
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,amsg,True)
+        self.port_write(Gcode,isok)
+        if isok==True:
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+        cmd='automaticstatusReports-Filtered'
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+        self.port_write(Gcode,isok)
+        if isok==True:
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+        cmd='automaticstatusReports-Moving'        
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{'timems':200},True)        
+        self.port_write(Gcode,isok)
+        if isok==True:
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+        cmd='reportBuildInfo'
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+        self.port_write(Gcode,isok)
+        if isok==True:
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+        cmd='statusReport'
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+        self.port_write(Gcode,isok)
+        if isok==True:
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,'afterstartupSequence',self.CH.id)
+        Gcode=self.CH.Get_code(aFormat,{})
+        self.port_write(Gcode,True)
+        if Gcode!='':
+            line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=995)               
+
+        
+
+    def queue_write(self,cmd,isok,ending='\n',logcmd=False):
+        if isok==True:
+            if cmd is not '' and cmd is not None:
+                if ending is not None:
+                    self.rx_queue.put(cmd+ending)                    
+                else:
+                    self.rx_queue.put(cmd) 
+                if logcmd==True:
+                    logging.info('Queued')      
+
+
+    def port_write(self,cmd,isok,ending='\n',logcmd=False):
+        if isok==True:
+            if cmd is not '' and cmd is not None:
+                if ending is not None:
+                    self.ser_port.write(str.encode(cmd+ending))
+                else:
+                    self.ser_port.write(str.encode(cmd))    
+            
+    def Is_system_ready(self):
+        return self.xyzsetupready
+
+    def Send_Hold(self,sendcmd):
+        #if not self.grbl_event_hold.is_set():
+        self.grbl_event_hold.set()
+        self.grbl_event_resume.clear()
+        if sendcmd==1:
+            
+            if self.data['STATE_XYZ']==3:
+                cmd='userPause'        
+            else:
+                cmd='quickPause'            
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+            self.port_write(Gcode,isok) 
+            interfacename=self.CH.getGformatforAction('interfaceName')
+            logging.info(str(interfacename)+" on hold!")       
+            '''
+            if self.is_tinyg==2:
+                if self.data['STATE_XYZ']==3:
+                    self.wasrunningbeforepause=False
+                    self.ser_port.write(str('M0 Hold event Set'+'\n').encode())
+                else:
+                    self.wasrunningbeforepause=True
+                    self.ser_port.write(str('P000'+'\n').encode())        
+                logging.info("Marlin on Hold!")
+            elif self.is_tinyg==1:
+                self.ser_port.write(str('!'+'\n').encode())
+                logging.info("TinyG on hold!")                    
+            else:
+                self.ser_port.write(str('!'+'\n').encode())
+                logging.info("grbl on hold!")
+            time.sleep(0.2) # wait after command    
+            '''
+
+    def Send_Kill(self,sendcmd):        
+        if not self.grbl_event_softreset.is_set():
+            self.grbl_event_softreset.set()
+
+        if sendcmd==1:
+            interfacename=self.CH.getGformatforAction('interfaceName')
+            logging.info(str(interfacename)+" Kill send!")
+            cmd='emergencyKill'
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+            self.port_write(Gcode,isok) 
+            time.sleep(0.2) # wait after command
+           
+    
+    def Send_Stop(self,sendcmd):
+        if not self.grbl_event_stop.is_set():
+            self.grbl_event_stop.set()
+        if sendcmd==1:
+            cmd='quickStop'
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+            self.port_write(Gcode,isok) 
+            interfacename=self.CH.getGformatforAction('interfaceName')
+            logging.info(str(interfacename)+" Stop send!") 
+
+    def Send_SoftReset(self,sendcmd):
+        if not self.grbl_event_softreset.is_set():
+            self.grbl_event_softreset.set()
+        if sendcmd==1:
+            cmd='softReset'
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+            self.port_write(Gcode,isok) 
+            interfacename=self.CH.getGformatforAction('interfaceName')
+            logging.info(str(interfacename)+" SoftReset send!") 
+
+    def Send_Resume(self,sendcmd):         
+        self.grbl_event_resume.set()
+        self.grbl_event_hold.clear()
+        if sendcmd==1:    
+            if self.wasrunningbeforepause==False:
+                cmd='userResume'        
+            else:
+                cmd='quickResume'            
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+            self.port_write(Gcode,isok) 
+            interfacename=self.CH.getGformatforAction('interfaceName')
+            logging.info(str(interfacename)+" Resume!")            
+        timeresume=self.get_config_value('timetowaitafterresume',self.is_tinyg)    
+        if timeresume<0 or timeresume>2 or timeresume is None:
+            time.sleep(0.2) # wait after command        
+        else:
+            time.sleep(timeresume) # wait after command        
+    
+    def readline_fromserial(self,buff=128):
+        line=''
+        count=1
+        linebuff=[]
+        while True:
+            line_r = self.ser_port.readline()  # Wait for machine response with carriage return
+            line_r = self.serialread_to_str(line_r,'utf-8')
+            line_r=str(line_r)                       
+            for ccc in line_r:
+                if ccc != '\r' and ccc != '\n':
+                    linebuff.append(ccc)
+                if ccc == '\n':
+                    line=''.join(linebuff)
+                    return str(line)
+            count=count+1        
+            if count>buff:
+                return line
+    
+    def Read_key_Status(self,PRdata,akey,showlog):
+        '''
+        Reads PRdata and cleans it if a value is found.
+        returns: PRdata,astatus
+        astatus has the value if found or None
+        PRdata[akey] is cleaned '' if value found.
+        '''
+        astatus=None
+        try:
+            astatus=PRdata[akey]     
+            if astatus is not '' or astatus is not None:
+                if showlog==True:
+                    logging.info(astatus)                   
+                PRdata.update({akey:''})
+        except:
+            pass 
+        return PRdata,astatus
+    
+    def Read_one_data(self,grbl_out,Readaction):
+        PRdata={}     
+        foundmatch=False           
+        if Readaction in self.Read_Config:
+            aFormat=self.Read_Config[Readaction]                                
+            #print(aFormat)    
+            PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
+            if PRead['__success__']>0:
+                for PR in PRead:
+                    if PR is not '__success__':
+                        PRdata.update({PR:PRead[PR]})
+                    foundmatch=True        
+                    break
+        #print(foundmatch,PRdata)
+        return  PRdata,foundmatch  
+
+
+    def Read_all_data(self,grbl_out):
+        PRdata={}
+        foundmatch=False
+        for aitem in self.data:
+            PRdata.update({aitem:self.data[aitem]})
+        for RC in self.Read_Config:
+            aFormat=self.Read_Config[RC]                                
+            #print(aFormat)    
+            PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
+            if PRead['__success__']>0:
+                for PR in PRead:
+                    if PR is not '__success__':
+                        PRdata.update({PR:PRead[PR]})
+                foundmatch=True        
+                break
+        #print(foundmatch,PRdata)
+        return  PRdata,foundmatch       
+
+    def Process_Read_Data(self,grbl_out,showok=False):
+        if (grbl_out):
+            logalldata=self.get_config_value('logAllReadData',self.is_tinyg)
+            if logalldata==True:
+                logging.info(grbl_out)
+            PRdata,foundmatch=self.Read_all_data(grbl_out)
+            if foundmatch==False and len(grbl_out):
+                logging.info("No read: "+ grbl_out)
+            else:
+                self.AllReadData=PRdata
+                PRdata,astatus=self.Read_key_Status(PRdata,'ACK',showok)
+                if astatus is not None:
+                    self.data['STATUS']=astatus
+                PRdata,astatus=self.Read_key_Status(PRdata,'ACKCMD',showok)
+                if astatus is not None:
+                    self.data['STATUS']=astatus    
+                PRdata,astatus=self.Read_key_Status(PRdata,'ERROR',True)
+                if astatus is not None:
+                    self.data['STATUS']=astatus                
+                PRdata,astatus=self.Read_key_Status(PRdata,'ALARM',True)
+                if astatus is not None:
+                    self.data['STATUS']=astatus             
+                PRdata,astatus=self.Read_key_Status(PRdata,'INFO',True)
+                if astatus is not None:
+                    self.data['STATUS']=astatus                       
+                for iii in self.data:
+                    PRdata,astatus=self.Read_key_Status(PRdata,iii,False)
+                    if astatus is not None:
+                        self.data.update({iii:self.set_correct_type(astatus)})
+                        if iii is 'STATUS':                            
+                            self.Set_StateXYZ_from_Status()                        
+                        if iii is 'STATE_XYZ':
+                            self.Set_Status_from_StateXYZ()   
+
+                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:
+                    logPosition=self.get_config_value('logPosition',self.is_tinyg)
+                    if logPosition!=False:
+                        logpositionoutputFormat=self.get_config_value('logpositionoutputFormat',self.is_tinyg)
+                        if logpositionoutputFormat is not None and logpositionoutputFormat!='':
+                            Gcode=self.CH.Get_code(logpositionoutputFormat,self.data)
+                            if Gcode=='' or Gcode is None:
+                                logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ']))     
+                            else:
+                                logging.info(Gcode)     
+                            
+                                
+                        else:                            
+                            logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                    # if state changed                
+                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
+                        logStateChange=self.get_config_value('logStateChange',self.is_tinyg)
+                        if logStateChange==True:
+                            logging.info('State change from: '+str(self.olddata['STATUS'])+' '+str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATUS']) + ' ' + str(self.data['STATE_XYZ'])) 
+
+                        if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
+                            self.IsRunning_event.clear()    
+                            self.linesexecuted=self.linesexecuted+1
+                        else:
+                            self.IsRunning_event.set()   
+
+                for aaa in self.data:         
+                    self.olddata[aaa]=self.data[aaa]                
+        return self.data
+ 
+    def set_correct_type(self,txt,returntypetxt=False):
+        txt=str(txt)
+        mf=re.search('([+-]?[0-9]*[.][0-9]+)',txt) 
+        try:
+            if len(mf.groups())>0:
+                if returntypetxt==True:
+                    return 'float'
+                return float(txt)
+        except:
+            pass 
+        mb=re.search('([01]{8})',txt) 
+        try:
+            if len(mb.groups())>0:
+                if returntypetxt==True:
+                    return 'bit'
+                return str.encode(txt)
+        except:
+            pass        
+
+        mi=re.search('([+-]?\d+)',txt) 
+        try:
+            if len(mi.groups())>0:
+                if returntypetxt==True:
+                    return 'int'
+                return int(txt)
+        except:
+            pass     
+        if returntypetxt==True:
+            return 'string'  
+        return str(txt) 
+    
+    def Compare_Hasdatachanged(self,olddata,exceptlist=[]):
+        is_different=False
+        for aaa in self.data:
+            #logging.info(str(olddata[aaa])+' vs ' + str(self.data[aaa]))
+            if aaa not in exceptlist:
+                if aaa in olddata:
+                    if olddata[aaa]!=self.data[aaa]:
+                        is_different= True
+                        break        
+        return is_different
+
+    def Set_StateXYZ_from_Status(self):
+        '''
+        1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
+        '''
+        status=self.data['STATUS']         
+        if 'Init' in status or 'init' in status:
+            self.data['STATE_XYZ']=0 
+        if 'Reset' in status or 'reset' in status:
+            self.data['STATE_XYZ']=1
+        if 'Alarm' in status or 'alarm' in status:
+            self.data['STATE_XYZ']=2
+        if 'Idle' in status or 'idle' in status:
+            self.data['STATE_XYZ']=3
+        if 'End' in status or 'end' in status:
+            self.data['STATE_XYZ']=4    
+        if 'Run' in status or 'run' in status:
+            self.data['STATE_XYZ']=5   
+        if 'Hold' in status or 'hold' in status:
+            self.data['STATE_XYZ']=6
+        if 'Probe' in status or 'probe' in status:
+            self.data['STATE_XYZ']=7
+        if 'Cycling' in status or 'cycling' in status:
+            self.data['STATE_XYZ']=8                    
+        if 'Homing' in status or 'homing' in status:
+            self.data['STATE_XYZ']=9
+        if 'Jogging' in status or 'jogging' in status:
+            self.data['STATE_XYZ']=10
+        if 'Error' in status or 'error' in status:            
+            self.data['STATE_XYZ']=11    
+    
+    def Set_Status_from_StateXYZ(self):
+        """
+        0	machine is initializing	
+        1	machine is ready for use	
+        2	machine is in alarm state (soft shut down)	
+        3	program stop or no more blocks (M0, M1, M60)	
+        4	program end via M2, M30	
+        5	motion is running	
+        6	motion is holding	
+        7	probe cycle active	
+        8	machine is running (cycling)	
+        9	machine is homing	
+        10	machine is jogging	
+        11	machine is in hard alarm state (shut down)
+        """
+        #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
+        state=self.data['STATE_XYZ']
+        self.data['STATUS']='N/A'
+        if state ==1:
+            self.data['STATUS']='ready'   
+        if state ==2:
+            self.data['STATUS']='alarm' #soft alarm
+        if state ==3:
+            self.data['STATUS']='idle' #stop'
+        if state ==4:
+            self.data['STATUS']='end'       
+        if state ==5:
+            self.data['STATUS']='run'
+        if state ==6:
+            self.data['STATUS']='hold'           
+        if state ==7:
+            self.data['STATUS']='probe'
+        if state ==8:
+            self.data['STATUS']='cycling'    
+        if state ==9:
+            self.data['STATUS']='homing'
+        if state ==10:
+            self.data['STATUS']='jogging'    
+        if state ==0:
+            self.data['STATUS']='init'            
+        if state ==11:
+            self.data['STATUS']='error' #hard alarm                
+
+    def Send_Homing(self):
+        '''
+        Homing command for Homing
+        '''
+        cmd='Home'
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+        self.queue_write(Gcode,isok)         
+        logging.info("Homing Command set in queue")
+
+    def read(self):
+        '''
+        Predetermined and processed information required for positioning and update.
+        '''
+        return self.data
+    
+    def read_all(self):
+        '''
+        Raw information as read from read config file
+        '''
+        return self.AllReadData   
+
+    def Send_Multi_Read(self,waittime,showlog=True):  
+        hasautoReport=self.get_config_value('hasautoReport',self.is_tinyg) 
+        if hasautoReport is None:
+            hasautoReport=False
+        if hasautoReport == False:
+            if  self.grbl_event_status.is_set(): 
+                cmd='statusReport'            
+                Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+                self.port_write(Gcode,isok)                 
+        
+        if  self.grbl_event_status.is_set() and not self.grbl_event_softreset.is_set() and not self.grbl_event_stop.is_set():             
+            grbl_out = self.readline_fromserial(buff=4*256)     
+            showok=self.get_config_value('showOK',self.is_tinyg)
+            if showok is None:
+                showok=False           
+            self.data=self.Process_Read_Data(grbl_out,showok)                
+            time.sleep(waittime)                
+        return self.data
+    
+    def Run_Read_Values(self):
+        showok=self.get_config_value('showOK',self.is_tinyg)
+        if showok is None:
+            showok=False
+        self.Send_Multi_Read(0,showok)         # do not report ok-> False             
+        grbl_out = self.readline_fromserial()
+        self.data=self.Process_Read_Data(grbl_out,showok) 
+    
+    def Read_Config_Parameter(self,Param,Showlog=True):
+        valread=''
+        try:
+            for ccc in self.grbl_Config:
+                #logging.info('Found->'+ccc)
+                if ccc==str(Param):                    
+                    if Showlog==True:
+                        logging.info(ccc + '=' + str(self.grbl_Config[ccc]) + ' for ' + self.grbl_Config[ccc+'_Info'])                           
+                    valread= self.grbl_Config[ccc]
+        except:
+            if Showlog==True:
+                logging.info('No Config ' + str(Param)+ ' found!') 
+            pass
+        return valread
+    
+
+    #------------------------------------------------------------------------
+    # #######################################################################
+    # Need to be transformed to multi
+    # #######################################################################
+    # -----------------------------------------------------------------------
+    # to be refurbished
+                   
+    def Change_Config_Parameter(self,Param,Value):
+        try:            
+            self.xyzsetupready=False                               
+            cmd='modifySetting'
+            Params={'setting':Param,'value':Value}            
+            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,Params,True)
+            self.port_write(Gcode,isok)
+            if isok==True:
+                logging.info('Sent setting ' + Gcode )
+            else:
+                logging.info('Setting Not sent! ' + Gcode )    
+            #logging.info('Sending configuration $' + str(Param)+ '=' + str(Value) + ' for ' + self.grbl_Config['$'+ str(Param)+'_Info'] )
+            #new_cmd = '$'+str(Param)+'='+str(Value)+'\n'               
+            #self.ser_port.write(str(new_cmd).encode())
+            #line = self.readline_fromserial() # Wait for grbl response with carriage return            
+            line = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=False,teaseini=2000)   
+            
+            data=self.Process_Read_Data(line,showok=True)               
+            PRdata,astatus=self.Read_key_Status(self.AllReadData,'ACK',True) #log ok or Akcnowledge
+            if astatus is None:
+                PRdata,astatus=self.Read_key_Status(self.AllReadData,'ACKCMD',True) #log ok or Akcnowledge
+
+            self.xyzsetupready=True
+            # update configuration
+            if astatus is not None: #"ok" in line:
+                for ccc in self.grbl_Config:
+                    if ccc == '$'+str(Param):
+                        if self.grbl_Config[ccc+'_Type']=='int':
+                            self.grbl_Config[ccc]=int(Value)
+                        elif self.grbl_Config[ccc+'_Type']=='float':
+                            self.grbl_Config[ccc]=float(Value)
+                        else:
+                            self.grbl_Config[ccc]=str(Value)    
+                logging.info("Parameter Accepted!")                
+        except:
+            logging.info('Not Possible to configure ' + str(Param))    
+
+    def Read_Actual_Config(self,showlog=True):
+        '''
+        reads all parameters that contain config
+        '''
+        #self.grbl_Config.clear()
+        self.xyzsetupready=False
+        
+        cmd='reportSettings'
+        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
+        if isok==True:
+            logging.info('Asking for settings ' + Gcode )
+        else:
+            logging.info("Can't gather settings please check action reportSetting! for ID:" + self.is_tinyg )    
+            return
+        self.ser_port.reset_input_buffer()  
+        self.port_write(Gcode,isok)
+        line = ' '          
+        linebuff=[]
+        okrcv=None        
+        confdict={}             
+        alllines='' 
+        # catch all info first
+        while okrcv is None:       
+            line_r=self.readline_fromserial(buff=4*256)                                                         
+            #line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=False,teaseini=2000)               
+            PRdata,foundmatch=self.Read_one_data(line_r,'acknowledgecommandexecutedRead')
+            if foundmatch==True:
+                okrcv=True
+            else:    
+                PRdata,foundmatch=self.Read_one_data(line_r,'acknowledgecommandreceivedRead')
+            if foundmatch==True:
+                okrcv=True
+            alllines=alllines+line_r + '\n'   
+            linebuff.append(line_r)
+        # Process the data    
+        confignum=0
+        for line in linebuff:
+            PRdata,foundmatch=self.Read_all_data(line)    
+            oneconf={}        
+            if foundmatch==True:
+                prlist=[]
+                for jjj in PRdata:
+                    prlist.append(jjj)
+                ConfValue=''
+                ConfCMD=''    
+                ConfInfo=''
+                ConfType=''
+                ConfUnit=''
+                for iii in prlist:                    
+                    PRdata,avalue=self.Read_key_Status(PRdata,iii,False)
+                    
+                    if avalue is not None:   
+                        if 'Conf'.lower() in str(iii).lower():                     
+                            oneconf.update({iii:avalue})
+                        if str(iii).lower()=='ConfValue'.lower():
+                            ConfValue=avalue
+                            ConfType=self.set_correct_type(str(avalue),True)
+                        if str(iii).lower()=='ConfUnit'.lower():
+                            ConfUnit=str(avalue)
+                        if str(iii).lower()=='ConfInfo'.lower():        
+                            ConfInfo=str(avalue)
+                        if str(iii).lower()=='ConfCMD'.lower():    
+                            ConfCMD=str(avalue)
+                
+                if  ConfCMD!='':           
+                    self.grbl_Config.update({ConfCMD : ConfValue})
+                    self.grbl_Config.update({ConfCMD+'_Type' : ConfType})
+                    self.grbl_Config.update({ConfCMD+'_Info' : ConfInfo})                        
+                        
+                confignum=confignum+1
+            else:
+                logging.info('No Read match for:'+line)    
+            if oneconf is not {}:    
+                confdict.update({'Config_'+str(confignum):oneconf})
+
+        self.xyzsetupready=True  
+        #print(confdict)    
+        #print('Alllines:\n', alllines)  
+
+    # to be transformed
     def Set_Last_Planned_Position(self,txtgcmd):
         try:
             mg = re.search('.*?([Gg][0-3 9]{1})(\d*[\.,]?\d*)?.*?([X,x,Y,y,Z,z,F,f,I,i,J,j,K,k])([+-]?\d*[\.,]?\d*)',txtgcmd)
@@ -516,836 +1232,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             
         return False    
 
-    def Run_Read_Values(self):
-        if self.is_tinyg==1:
-            grbl_out = str(self.ser_port.readline())  # Wait for grbl response with carriage return                    
-            self.data=self.Process_Tinyg_data(grbl_out)
-        elif self.is_tinyg==2:    
-            self.Send_Marlin_Read(0,False)         # do not report ok-> False             
-            grbl_out = self.readline_grbl()
-            self.data=self.Process_Marlin_data(grbl_out)
-        else:    
-            #logging.info("Run entered 9")
-            self.Send_grbl_Read(0,False)         # do not report ok-> False             
-            grbl_out = self.readline_grbl()
-            self.data=self.Process_grbl_data(grbl_out)
-        
-        #self.Set_Last_Planned_Positionfromdata()    
-    def Initialize_Interface(self):
-        aFormat=self.CH.Get_action_format_from_id(self.InterfaceConfigallids,'beforestartupSequence',self.CH.id)
-        Gcode=self.CH.Get_code(aFormat,{})
-        self.port_write(Gcode,True)
-        InterfaceName=self.CH.getGformatforAction('interfaceName')
-        logging.info("setting up "+str(InterfaceName))
-        cmd='Message'
-        amsg={'msg':'Inteface id '+ str(self.CH.id)+ ' Connected'}
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,amsg,True)
-        self.port_write(Gcode,isok)
-        cmd='automaticstatusReports-Filtered'
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.port_write(Gcode,isok)
-        cmd='automaticstatusReports-Moving'        
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{'timems':200},True)
-        self.port_write(Gcode,isok)
-        cmd='reportBuildInfo'
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.port_write(Gcode,isok)
-        cmd='statusReport'
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.port_write(Gcode,isok)
-        aFormat=self.CH.Get_action_format_from_id(self.InterfaceConfigallids,'afterstartupSequence',self.CH.id)
-        Gcode=self.CH.Get_code(aFormat,{})
-        self.port_write(Gcode,isok)
-
-    def queue_write(self,cmd,isok,ending='\n',logcmd=False):
-        if isok==True:
-            if cmd is not '' and cmd is not None:
-                if ending is not None:
-                    self.rx_queue.put(cmd+ending)                    
-                else:
-                    self.rx_queue.put(cmd) 
-                if logcmd==True:
-                    logging.info('Queued')      
-
-
-    def port_write(self,cmd,isok,ending='\n',logcmd=False):
-        if isok==True:
-            if cmd is not '' and cmd is not None:
-                if ending is not None:
-                    self.ser_port.write(str.encode(cmd+ending))
-                else:
-                    self.ser_port.write(str.encode(cmd))    
-        
-    '''
-    def Initialize_Tinyg(self):
-        self.ser_port.write(str.encode("$sv=1\n"))
-        self.ser_port.write(str.encode("$si=100\n"))
-        time.sleep(0.1)
-        self.ser_port.write(str.encode("$posz\n"))
-        self.Read_Actual_Config()
-
-    def Initialize_Marlin(self):
-        self.ser_port.write(str.encode("M117 Marlin connected :)\n")) # Firmware info
-        self.ser_port.write(str.encode("M115\n")) # Firmware info
-        self.ser_port.write(str.encode("M114\n"))
-        #self.ser_port.write(str.encode("M503\n")) # Report settings
-        #self.Read_Actual_Config()
-
-    def Initialize_Grbl(self):
-        self.Read_Actual_Config()
-    '''
-    def Is_system_ready(self):
-        return self.xyzsetupready
-
-    def Read_Config_Parameter(self,Param,Showlog=True):
-        valread=''
-        try:
-            for ccc in self.grbl_Config:
-                #logging.info('Found->'+ccc)
-                if ccc=='$'+str(Param):                    
-                    if Showlog==True:
-                        logging.info(ccc + '=' + str(self.grbl_Config[ccc]) + ' for ' + self.grbl_Config[ccc+'_Info'])                           
-                    valread= self.grbl_Config[ccc]
-        except:
-            if Showlog==True:
-                logging.info('No Config $' + str(Param)) 
-            pass
-        return valread
-           
-
-
-    def Change_Config_Parameter(self,Param,Value):
-        try:
-            logging.info('Sending configuration $' + str(Param)+ '=' + str(Value) + ' for ' + self.grbl_Config['$'+ str(Param)+'_Info'] )
-            new_cmd = '$'+str(Param)+'='+str(Value)+'\n'   
-            self.xyzsetupready=False                               
-            self.ser_port.write(str(new_cmd).encode())
-            line = self.readline_grbl() # Wait for grbl response with carriage return            
-            self.xyzsetupready=True
-            if "ok" in line:
-                for ccc in self.grbl_Config:
-                    if ccc == '$'+str(Param):
-                        if self.grbl_Config[ccc+'_Type']=='int':
-                            self.grbl_Config[ccc]=int(Value)
-                        elif self.grbl_Config[ccc+'_Type']=='float':
-                            self.grbl_Config[ccc]=float(Value)
-                        else:
-                            self.grbl_Config[ccc]=str(Value)    
-                logging.info("Parameter Accepted!")                
-        except:
-            logging.info('Not Possible to configure ' + str(Param))    
-
-    def Read_Actual_Config(self,showlog=1):
-        #self.grbl_Config.clear()
-        self.xyzsetupready=False
-        #new_cmd = '$$'+'\n'            
-        #self.ser_port.write(str(new_cmd).encode())
-        cmd='reportSettings'
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.port_write(Gcode,isok)
-
-        line = ' '
-        self.ser_port.reset_input_buffer()    
-        linebuff=[]                
-        while not "ok" in line:            
-            line_r = self.ser_port.readline()  # Wait for grbl response with carriage return
-            line_r = line_r.decode('utf-8')
-            line_r=str(line_r)                        
-            for ccc in line_r:
-                if ccc != '\r' and ccc != '\n':
-                    linebuff.append(ccc)
-                if ccc == '\n':
-                    line=''.join(linebuff)
-                    if "Unknown command:" in line:
-                        self.is_tinyg=2
-                        logging.info('Marlin identified! ')
-                        showlog=0
-                    if showlog==1:
-                        logging.info('Config Read: '+ line)                     
-                    if (line):
-                        if self.is_tinyg==0:  
-                            try:           
-                                #mf = re.search('.([0-9]*)=([+-]?[0-9]*[.][0-9]+)\s.(\w.*).',line)
-                                mf = re.search('^\$(\d+)=([+-]?\d*[\.,]\d*)\s\((.*)\)',line)                               
-                            except:
-                                mf = None
-                            try:
-                                #mi = re.search('.([0-9]*)=([+-]?[0-9]*)\s.(\w.*).',line)
-                                mi = re.search('^\$([+-]?\d+)=(\d+)\s\((.*)\)',line)
-                            except:
-                                mi = None
-                        
-                                
-                            if mf is not None: #float type
-                                #logging.info('storing float')
-                                #logging.info('mf ->'+str(mf.groups()))
-                                self.grbl_Config['$'+str(mf.group(1))]=float(mf.group(2))
-                                self.grbl_Config['$'+str(mf.group(1))+'_Info']=str(mf.group(3))
-                                self.grbl_Config['$'+str(mf.group(1))+'_Type']='float'
-                                
-                            if mi is not None: #int type
-                                #logging.info('storing int')
-                                #logging.info('mi ->'+str(mi.groups()))
-                                if mi.group(2)!='':
-                                    self.grbl_Config['$'+str(mi.group(1))]=int(mi.group(2))
-                                    self.grbl_Config['$'+str(mi.group(1))+'_Info']=str(mi.group(3))
-                                    self.grbl_Config['$'+str(mi.group(1))+'_Type']='int'                            
-                        if self.is_tinyg==1:
-                            try:           
-                                mtg = re.search('^\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)',line)
-                            except:
-                                mtg = None
-                            if mtg is not None: #int type
-                                #logging.info('storing int')
-                                #logging.info('mtg ->'+str(mtg.groups()))                                
-                                
-                                text=str(mtg.group(2))
-                                try:
-                                    if str(mtg.group(4))!='':
-                                        text=text+'('+str(mtg.group(4))+')'
-                                except:
-                                    pass    
-                                self.grbl_Config['$'+str(mtg.group(1))+'_Info']=text
-                                try:
-                                    mtgfloat = re.search('([+-]?\d*[.,]\d+)',str(mtg.group(3)))
-                                except:
-                                    mtgfloat = None
-                                try:
-                                    if mtgfloat == None:
-                                        mtgint = re.search('(^[+-]?\d*$)',str(mtg.group(3)))
-                                except:
-                                    mtgint = None   
-                                     
-                                if mtgfloat is not None:
-                                    self.grbl_Config['$'+str(mtg.group(1))]=float(mtg.group(3))
-                                    self.grbl_Config['$'+str(mtg.group(1))+'_Type']='float'
-                                elif mtgint is not None:
-                                    self.grbl_Config['$'+str(mtg.group(1))]=int(mtg.group(3))
-                                    self.grbl_Config['$'+str(mtg.group(1))+'_Type']='int'    
-                                else:
-                                    self.grbl_Config['$'+str(mtg.group(1))]=str(mtg.group(3))
-                                    self.grbl_Config['$'+str(mtg.group(1))+'_Type']='string'        
-                    linebuff=[]         
-        self.xyzsetupready=True
-
-    def Process_Tinyg_data(self,grbl_out):
-        if (grbl_out):
-            #print( grbl_out.strip() )
-            self.Set_Status_from_StateXYZ()
-            any=0
-            if "stat" in grbl_out:
-                # read the values
-                #print("ENTERED --------------------------------------")
-                m = re.search('stat:([0-9])', grbl_out)
-                #print(grbl_out)
-                try:
-                    self.data['STATE_XYZ'] = int(m.group(1))
-                except AttributeError:
-                    self.data['STATE_XYZ'] = 0
-                #logging.info('STATE ' + str(self.data['STATE_XYZ']))
-                self.Set_Status_from_StateXYZ()
-                if self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
-                    self.IsRunning_event.clear()  
-                    self.linesexecuted=self.linesexecuted+1  
-                else:
-                    self.IsRunning_event.set()    
-                
-                any=1
-                # print grbl_out
-
-            if "posz" in grbl_out:
-                # read the values
-                m = re.search('posz:([+-]?[0-9]*[.][0-9]+)', grbl_out)
-                self.data['ZPOS'] = float(m.group(1))
-                #logging.info('ZPOS ' + str(self.data['ZPOS']))
-                any=1
-                # print grbl_out
-
-            if 'posx' in grbl_out:
-                # print grbl_out.strip()
-                m = re.search('posx:([+-]?[0-9]*[.][0-9]+)', grbl_out)
-                self.data['XPOS'] = float(m.group(1))
-                #logging.info('XPOS ' + str(self.data['XPOS']))
-                any=1
-                # print grbl_out
-            
-            if 'posy' in grbl_out:
-                # print grbl_out.strip()
-                m = re.search('posy:([+-]?[0-9]*[.][0-9]+)', grbl_out)
-                self.data['YPOS'] = float(m.group(1))
-                #logging.info('YPOS ' + str(self.data['YPOS']))
-                any=1
-                # print grbl_out
-            if  any==1:   
-                logging.info('<' + str(self.data['STATUS'])+', POS:'+"\t"+str(self.data['XPOS'])+",\t" + str(self.data['YPOS'])+",\t" + str(self.data['ZPOS'])+'> ' +str(self.data['STATE_XYZ']))                                            
-                for aaa in self.data:         
-                    self.olddata[aaa]=self.data[aaa]
-            else:
-                text=grbl_out.replace("b'",'')
-                text=text.replace("'",'')
-                text=text.replace('\n','')
-                text=text.replace("\n",'')
-                if text!='':
-                    logging.info(text)    
-        return self.data        
-
-    def Send_Hold(self,sendcmd):
-        #if not self.grbl_event_hold.is_set():
-        self.grbl_event_hold.set()
-        self.grbl_event_resume.clear()
-        if sendcmd==1:
-            
-            if self.data['STATE_XYZ']==3:
-                cmd='userPause'        
-            else:
-                cmd='quickPause'            
-            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-            self.port_write(Gcode,isok) 
-            interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" on hold!")       
-            '''
-            if self.is_tinyg==2:
-                if self.data['STATE_XYZ']==3:
-                    self.wasrunningbeforepause=False
-                    self.ser_port.write(str('M0 Hold event Set'+'\n').encode())
-                else:
-                    self.wasrunningbeforepause=True
-                    self.ser_port.write(str('P000'+'\n').encode())        
-                logging.info("Marlin on Hold!")
-            elif self.is_tinyg==1:
-                self.ser_port.write(str('!'+'\n').encode())
-                logging.info("TinyG on hold!")                    
-            else:
-                self.ser_port.write(str('!'+'\n').encode())
-                logging.info("grbl on hold!")
-            time.sleep(0.2) # wait after command    
-            '''
-
-    def Send_Kill(self,sendcmd):        
-        if not self.grbl_event_softreset.is_set():
-            self.grbl_event_softreset.set()
-
-        if sendcmd==1:
-            interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" Kill send!")
-            cmd='emergencyKill'
-            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-            self.port_write(Gcode,isok) 
-            time.sleep(0.2) # wait after command
-        ''' 
-        if not self.grbl_event_softreset.is_set():
-            self.grbl_event_softreset.set()
-        if sendcmd==1:
-            self.ser_port.write(str('M112'+'\n').encode())
-            logging.info("Marlin Kill sent!")
-            time.sleep(0.2) # wait after command
-        '''    
     
-    def Send_Stop(self,sendcmd):
-        if not self.grbl_event_stop.is_set():
-            self.grbl_event_stop.set()
-        if sendcmd==1:
-            cmd='quickStop'
-            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-            self.port_write(Gcode,isok) 
-            interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" Stop send!") 
-            '''
-            if self.is_tinyg==2:
-                self.ser_port.write(str('M410'+'\n').encode())
-                logging.info("Marlin Stop sent!")
-            elif self.is_tinyg==0:
-                self.Send_Hold(1)    
-                self.Send_SoftReset(1)
-                logging.info("grbl hold->reset sent!") #should keep the position while halted then reset
-            else:
-                self.Send_Hold(1)    
-                self.ser_port.write(str('M0'+'\n').encode()) #M1 should work too
-                logging.info("TinyG Stop sent!")                
-            '''    
-
-    def Send_SoftReset(self,sendcmd):
-        if not self.grbl_event_softreset.is_set():
-            self.grbl_event_softreset.set()
-        if sendcmd==1:
-            cmd='softReset'
-            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-            self.port_write(Gcode,isok) 
-            interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" SoftReset send!") 
-            '''
-            if self.is_tinyg==2:
-                self.ser_port.write(str('M999'+'\n').encode())    
-                logging.info("Marlin Reset!")
-            else:    
-                self.ser_port.write(str('^X'+'\n').encode())
-                logging.info("grbl softreset sent!")
-            '''    
-
-    def Send_Resume(self,sendcmd):         
-        self.grbl_event_resume.set()
-        self.grbl_event_hold.clear()
-        if sendcmd==1:    
-            if self.wasrunningbeforepause==False:
-                cmd='userResume'        
-            else:
-                cmd='quickResume'            
-            Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-            self.port_write(Gcode,isok) 
-            interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" Resume!")
-            '''
-            if self.is_tinyg==2:
-                if self.wasrunningbeforepause==False:
-                    self.ser_port.write(str('M108'+'\n').encode())
-                else:    
-                    self.ser_port.write(str('R000'+'\n').encode())    
-                logging.info("Marlin start!")
-            else:    
-                self.ser_port.write(str('~'+'\n').encode())
-                logging.info("grbl start!")
-            '''    
-        time.sleep(0.2) # wait after command        
-    
-    def readline_grbl(self):
-        line=''
-        count=1
-        linebuff=[]
-        while True:
-            line_r = self.ser_port.readline()  # Wait for grbl response with carriage return
-            line_r = line_r.decode('utf-8')
-            line_r=str(line_r)                       
-            for ccc in line_r:
-                if ccc != '\r' and ccc != '\n':
-                    linebuff.append(ccc)
-                if ccc == '\n':
-                    line=''.join(linebuff)
-                    return str(line)
-            count=count+1        
-            if count>128:
-                return line
-                          
-    def Send_grbl_Read(self,waittime,showlog=True):    
-        if self.is_tinyg==2:
-           self.Send_Marlin_Read(waittime,showlog)
-        else:       
-            if  self.grbl_event_status.is_set(): 
-                cmd='statusReport'            
-                Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-                self.port_write(Gcode,isok) 
-                '''
-                self.ser_port.write(str('?'+'\n').encode())
-                '''
-                grbl_out = self.readline_grbl()                
-                self.data=self.Process_grbl_data(grbl_out,showlog)                
-                time.sleep(waittime)                        
-        return self.data
-    
-    def Send_Marlin_Read(self,waittime,showlog=True):       
-        if  self.grbl_event_status.is_set() and not self.grbl_event_softreset.is_set(): 
-            #self.ser_port.write(str('S000'+'\n').encode())
-            #if not self.grbl_event_softreset.is_set():
-            #    self.ser_port.write(str(''+'\n').encode())
-            grbl_out = self.readline_grbl()                
-            self.data=self.Process_Marlin_data(grbl_out,showlog)
-            time.sleep(waittime)                        
-        return self.data    
-        
-    def Process_Marlin_data(self,grbl_out,showok=False):
-        #X:0.00 Y:0.00 Z:0.00 E:0.00 Count X:0 Y:0 Z:12000
-        if (grbl_out):
-            #logging.info("-----Received ->>>>"+grbl_out)
-            #print( grbl_out.strip() )
-            if "ok" in grbl_out:
-                self.data['STATUS']='ok'
-                if self.IsRunning_event.is_set():
-                    self.IsRunning_event.clear()   
-                    self.linesexecuted=self.linesexecuted+1
-                    showok=True
-                if showok==True:
-                    logging.info(self.data['STATUS'])
-            if "error" in grbl_out:                
-                self.data['STATUS']=grbl_out
-                logging.info(self.data['STATUS'])
-                if self.Actualcmdneedstimetoexec==True or self.IsRunning_event.is_set():
-                    self.IsRunning_event.clear()    
-                    self.linesexecuted=self.linesexecuted+1
-            if "ALARM" in grbl_out:
-                self.data['STATUS']=grbl_out
-            if "echo:" in grbl_out:
-                if "busy: processing" not in grbl_out:
-                    self.data['STATUS']=grbl_out    
-                    logging.info(self.data['STATUS'])
-            if "action" in grbl_out:
-                self.data['STATUS']=grbl_out    
-                logging.info(self.data['STATUS'])    
-                    
-            if "[" in grbl_out and "]" in grbl_out:
-                self.data['STATUS']=grbl_out     
-                logging.info(self.data['STATUS'])
-            if  "S_XYZ:" in grbl_out: 
-                self.data['STATUS']=grbl_out   
-                try:                                
-                    m = re.search('S_XYZ:([0-9]+)', grbl_out)
-                    self.data['STATE_XYZ']= int(m.group(1))
-                    
-                    if self.Compare_Hasdatachanged(self.olddata)==True:
-                        if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
-                            logging.info('S_XYZ from '+ str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATE_XYZ']))                                      
-                            if self.IsRunning_event.is_set() and self.olddata['STATE_XYZ']>=5 and self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11: # state X-> 3
-                                self.IsRunning_event.clear()   
-                                self.linesexecuted=self.linesexecuted+1 
-                            else:
-                                self.IsRunning_event.set()  
-                            self.olddata['STATE_XYZ']=self.data['STATE_XYZ']              
-                            self.Set_Status_from_StateXYZ()
-                            self.olddata['STATUS']=self.data['STATUS']
-
-                except:                        
-                    logging.info("No read State: " + grbl_out)    
-            if  "X:" in grbl_out:  
-                try:
-                    isotherformat=False                                
-                    m = re.search('X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)', grbl_out)
-
-                    #self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
-                    self.data['MXPOS'] = int(m.group(5))
-                    self.data['MYPOS'] = int(m.group(6))                
-                    self.data['MZPOS'] = int(m.group(7))
-                    self.data['XPOS'] = float(m.group(1))
-                    self.data['YPOS'] = float(m.group(2))                
-                    self.data['ZPOS'] = float(m.group(3))
-                    self.data['EPOS'] = float(m.group(4))
-
-                except:
-                    isotherformat=True
-                    pass
-                if isotherformat==True:
-                    try:                                
-                        m = re.search('<(\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})>', grbl_out)
-
-                        self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
-                        self.data['MXPOS'] = float(m.group(2))
-                        self.data['MYPOS'] = float(m.group(3))                
-                        self.data['MZPOS'] = float(m.group(4))
-                        self.data['MAPOS'] = float(m.group(5))
-                        self.data['XPOS'] = float(m.group(6))
-                        self.data['YPOS'] = float(m.group(7))                
-                        self.data['ZPOS'] = float(m.group(8))
-                        self.data['APOS'] = float(m.group(9))
-                        self.data['CTL'] = float(m.group(10))
-                    except:                        
-                        logging.info("No read: "+grbl_out)
-                
-                #self.data['STATE_XYZ']=0
-                self.Set_StateXYZ_from_Status() 
-                #if self.grbl_event_status.is_set():
-                if self.Compare_Hasdatachanged(self.olddata)==True:
-                    logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
-                
-                   
-                
-                for aaa in self.data:         
-                    self.olddata[aaa]=self.data[aaa]              
-                #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
-                #logging.info('WXPOS=' + str(self.data['WXPOS'])+',WYPOS=' + str(self.data['WYPOS'])+',WZPOS=' + str(self.data['WZPOS'])+' '+ str(self.data['STATE_XYZ']) )
-            self.Set_StateXYZ_from_Status()    
-        return self.data     
-    
-    
-    def Read_key_Status(self,PRdata,akey,showlog):
-        astatus=None
-        try:
-            astatus=PRdata[akey]     
-            if astatus is not '' or astatus is not None:
-                if showlog==True:
-                    logging.info(astatus)                   
-                PRdata.update({akey:''})
-        except:
-            pass 
-        return PRdata,astatus
-
-    def Read_all_data(self,grbl_out):
-        PRdata={}
-        foundmatch=False
-        for aitem in self.data:
-            PRdata.update({aitem:self.data[aitem]})
-        for RC in self.Read_Config:
-            aFormat=self.Read_Config[RC]                                
-            #print(aFormat)    
-            PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
-            if PRead['__success__']>0:
-                for PR in PRead:
-                    if PR is not '__success__':
-                        PRdata.update({PR:PRead[PR]})
-                foundmatch=True        
-                break
-        #print(foundmatch,PRdata)
-        return  PRdata,foundmatch   
-
-    def Process_Read_Data(self,grbl_out,showok=False):
-        if (grbl_out):
-            PRdata,foundmatch=self.Read_all_data(grbl_out)
-            if foundmatch==False and len(grbl_out):
-                logging.info("No read: "+ grbl_out)
-            else:
-                self.AllReadData=PRdata
-                PRdata,astatus=self.Read_key_Status(PRdata,'ACK',showok)
-                if astatus is not None:
-                    self.data['STATUS']=astatus
-                PRdata,astatus=self.Read_key_Status(PRdata,'ACKCMD',showok)
-                if astatus is not None:
-                    self.data['STATUS']=astatus    
-                PRdata,astatus=self.Read_key_Status(PRdata,'ERROR',True)
-                if astatus is not None:
-                    self.data['STATUS']=astatus                
-                PRdata,astatus=self.Read_key_Status(PRdata,'ALARM',True)
-                if astatus is not None:
-                    self.data['STATUS']=astatus             
-                PRdata,astatus=self.Read_key_Status(PRdata,'INFO',True)
-                if astatus is not None:
-                    self.data['STATUS']=astatus                       
-                for iii in self.data:
-                    PRdata,astatus=self.Read_key_Status(PRdata,iii,False)
-                    if astatus is not None:
-                        self.data.update({iii:self.set_correct_type(astatus)})
-                        if iii is 'STATUS':                            
-                            self.Set_StateXYZ_from_Status()                        
-                        if iii is 'STATE_XYZ':
-                            self.Set_Status_from_StateXYZ()   
-
-                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:
-                    logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
-                    # if state changed                
-                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
-                        if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
-                            self.IsRunning_event.clear()    
-                            self.linesexecuted=self.linesexecuted+1
-                        else:
-                            self.IsRunning_event.set()   
-
-                for aaa in self.data:         
-                    self.olddata[aaa]=self.data[aaa]                
-        return self.data
- 
-    def set_correct_type(self,txt):
-        txt=str(txt)
-        mf=re.search('([+-]?[0-9]*[.][0-9]+)',txt) 
-        try:
-            if len(mf.groups())>0:
-                return float(txt)
-        except:
-            pass 
-        mb=re.search('([01]{8})',txt) 
-        try:
-            if len(mb.groups())>0:
-                return str.encode(txt)
-        except:
-            pass        
-
-        mi=re.search('([+-]?\d+)',txt) 
-        try:
-            if len(mi.groups())>0:
-                return int(txt)
-        except:
-            pass       
-        return str(txt) 
-
-    def Process_grbl_data(self,grbl_out,showok=False):
-        return self.Process_Read_Data(grbl_out,showok)
-        '''
-        #<Idle,MPos:0.000,0.000,0.000,WPos:0.000,0.000,0.000> if (grbl_out):
-        if (grbl_out):
-            #print( grbl_out.strip() )
-            if len(grbl_out)>0:
-                #print('TestRead->' + grbl_out.strip() )
-                aFormat="r'<(\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})>'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]"
-                PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)                
-                #print(PRead)
-                #if PRead['__success__']>0:
-                #    print(PRead)
-            if "ok" in grbl_out:
-                self.data['STATUS']='ok'
-                if showok==True:
-                    logging.info(self.data['STATUS'])
-            if "error" in grbl_out:                
-                self.data['STATUS']=grbl_out
-                logging.info(self.data['STATUS'])
-                if self.Actualcmdneedstimetoexec==True:
-                    self.IsRunning_event.clear()    
-                    self.linesexecuted=self.linesexecuted+1
-            if "ALARM" in grbl_out:
-                self.data['STATUS']=grbl_out
-                logging.info(self.data['STATUS'])
-            if "[" in grbl_out and "]" in grbl_out:
-                self.data['STATUS']=grbl_out     
-                logging.info(self.data['STATUS'])
-            if  "<" in grbl_out and ">" in grbl_out:  
-                try:
-                    isotherformat=False                                
-                    m = re.search('<(\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+)>', grbl_out)
-
-                    self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
-                    self.data['MXPOS'] = float(m.group(2))
-                    self.data['MYPOS'] = float(m.group(3))                
-                    self.data['MZPOS'] = float(m.group(4))
-                    self.data['XPOS'] = float(m.group(5))
-                    self.data['YPOS'] = float(m.group(6))                
-                    self.data['ZPOS'] = float(m.group(7))
-                except:
-                    isotherformat=True
-                    pass
-                if isotherformat==True:
-                    try:                                
-                        m = re.search('<(\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})>', grbl_out)
-
-                        self.data['STATUS'] = 'S_XYZ:'+str(m.group(1))
-                        self.data['MXPOS'] = float(m.group(2))
-                        self.data['MYPOS'] = float(m.group(3))                
-                        self.data['MZPOS'] = float(m.group(4))
-                        self.data['MAPOS'] = float(m.group(5))
-                        self.data['XPOS'] = float(m.group(6))
-                        self.data['YPOS'] = float(m.group(7))                
-                        self.data['ZPOS'] = float(m.group(8))
-                        self.data['APOS'] = float(m.group(9))
-                        self.data['CTL'] = float(m.group(10))
-                    except:                        
-                        logging.info("No read: "+grbl_out)
-                
-                #self.data['STATE_XYZ']=0
-                self.Set_StateXYZ_from_Status() 
-                #if self.grbl_event_status.is_set():                
-                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:
-                    logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
-                    # if state changed                
-                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
-                        if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
-                            self.IsRunning_event.clear()    
-                            self.linesexecuted=self.linesexecuted+1
-                        else:
-                            self.IsRunning_event.set()   
-
-                for aaa in self.data:         
-                    self.olddata[aaa]=self.data[aaa]              
-                #logging.info('XPOS=' + str(self.data['XPOS'])+',YPOS=' + str(self.data['YPOS'])+',ZPOS=' + str(self.data['ZPOS'])+' '+ str(self.data['STATUS']) )
-                #logging.info('WXPOS=' + str(self.data['WXPOS'])+',WYPOS=' + str(self.data['WYPOS'])+',WZPOS=' + str(self.data['WZPOS'])+' '+ str(self.data['STATE_XYZ']) )
-            self.Set_StateXYZ_from_Status()    
-        return self.data     
-        '''
-    
-    def Compare_Hasdatachanged(self,olddata,exceptlist=[]):
-        is_different=False
-        for aaa in self.data:
-            #logging.info(str(olddata[aaa])+' vs ' + str(self.data[aaa]))
-            if aaa not in exceptlist:
-                if aaa in olddata:
-                    if olddata[aaa]!=self.data[aaa]:
-                        is_different= True
-                        break        
-        return is_different
-
-    def Set_StateXYZ_from_Status(self):
-        '''
-        1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
-        '''
-        status=self.data['STATUS']         
-        if 'Init' in status or 'init' in status:
-            self.data['STATE_XYZ']=0 
-        if 'Reset' in status or 'reset' in status:
-            self.data['STATE_XYZ']=1
-        if 'Alarm' in status or 'alarm' in status:
-            self.data['STATE_XYZ']=2
-        if 'Idle' in status or 'idle' in status:
-            self.data['STATE_XYZ']=3
-        if 'End' in status or 'end' in status:
-            self.data['STATE_XYZ']=4    
-        if 'Run' in status or 'run' in status:
-            self.data['STATE_XYZ']=5   
-        if 'Hold' in status or 'hold' in status:
-            self.data['STATE_XYZ']=6
-        if 'Probe' in status or 'probe' in status:
-            self.data['STATE_XYZ']=7
-        if 'Cycling' in status or 'cycling' in status:
-            self.data['STATE_XYZ']=8                    
-        if 'Homing' in status or 'homing' in status:
-            self.data['STATE_XYZ']=9
-        if 'Jogging' in status or 'jogging' in status:
-            self.data['STATE_XYZ']=10
-        if 'Error' in status or 'error' in status:            
-            self.data['STATE_XYZ']=11    
-
-    
-    def Set_Status_from_StateXYZ(self):
-        """
-        0	machine is initializing	
-        1	machine is ready for use	
-        2	machine is in alarm state (soft shut down)	
-        3	program stop or no more blocks (M0, M1, M60)	
-        4	program end via M2, M30	
-        5	motion is running	
-        6	motion is holding	
-        7	probe cycle active	
-        8	machine is running (cycling)	
-        9	machine is homing	
-        10	machine is jogging	
-        11	machine is in hard alarm state (shut down)
-        """
-        #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
-        state=self.data['STATE_XYZ']
-        self.data['STATUS']='N/A'
-        if state ==1:
-            self.data['STATUS']='ready'   
-        if state ==2:
-            self.data['STATUS']='alarm' #soft alarm
-        if state ==3:
-            self.data['STATUS']='idle' #stop'
-        if state ==4:
-            self.data['STATUS']='end'       
-        if state ==5:
-            self.data['STATUS']='run'
-        if state ==6:
-            self.data['STATUS']='hold'           
-        if state ==7:
-            self.data['STATUS']='probe'
-        if state ==8:
-            self.data['STATUS']='cycling'    
-        if state ==9:
-            self.data['STATUS']='homing'
-        if state ==10:
-            self.data['STATUS']='jogging'    
-        if state ==0:
-            self.data['STATUS']='init'            
-        if state ==11:
-            self.data['STATUS']='error' #hard alarm                
-
-    def Send_Homing(self):
-        cmd='Home'
-        Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.queue_write(Gcode,isok) 
-        #interfacename=self.CH.getGformatforAction('interfaceName')
-        #logging.info(str(interfacename)+" Homing queued!") 
-        '''
-        if self.is_tinyg==1:  
-            cmd="G28.2 X0 Y0 Z0"+'\n' # tiny g code for homing   
-        if self.is_tinyg==2:
-            cmd="G28"+'\n'             
-        else:
-            cmd="$H"+'\n'
-        self.rx_queue.put(cmd)    
-        '''
-        logging.info("Homing Command set in queue")
-
-    def read(self):
-        '''
-        Predetermined and processed information required for positioning and update.
-        '''
-        return self.data
-    
-    def read_all(self):
-        '''
-        Raw information as read from read config file
-        '''
-        return self.AllReadData    
 
 
 class XYZMulti:
@@ -1475,13 +1362,13 @@ class XYZMulti:
         
         
                 
-    def read_grbl_config(self,Refresh=False,Showlog=0):
+    def read_grbl_config(self,Refresh=False,Showlog=False):
         if Refresh==True:
             self.ser_read_thread.Read_Actual_Config(Showlog)
         return self.ser_read_thread.grbl_Config
 
     def change_grbl_config_parameter(self,Param,Value):
-        Showlog=0
+        Showlog=False
         self.ser_read_thread.Change_Config_Parameter(Param,Value)
         self.ser_read_thread.Read_Actual_Config(Showlog)
 
@@ -1535,7 +1422,7 @@ class XYZMulti:
     
     def grbl_status(self):
         self.grbl_event_status.set()
-        return self.ser_read_thread.Send_grbl_Read(0)
+        return self.ser_read_thread.Send_Multi_Read(0)
     
     def Is_system_ready(self):
         return self.ser_read_thread.Is_system_ready()

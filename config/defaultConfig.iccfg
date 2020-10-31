@@ -23,27 +23,46 @@
 # ------------------------------------
 <interfaceId>_<0>_<1>_<2>_<3>
 
-<cycletime>_<0.1>_<0.1>_<0.2>_<0.2>
+<cycletime>_<0.2>_<0.1>_<0.2>_<0.2>
 <cycletime_info>_<Cycle time in seconds send read/Write requesats to the machine>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport_type>_<float>_<*(0)>_<*(0)>_<*(0)>
 <defaultInterface>_<0>_<0>_<0>_<0>
 <defaultInterface_info>_<Default Interface Id>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport_type>_<str>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
 # No parameters commands
 <beforestartupSequence>_<>_<>_<>_<>
 <beforestartupSequence_info>_<Commands to be sent after serial connection is stablished.>_<*(0)>_<*(0)>_<*(0)>
 <afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>
 <afterstartupSequence_info>_<Commands to be sent after startup sequence.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport>_<0>_<1>_<1>_<>
+<hasautoReport>_<False>_<True>_<1>_<>
 <hasautoReport_info>_<If interface autoreports will not ask for position reports every cycle.>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
 <interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<Marlin>_<>
 <interfaceidentifyer_info>_<This allows to identify the interface by the response of the machine in startup sequence.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport_type>_<str>_<*(0)>_<*(0)>_<*(0)>
-<new>_<0>_<>_<>_<>
-<new_type>_<bool>_<>_<>_<>
-<beforestartupSequence_type>_<str>_<*(0)>_<*(0)>_<*(0)>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
+<beforestartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
 <defaultInterface_type>_<int>_<*(0)>_<*(0)>_<*(0)>
 <cycletime_type>_<float>_<*(0)>_<*(0)>_<*(0)>
 <afterstartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
 <interfaceidentifyer_type>_<str>_<*(0)>_<*(0)>_<*(0)>
+<timetowaitafterresume_type>_<float>_<*(0)>_<*(0)>_<*(0)>
+<timetowaitafterresume>_<0.2>_<0.2>_<0.2>_<0.2>
+<timetowaitafterresume_info>_<Time in seconds required for interface to wait after resume command.After wait enables hold command.>_<*(0)>_<*(0)>_<*(0)>
+<showOK_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
+<showOK>_<False>_<False>_<False>_<False>
+<showOK_info>_<logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead is received.>_<*(0)>_<*(0)>_<*(0)>
+<logpositionoutputFormat_type>_<*(1)>_<action>_<*(1)>_<*(1)>
+<logpositionoutputFormat>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<>_<>
+<logpositionoutputFormat_info>_<*(1)>_<Output format for logging position, logs machine output if empty>_<*(1)>_<*(1)>
+<logPosition_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
+<logPosition>_<True>_<True>_<True>_<>
+<logPosition_info>_<*(1)>_<if you want to report in the log the position change. Log true logs only when position change.>_<*(1)>_<*(1)>
+<logAllReadData_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
+<logAllReadData>_<False>_<False>_<False>_<>
+<logAllReadData_info>_<*(1)>_<if True will show in the log every response from the machine.>_<*(1)>_<*(1)>
+<logStateChange_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
+<logStateChange>_<True>_<True>_<True>_<>
+<logStateChange_info>_<Logs when state STATE_XYZ or STATUS changes value.>_<*(0)>_<*(0)>_<*(0)>
+<timeforMachineStartup_type>_<float>_<*(0)>_<*(0)>_<*(0)>
+<timeforMachineStartup>_<0>_<>_<>_<>
+<timeforMachineStartup_info>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>_<*(0)>_<*(0)>_<*(0)>

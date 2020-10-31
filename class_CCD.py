@@ -536,7 +536,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             isexit,knownaction,isinfo,istype,dataset=self.revise_data_to_add(2,action)                                   
             if isexit==-1:
                 return 
-            if istype==False:                
+            if istype==False and isinfo==False:                
                 newType=self.Selected_Int_dict['Type'] 
                 #print('Entered no type ->>>',newType)
             if knownaction==True:    
@@ -547,7 +547,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                       "Are you sure you want to Replace the Format?",
                       QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
                 if result == QtWidgets.QMessageBox.Yes:
-                    if istype==False:
+                    if istype==False and isinfo==False:
                         self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action+'_type',newType,self.id,self.CH.InterfaceConfigallids_type)
                         #print('Replaced type',newType)
                     self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,newFormat,self.id,dataset)                    
@@ -556,10 +556,18 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     self.DCCui.label_CCD_testIntResult.setText(msgtxt)      
             else:
                 #print('here ok?')                
-                if istype==False:
+                if istype==False and isinfo==False:
                     self.Add_New_action_in_ConfigFile(self.CH.Interfacefilename,action+'_type',newType,self.id,self.CH.InterfaceConfigallids_type)
-                self.Add_New_action_in_ConfigFile(self.CH.Interfacefilename,action,newFormat,self.id,dataset)                
-                msgtxt="General action "+action+" Added!"
+                self.Add_New_action_in_ConfigFile(self.CH.Interfacefilename,action,newFormat,self.id,dataset)
+                for iii in dataset['interfaceId']:                
+                    if iii!=self.id:
+                        if isinfo==True:
+                            self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,'*('+str(self.id)+')',iii,self.CH.InterfaceConfigallids_info)
+                        if istype==False and isinfo==False:
+                            self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,newFormat,iii,dataset)                    
+                            self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action+'_type','*('+str(self.id)+')',iii,self.CH.InterfaceConfigallids_type)
+
+                msgtxt="General action "+action+" Added! For all Interfaces!"
                 logging.info(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)            
 

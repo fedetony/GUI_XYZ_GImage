@@ -5,7 +5,7 @@ import fileinput
 #from types import *
 
 class Command_Handler:    
-    def __init__(self,selected_interface_id,configfilelist=None,Required_actions={'interfaceId'}):            
+    def __init__(self,selected_interface_id,configfilelist=None,Required_actions={'interfaceId','interfaceName'}):            
         self.Set_id(selected_interface_id)
         self.Required_actions=Required_actions
         self.Required_read={}
@@ -1087,6 +1087,9 @@ class Command_Handler:
         return param    
     
     def Get_list_of_all_parameters_all_interfaces(self):
+        '''
+        Returns all parameters in all actions. No read no General Interface parameters.
+        '''
         allid=self.getGformatforAction('interfaceId')
         allparams=[]
         for ids in allid:

@@ -26,9 +26,11 @@
 <alarmRead>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>
 <infoRead>_<r'^\[(.*)\]'[1{INFO}]>_<>_<r'^echo:(.*)'[1{INFO}]>_<>
 <actionRead>_<>_<>_<r'action(.*)'[1{ACTION}]>_<>
-<configRead>_<r'^(\$.*)=([^\s]+)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>_<>
+<configRead>_<r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<r'^\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)''[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
 # state is numerical value equivalent to status
-<stateRead>_<>_<>_<r'S_XYZ:([0-9]+)'[1{STATE_XYZ}]>_<>
+<stateRead>_<>_<r'stat:([0-9])'[1{STATE_XYZ}]>_<r'S_XYZ:([0-9]+)'[1{STATE_XYZ}]>_<>
 <temperaturesRead>_<>_<>_<>_<>
 <positionResponseRead>_<r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]>_<>_<r''X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)'[1{XPOS}][2{YPOS}][3{ZPOS}][4{EPOS}][5{MXPOS}][6{MYPOS}][7{MZPOS}]>_<>
-<testread>_<r'a:(.*)'[1{work}]>_<>_<>_<>
+<positionResponseRead_posz>_<>_<r'posz:([+-]?[0-9]*[.][0-9]+)'[1{ZPOS}]>_<>_<>
+<positionResponseRead_posx>_<>_<r'posx:([+-]?[0-9]*[.][0-9]+)'[1{XPOS}]>_<>_<>
+<positionResponseRead_posy>_<>_<r'posy:([+-]?[0-9]*[.][0-9]+)'[1{YPOS}]>_<>_<>
