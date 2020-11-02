@@ -1331,8 +1331,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             Parameters={}  
             texteval=self.DCCui.lineEdit_CCD_testRead_text.text()
             #print(texteval)
-            rm=re.search(regexcmd,texteval)
+            
             try:
+                rm=re.search(regexcmd,texteval)
                 nummatch=len(rm.groups())
                 #print(nummatch)
                 if nummatch==0:

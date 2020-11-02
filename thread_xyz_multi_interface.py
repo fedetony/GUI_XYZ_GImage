@@ -157,7 +157,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             interfaceidentified=False
             while count<100:
                 grbl_out = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=20)                                
-                identifierlist=self.Int_Config['interfaceidentifyer']
+                identifierlist=self.CH.InterfaceConfigallids['interfaceidentifyer']
                 namelist=self.CH.Configdata['interfaceName']
                 idlist=self.CH.Configdata['interfaceId']                                
                 for iii in range(len(identifierlist)):
@@ -166,8 +166,11 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                         selid=idlist[iii]
                         logging.info('Success: '+str(namelist[iii])+' interface identified! ID'+str(selid))
                         interfaceidentified=True
+                        self.is_tinyg=selid
                         count=count+100
                         break
+                if interfaceidentified==True:                        
+                    break
                                  
                 count=count+1            
         except Exception as eee:
@@ -179,10 +182,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             selectedid=self.get_config_value('defaultInterface',selid)
             if selectedid is not None:
                 selid=selectedid
-                logging.info("Selecting Default interface from file Configuration! ID:"+str(selid)) 
-
-        self.is_tinyg=selid
-        self.CH.Set_id(self.is_tinyg)
+                self.is_tinyg=selid
+                logging.info("Selecting Default interface from file Configuration! ID:"+str(selid))         
+        
+        self.CH.Set_new_Interface(self.is_tinyg)
 
         InterfaceName=self.CH.getGformatforAction('interfaceName')
         logging.info("Changed Interface to id "+ str(self.CH.id)+' ->'+InterfaceName)  
@@ -697,7 +700,9 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 logging.info(grbl_out)
             PRdata,foundmatch=self.Read_all_data(grbl_out)
             if foundmatch==False and len(grbl_out):
-                logging.info("No read: "+ grbl_out)
+                logNoread=self.get_config_value('logNoread',self.is_tinyg)
+                if logNoread==True or logNoread is None:
+                    logging.info("No read: "+ grbl_out)
             else:
                 self.AllReadData=PRdata
                 PRdata,astatus=self.Read_key_Status(PRdata,'ACK',showok)
@@ -1026,18 +1031,23 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 for iii in prlist:                    
                     PRdata,avalue=self.Read_key_Status(PRdata,iii,False)
                     
-                    if avalue is not None:   
+                    if avalue is not None:  
+                        lowiii=str(iii).lower() 
                         if 'Conf'.lower() in str(iii).lower():                     
                             oneconf.update({iii:avalue})
-                        if str(iii).lower()=='ConfValue'.lower():
+                        if lowiii=='ConfValue'.lower():
                             ConfValue=avalue
                             ConfType=self.set_correct_type(str(avalue),True)
-                        if str(iii).lower()=='ConfUnit'.lower():
+                        if lowiii=='ConfUnit'.lower():
                             ConfUnit=str(avalue)
-                        if str(iii).lower()=='ConfInfo'.lower():        
+                        if lowiii=='ConfInfo'.lower():        
                             ConfInfo=str(avalue)
-                        if str(iii).lower()=='ConfCMD'.lower():    
+                        if lowiii=='ConfCMD'.lower():    
                             ConfCMD=str(avalue)
+                        if 'Conf'.lower() in lowiii:
+                            #put all other information in info
+                            if 'cmd' not in lowiii and 'info' not in lowiii and 'value' not in lowiii:
+                                 ConfInfo=ConfInfo+' ('+str(avalue)+')'
                 
                 if  ConfCMD!='':           
                     self.grbl_Config.update({ConfCMD : ConfValue})

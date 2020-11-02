@@ -38,7 +38,14 @@ class Command_Handler:
     
     def Set_Readfilename(self,filename):
         self.Readfilename=filename
+    
+    def Set_new_Interface(self,interface_id):
+        if self.id!=interface_id:
+            self.Set_id(interface_id)        
+            self.Setup_Command_Handler(False) #don't log checking
+            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
 
+    
     def Set_id(self,selected_interface_id):
         self.id=str(selected_interface_id) #equivalent to is_tinyg
     
@@ -128,8 +135,7 @@ class Command_Handler:
             sss=sss+1
         return sss    
     
-    #def Set_new_Interface(self,interface_id):
-    #    self.Set_id(interface_id)        
+            
 
     def Get_action_format_from_id(self,data,action,interface_id):
         try:
