@@ -130,7 +130,7 @@
 <resetWorkCoordinates>_<$RST=#>_<>_<>_<>
 <resetAllEEPROM>_<$RST=*>_<>_<M502\nM500>_<>
 <validateEEPROMcontents>_<>_<>_<M504>_<>
-<modifySetting>_<${setting}={value}>_<>_<>_<>
+<modifySetting>_<{setting}={value}>_<>_<>_<>
 # -------Override Commands-----
 <setDooropenState>_<{char(0x84)}>_<>_<>_<>
 <feedOverride-set100per>_<{char(0x90)}>_<>_<>_<>

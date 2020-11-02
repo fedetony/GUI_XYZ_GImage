@@ -327,7 +327,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Home.clicked.connect(self.PB_Home)
         self.pushButton_CleanAlarm.clicked.connect(self.PB_CleanAlarm)
 
-        #self.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo)
+        #self.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo_and_Table)
         self.pushButton_LoadGcode.clicked.connect(self.PB_LoadGcode)
         self.pushButton_SaveGcode.clicked.connect(self.PB_SaveGcode)
         self.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript)
@@ -1001,7 +1001,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.comboBox_Technique.addItem(ccc)   
             
 
-    def Fill_Config_Combo(self):    
+    def Fill_Config_Combo_and_Table(self):    
         if self.XYZRobot_found==1:       
             self.comboBox_ConfigItem.clear()  
             if self.Is_Config_Table_Empty()==True:
@@ -1108,27 +1108,28 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             
     def write_Config_to_device(self):
         config=self.xyz_thread.read_grbl_config(False,False)
-
+        changed=False
         for row in range(self.Config_Table_NumRows):                        
-            hhh=self.tableWidget_Config.item(row, 0).text()            
-            Param=hhh.replace('$', '')           
+            hhh=self.tableWidget_Config.item(row, 0).text()                                 
             hhhval=self.tableWidget_Config.item(row, 1).text()  
             #hhhinfo=self.tableWidget_Config.item(row, 2).text()  
-            hhhtype=self.tableWidget_Config.item(row, 3).text()  
-            if hhhtype =='int':
-                Value=int(hhhval)
-            elif hhhtype == 'float':
-                Value=float(hhhval)
-            else:
-                Value=str(hhhval)    
-            for ccc in list(config):
-                if ccc == hhh:   
-                    if config[ccc]!=Value:                        
-                        self.xyz_thread.change_grbl_config_parameter(Param,Value)
-                        while self.xyz_thread.Is_system_ready()==False:
-                            time.sleep(0.2)
-                            logging.info("Stuck here?")
-                        #logging.info(self.xyz_thread.Read_Config_Parameter(Param))
+            hhhtype=self.tableWidget_Config.item(row, 3).text()                          
+            if hhh in list(config):                
+                if str(config[hhh])!=hhhval:                        
+                    Value=self.xyz_thread.set_correct_type(hhhval,False)            
+                    isaccepted=self.xyz_thread.change_grbl_config_parameter(hhh,Value)
+                    if isaccepted==False:
+                        logging.error('Parameter '+ hhh + ' was not accepted as '+str(Value)) 
+                        changed=True
+                        break
+                    changed=True
+                    while self.xyz_thread.Is_system_ready()==False:
+                        time.sleep(0.2)
+                        logging.info("Stuck here?")
+        #No need is done in fill                
+        #if changed==True:
+        #    config=self.xyz_thread.read_grbl_config(True,False)
+
     def Get_data_from_Image_Config_Table(self):   
         data={}             
         for row in range(self.Image_Config_Table_NumRows):                        
@@ -1172,12 +1173,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     
     def PB_RefreshConfig(self):
         self.tableWidget_Config.clear()
-        self.Fill_Config_Combo()
+        self.Fill_Config_Combo_and_Table()
 
 
     def Set_Config_Value(self):
         if self.Is_Config_Table_Empty()==True:
-            self.Fill_Config_Combo()
+            self.Fill_Config_Combo_and_Table()
         if self.Is_Config_Table_diff_to_device()==True:
             logging.info("Writting Configuration Table to Device")
             self.write_Config_to_device()
@@ -1367,7 +1368,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.tab_2.setEnabled(self.StatusConnected)
         self.tab_3.setEnabled(self.StatusConnected)
         
-        #self.Fill_Config_Combo()        
+        #self.Fill_Config_Combo_and_Table()        
         #self.groupBox_XYZ.setEnabled(True)    #---------------------HERE--->set comment this line when runs    
     
     def PB_Refresh(self):
@@ -1630,41 +1631,6 @@ class ConsolePanelHandler(logging.Handler):
 
     def emit(self, record):
         self.parent.write_GUI_Log(self.format(record))
-
-'''
-class Running_Event_Count_Update(object):
-    def __init__(self,IsRunning_event):
-        self._observers = []
-        self._IsRunning_event=IsRunning_event
-        self._lastRunningstate=self._IsRunning_event.is_set()
-        self._linesfinalized_count=0         
-
-    @property
-    def Count_events(self):
-        return self._linesfinalized_count
-
-    @Count_events.setter
-    def Count_events(self):
-        self.Count_Running_Events()   
-        for callback in self._observers:
-            print('announcing change')
-            callback(self._linesfinalized_count)             
-            
-    def Count_Reset(self):
-        self._linesfinalized_count=0         
-
-    def Count_Running_Events(self):
-        logging.info('Running Event has been triggered')
-        if not self._IsRunning_event.is_set() and self._lastRunningstate==True:  
-            logging.info('Running Event has Changed')       
-            self._linesfinalized_count=self._linesfinalized_count+1
-        #self._linesfinalized_count=self._linesfinalized_count+1    
-        self._lastRunningstate=self._IsRunning_event.is_set()        
-
-    def bind_to(self, callback):
-        logging.info('Running Event has been bound')
-        self._observers.append(callback)
-'''
         
 class ProgressBar_Update(QtCore.QThread):
     tick = QtCore.pyqtSignal(int, name="valchanged") #New style signal

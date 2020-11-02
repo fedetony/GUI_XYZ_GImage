@@ -457,9 +457,9 @@ class Ui_MainWindow(object):
         self.horizontalLayout_7.setObjectName("horizontalLayout_7")
         self.gridLayout_7 = QtWidgets.QGridLayout()
         self.gridLayout_7.setObjectName("gridLayout_7")
-        self.plaintextEdit_GcodeScript = QtWidgets.QPlainTextEdit(self.groupBox_GcodeScript)
-        self.plaintextEdit_GcodeScript.setObjectName("plaintextEdit_GcodeScript")
-        self.gridLayout_7.addWidget(self.plaintextEdit_GcodeScript, 0, 0, 1, 1)
+        self.plaintextEdit_GcodeScript_2 = QtWidgets.QPlainTextEdit(self.groupBox_GcodeScript)
+        self.plaintextEdit_GcodeScript_2.setObjectName("plaintextEdit_GcodeScript_2")
+        self.gridLayout_7.addWidget(self.plaintextEdit_GcodeScript_2, 0, 0, 1, 1)
         self.verticalLayout_12 = QtWidgets.QVBoxLayout()
         self.verticalLayout_12.setObjectName("verticalLayout_12")
         self.verticalLayout_9 = QtWidgets.QVBoxLayout()
@@ -753,7 +753,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(4)
+        self.tabWidget.setCurrentIndex(3)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
