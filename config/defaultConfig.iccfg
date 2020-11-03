@@ -23,7 +23,7 @@
 # ------------------------------------
 <interfaceId>_<0>_<1>_<2>_<3>
 
-<cycletime>_<0.2>_<0.1>_<0.2>_<0.2>
+<cycletime>_<0.1>_<0.1>_<0.2>_<0.2>
 <cycletime_info>_<Cycle time in seconds send read/Write requesats to the machine>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport_type>_<float>_<*(0)>_<*(0)>_<*(0)>
 <defaultInterface>_<0>_<0>_<0>_<0>

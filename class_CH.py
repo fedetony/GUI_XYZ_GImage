@@ -1422,7 +1422,7 @@ class Command_Handler:
     def read_from_format(self,receivedline,aFormat,logerr=False):
         ParamRead={}
         if aFormat=='' or receivedline=='':
-            All_data['IsRegex']=False
+            All_data={'IsRegex':False}
         else:
             All_data=self.get_read_fast_info_from_Format(str(aFormat))
         success_=-1
