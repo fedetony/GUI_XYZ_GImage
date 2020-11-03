@@ -66,7 +66,12 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 self.ReadConfigallids=self.CH.Load_command_config_from_file(self.CH.Readfilename)
                 isok=self.CH.Check_id_match_configs(self.CH.Configdata,self.ReadConfigallids)
                 if isok==True:
-                    self.Read_Config=self.CH.get_interface_config(self.ReadConfigallids,self.CH.id)
+                    allRead_Config=self.CH.get_interface_config(self.ReadConfigallids,self.CH.id)
+                    #Just use the read items defined in the file or required
+                    self.Read_Config={}
+                    for arconfig in allRead_Config:
+                        if allRead_Config[arconfig]!='' or arconfig in self.CH.Required_read:
+                            self.Read_Config.update({arconfig:allRead_Config[arconfig]})
             if isok==False:
                 logging.info("Errors in read configuration file, Loading hard programed limited interface!")
                 self.canIuseCH=False
@@ -75,22 +80,62 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             self.ReadConfigallids={}
             logging.error("Fatal Errors in configuration files!")
             self.canIuseCH=False
-            raise
-    
-    def set_showok(self):
+            raise     
+        #print(self.Read_Config)    
+
+    def set_selfconfigvalues(self):
         '''
-        Read ShowOK configuration
+        Read log configuration set for faster access
         '''
         showok=self.get_config_value('showOK',self.CH.id)
         if showok is None:
-            showok=False           
-        self.show_ok=showok    
+            showok=False                       
+        self.show_ok=showok  
+        logPosition=self.get_config_value('logPosition',self.CH.id)
+        if logPosition is None:
+            logPosition=True
+        self.logPosition=logPosition
+        logpositionoutallinfo=self.get_config_value('logpositionoutputFormat',self.CH.id)
+        #type action regex or read receives all info
+        logpositionoutputFormat=logpositionoutallinfo['Format']
+        if logpositionoutputFormat == '':
+            logpositionoutputFormat=None
+        self.logpositionoutputFormat=logpositionoutputFormat
+        logNoread=self.get_config_value('logNoread',self.CH.id)
+        if logNoread is None:
+            logNoread=True
+        self.logNoread=logNoread
+        logalldata=self.get_config_value('logAllReadData',self.CH.id)
+        if logalldata is None:
+            logalldata=True
+        self.logAllReadData=logalldata
+        logStateChange=self.get_config_value('logStateChange',self.CH.id)
+        if logStateChange is None:
+            logStateChange=True
+        self.logStateChange=logStateChange
+        hasautoReport=self.get_config_value('hasautoReport',self.is_tinyg) 
+        if hasautoReport is None:
+            hasautoReport=False
+        self.hasautoReport=hasautoReport    
+        timeresume=self.get_config_value('timetowaitafterresume',self.is_tinyg)    
+        if timeresume<0 or timeresume>2 or timeresume is None:
+            timeresume=0.2 # wait after command        
+        self.timeresume=timeresume # wait after command  
+        logging.info('Logging Settings:')
+        logging.info('\tLog Position:'+str(self.logPosition))
+        if self.logpositionoutputFormat is not None:
+            logging.info('\tLog Format:'+str(self.logpositionoutputFormat))
+        logging.info('\tLog No Read:'+str(self.logNoread))
+        logging.info('\tLog All Read:'+str(self.logAllReadData))
+        logging.info('\tLog State Change:'+str(self.logStateChange))
+
+
 
     def Set_Required_actions_to_CH(self,Reqcc,Reqic,Reqrc):
         if Reqcc is None or Reqcc is {}:
             Reqcc={'interfaceId','interfaceName'}
         if Reqic is None or Reqic is {}:
-            Reqic={'logpositionoutputFormat','logPosition','logAllReadData','logStateChange','timeforMachineStartup','showOK','timetowaitafterresume','interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}         
+            Reqic={'logNoread','logpositionoutputFormat','logPosition','logAllReadData','logStateChange','timeforMachineStartup','showOK','timetowaitafterresume','interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}         
         if Reqrc is None or Reqrc is {}:
             Reqrc={'interfaceId','acknowledgecommandreceivedRead','acknowledgecommandexecutedRead','errorRead','alarmRead','infoRead','configRead','stateRead','positionResponseRead'}
         self.CH.Required_read=Reqrc           
@@ -185,7 +230,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 self.is_tinyg=selid
                 logging.info("Selecting Default interface from file Configuration! ID:"+str(selid))         
         
-        self.CH.Set_new_Interface(self.is_tinyg)
+        self.CH.Set_new_Interface(self.is_tinyg,True) #refresh config on disconnection
 
         InterfaceName=self.CH.getGformatforAction('interfaceName')
         logging.info("Changed Interface to id "+ str(self.CH.id)+' ->'+InterfaceName)  
@@ -233,7 +278,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
 
     def get_config_value(self,configaction,anid):
         aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
-        atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,anid)
+        atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,anid)        
+        if '*(' in str(atype):
+            atype=atype.replace('*(','')
+            atype=atype.replace(')','')
+            newid=atype
+            atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,newid)        
+        #print(atype)
         isok,avalue=self.get_Format_type_to_value(atype,aFormat)
         if isok==True:
             return avalue
@@ -491,8 +542,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         except:
             logging.info('Waiting for 1(s) before Startup!')
             time.sleep(1)    
-            pass
-        self.set_showok()
+            pass        
+        self.set_selfconfigvalues()
         aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,'beforestartupSequence',self.CH.id)
         Gcode=self.CH.Get_code(aFormat,{})
         self.port_write(Gcode,True)
@@ -615,12 +666,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
             self.port_write(Gcode,isok) 
             interfacename=self.CH.getGformatforAction('interfaceName')
-            logging.info(str(interfacename)+" Resume!")            
-        timeresume=self.get_config_value('timetowaitafterresume',self.is_tinyg)    
-        if timeresume<0 or timeresume>2 or timeresume is None:
-            time.sleep(0.2) # wait after command        
-        else:
-            time.sleep(timeresume) # wait after command        
+            logging.info(str(interfacename)+" Resume!")                    
+        time.sleep(self.timeresume) # wait after command        
     
     def readline_fromserial(self,buff=128):
         line=''
@@ -694,14 +741,12 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         return  PRdata,foundmatch       
 
     def Process_Read_Data(self,grbl_out,showok=False):
-        if (grbl_out):
-            logalldata=self.get_config_value('logAllReadData',self.is_tinyg)
-            if logalldata==True:
+        if (grbl_out):            
+            if self.logAllReadData==True:
                 logging.info(grbl_out)
             PRdata,foundmatch=self.Read_all_data(grbl_out)
-            if foundmatch==False and len(grbl_out):
-                logNoread=self.get_config_value('logNoread',self.is_tinyg)
-                if logNoread==True or logNoread is None:
+            if foundmatch==False:                
+                if self.logNoread==True:
                     logging.info("No read: "+ grbl_out)
             else:
                 self.AllReadData=PRdata
@@ -729,32 +774,27 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                         if iii is 'STATE_XYZ':
                             self.Set_Status_from_StateXYZ()   
 
-                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:
-                    logPosition=self.get_config_value('logPosition',self.is_tinyg)
-                    if logPosition!=False:
-                        logpositionoutputFormat=self.get_config_value('logpositionoutputFormat',self.is_tinyg)
-                        if logpositionoutputFormat is not None and logpositionoutputFormat!='':
-                            Gcode=self.CH.Get_code(logpositionoutputFormat,self.data)
-                            if Gcode=='' or Gcode is None:
+                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:                    
+                    if self.logPosition==True:     
+                        #print('Entered here log position')                   
+                        if self.logpositionoutputFormat is None:
+                            logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                        else:                            
+                            Gcode=self.CH.Get_code(self.logpositionoutputFormat,self.data)
+                            if Gcode=='':
                                 logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ']))     
                             else:
-                                logging.info(Gcode)     
+                                logging.info(Gcode)                                                                                                                     
                             
-                                
-                        else:                            
-                            logging.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
                     # if state changed                
-                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:
-                        logStateChange=self.get_config_value('logStateChange',self.is_tinyg)
-                        if logStateChange==True:
+                    if self.olddata['STATE_XYZ']!=self.data['STATE_XYZ']:                        
+                        if self.logStateChange==True:
                             logging.info('State change from: '+str(self.olddata['STATUS'])+' '+str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATUS']) + ' ' + str(self.data['STATE_XYZ'])) 
-
                         if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
                             self.IsRunning_event.clear()    
                             self.linesexecuted=self.linesexecuted+1
                         else:
                             self.IsRunning_event.set()   
-
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa]                
         return self.data
@@ -870,11 +910,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''
         Asks for a report in case no autoreport. Reads all info and process it.
         Returns position data only. All other info unprocessed in AllReaddata dict.
-        ''' 
-        hasautoReport=self.get_config_value('hasautoReport',self.is_tinyg) 
-        if hasautoReport is None:
-            hasautoReport=False
-        if hasautoReport == False:
+        '''         
+        if self.hasautoReport == False:
             if  self.grbl_event_status.is_set(): 
                 cmd='statusReport'            
                 Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)

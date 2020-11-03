@@ -39,8 +39,8 @@ class Command_Handler:
     def Set_Readfilename(self,filename):
         self.Readfilename=filename
     
-    def Set_new_Interface(self,interface_id):
-        if self.id!=interface_id:
+    def Set_new_Interface(self,interface_id,Forcerefresh=False):
+        if self.id!=interface_id or Forcerefresh==True:
             self.Set_id(interface_id)        
             self.Setup_Command_Handler(False) #don't log checking
             self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
@@ -1380,6 +1380,36 @@ class Command_Handler:
         #print(P_regex['paramslist'])
         return All_data
     
+    def get_read_fast_info_from_Format(self,aFormat):  
+        '''
+        Instead of all info only the minimum to make the read.
+        '''      
+        All_data={}                
+        regexcmd=''         
+        isregex=False
+        if "r'" in aFormat:            
+            rm=re.search("r'(.*)'",aFormat)
+            try:                
+                regexcmd=rm.group(1)
+                isregex=True
+            except:
+                isregex=False
+                pass     
+        All_data.update({'IsRegex':isregex})                   
+        if isregex==False:            
+            return All_data            
+        else:
+            MainComm=regexcmd
+            newFormat=aFormat.replace(MainComm,'')
+            optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)
+        
+        All_data.update({'RegexCommand':regexcmd})
+        All_data.update({'Parameterlist':paramlist})
+        opttxtlist=self.Get_option_text(paramlist,optionslist)
+        All_data.update({'Optiontxtlist':opttxtlist})
+        
+        return All_data
+
     def Get_option_text(self,paramlist,optionlist):
         txtoplist=[]        
         for op in optionlist:
@@ -1391,8 +1421,10 @@ class Command_Handler:
 
     def read_from_format(self,receivedline,aFormat,logerr=False):
         ParamRead={}
-        aFormat=str(aFormat)
-        All_data=self.get_all_info_from_Format(aFormat)
+        if aFormat=='' or receivedline=='':
+            All_data['IsRegex']=False
+        else:
+            All_data=self.get_read_fast_info_from_Format(str(aFormat))
         success_=-1
         if All_data['IsRegex']==True:
             rgexcmd=All_data['RegexCommand']
