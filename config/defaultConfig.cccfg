@@ -58,11 +58,11 @@
 # -------User/behavior interaction No parameters allowed-----
 <quickPause>_<!>_<!>_<P000>_<>
 <quickResume>_<~>_<~>_<R000>_<>
-<quickStop>_<{quickPause}\n{softReset}>_<{quickPause}{queueFlush}>_<M410>_<>
+<quickStop>_<!{char(0x18)}>_<{quickPause}{queueFlush}>_<M410>_<>
 <queueFlush>_<{softReset}>_<%>_<>_<> 
 <userPause>_<M0>_<M0>_<M0>_<>
 <userResume>_<~>_<M60>_<M108>_<>
-<clearAlarm>_<^X>_<char(24)>_<M108>_<>
+<clearAlarm>_<$X>_<char(24)>_<M108>_<>
 <unlockAlarm>_<$X>_<char(24)>_<>_<>  
 <softReset>_<char(0x18)>_<char(0x18)>_<M999>_<>
 <emergencyKill>_<^X>_<char(0x18)>_<M112>_<>  
@@ -73,7 +73,8 @@
 <programResume>_<{userResume}>_<{userResume}>_<{userResume}>_<>
 <programStop>_<>_<M60>_<>_<>
 # -------Mode commands-----
-<checkgcodeMode>_<$C>_<>_<>_<>
+<checkgcodeMode_On>_<$C>_<>_<>_<>
+<checkgcodeMode_Off>_<$C>_<>_<>_<>
 <sleepMode>_<$SLP>_<>_<>_<>
 <setUnitstoinches>_<G20>_<G20>_<G20>_<G20>
 <setUnitstomm>_<G21>_<G21>_<G21>_<G21>

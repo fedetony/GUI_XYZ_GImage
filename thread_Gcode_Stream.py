@@ -20,8 +20,8 @@ class XYZ_Gcode_Stream(threading.Thread):
         self.holding_event=holding_event
         self.stoping_event=stoping_event        
         self.cycle_time=0.1                       
-        # typeofstream=0 Wait until each Command returns finish signal to send next one.(Slow) Works:Marlin
-        # typeofstream=1 Send all to machine and dont wait for response. Works:Marlin
+        # typeofstream=0 Wait until each Command returns finish signal to send next one.(Slow) 
+        # typeofstream=1 Send all to machine and dont wait for response. 
         # typeofstream=2 Send a number of lines and count the returns.
         self.type_of_stream=0 
         self.state_xyz=0

@@ -31,7 +31,7 @@
         </size>
        </property>
        <property name="currentIndex">
-        <number>3</number>
+        <number>1</number>
        </property>
        <widget class="QWidget" name="tab_5">
         <attribute name="title">
@@ -550,8 +550,11 @@
                  </property>
                 </widget>
                </item>
-               <item row="3" column="0">
+               <item row="4" column="0">
                 <widget class="QPushButton" name="pushButton_SetPos">
+                 <property name="toolTip">
+                  <string>setPosition action using XYZ fields</string>
+                 </property>
                  <property name="text">
                   <string>Set</string>
                  </property>
@@ -564,6 +567,13 @@
                    <width>50</width>
                    <height>50</height>
                   </size>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="label_Stateact">
+                 <property name="text">
+                  <string>S_XYZ=NA</string>
                  </property>
                 </widget>
                </item>
@@ -657,6 +667,9 @@
              <layout class="QGridLayout" name="gridLayout_4">
               <item row="0" column="0">
                <widget class="QPushButton" name="pushButton_Go">
+                <property name="toolTip">
+                 <string>rapidMove using XYZ or linearMove using XYZF Fields</string>
+                </property>
                 <property name="text">
                  <string>GO</string>
                 </property>
@@ -674,6 +687,9 @@
               </item>
               <item row="0" column="1">
                <widget class="QPushButton" name="pushButton_Pause_Resume">
+                <property name="toolTip">
+                 <string>quickPause or quickResume action</string>
+                </property>
                 <property name="text">
                  <string>Hold</string>
                 </property>
@@ -689,12 +705,35 @@
                 </property>
                </widget>
               </item>
+              <item row="0" column="2">
+               <widget class="QPushButton" name="pushButton_MoveStop">
+                <property name="toolTip">
+                 <string>quickStop action</string>
+                </property>
+                <property name="text">
+                 <string>Stop</string>
+                </property>
+                <property name="icon">
+                 <iconset>
+                  <normaloff>img/Actions-process-stop-icon.png</normaloff>img/Actions-process-stop-icon.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>50</width>
+                  <height>50</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
              </layout>
             </item>
             <item row="2" column="2" rowspan="2">
              <layout class="QVBoxLayout" name="verticalLayout_5">
               <item>
                <widget class="QPushButton" name="pushButton_CleanAlarm">
+                <property name="toolTip">
+                 <string>clearAlarm action</string>
+                </property>
                 <property name="text">
                  <string>Clear Alarm</string>
                 </property>
@@ -706,6 +745,9 @@
               </item>
               <item>
                <widget class="QPushButton" name="pushButton_Home">
+                <property name="toolTip">
+                 <string>userHome action</string>
+                </property>
                 <property name="text">
                  <string>Home</string>
                 </property>
@@ -717,6 +759,9 @@
               </item>
               <item>
                <widget class="QPushButton" name="pushButton_Reset">
+                <property name="toolTip">
+                 <string>softReset action</string>
+                </property>
                 <property name="text">
                  <string>Reset Signal</string>
                 </property>
@@ -732,6 +777,9 @@
              <layout class="QGridLayout" name="gridLayout_5">
               <item row="0" column="0">
                <widget class="QPushButton" name="pushButton_Home_X">
+                <property name="toolTip">
+                 <string>HomeX action</string>
+                </property>
                 <property name="text">
                  <string>X</string>
                 </property>
@@ -743,6 +791,9 @@
               </item>
               <item row="0" column="1">
                <widget class="QPushButton" name="pushButton_Home_Y">
+                <property name="toolTip">
+                 <string>HomeY action</string>
+                </property>
                 <property name="text">
                  <string>Y</string>
                 </property>
@@ -754,6 +805,9 @@
               </item>
               <item row="0" column="2">
                <widget class="QPushButton" name="pushButton_Home_Z">
+                <property name="toolTip">
+                 <string>HomeZ action</string>
+                </property>
                 <property name="text">
                  <string>Z</string>
                 </property>
@@ -1001,6 +1055,9 @@
                        <string>Check Gcode</string>
                       </property>
                      </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="comboBox_GcodeStreamType"/>
                     </item>
                     <item>
                      <widget class="QPushButton" name="PushButton_RunGcodeScript">

@@ -477,10 +477,11 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             if  self.grbl_event_stop.is_set():
                 logging.info("Stopping!!")
                 self.Send_Stop(1)
+                self.grbl_event_stop.clear()
                 #Clean queue
                 with self.rx_queue.mutex:
                     self.rx_queue.queue.clear() 
-                self.grbl_event_stop.clear()    
+                    
                   
             if self.killer_event.is_set():
                 self.Send_Kill(1)
@@ -695,13 +696,19 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         PRdata[akey] is cleaned '' if value found.
         '''
         astatus=None
-        try:
-            astatus=PRdata[akey]     
-            if astatus is not '' or astatus is not None:
-                if showlog==True:
-                    logging.info(astatus)                   
-                PRdata.update({akey:''})
-        except:
+        #if akey not in PRdata: # searching takes more time than error
+        #    return PRdata,astatus    
+        try:            
+            astatus=PRdata[akey] 
+            if astatus is None:    
+                return PRdata,astatus
+            if astatus is '':
+                return PRdata,astatus
+            if showlog==True:
+                logging.info('{'+akey+'}: '+ str(astatus))                   
+            PRdata.update({akey:''})
+        except Exception as eee:
+            #logging.error(eee)
             pass 
         return PRdata,astatus
     
@@ -758,10 +765,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.data['STATUS']=astatus    
                 PRdata,astatus=self.Read_key_Status(PRdata,'ERROR',True)
                 if astatus is not None:
-                    self.data['STATUS']=astatus                
+                    self.data['STATUS']=astatus                      
                 PRdata,astatus=self.Read_key_Status(PRdata,'ALARM',True)
-                if astatus is not None:
-                    self.data['STATUS']=astatus             
+                if astatus is not None:                    
+                    self.data['STATUS']=astatus                                 
                 PRdata,astatus=self.Read_key_Status(PRdata,'INFO',True)
                 if astatus is not None:
                     self.data['STATUS']=astatus                       
@@ -891,8 +898,11 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''
         cmd='Home'
         Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
-        self.queue_write(Gcode,isok)         
-        logging.info("Homing Command set in queue")
+        self.queue_write(Gcode,isok)    
+        if isok==True:     
+            logging.info(Gcode+" Homing Command set in queue")
+        else:
+            logging.error("Homing Command not accepted! check action "+cmd+" in ID:"+str(self.CH.id))    
 
     def read(self):
         '''
@@ -1325,19 +1335,44 @@ class XYZMulti:
         #print(params)      
         self.send_queue_command(cmd,params,True)
 
-    def send_immediate_command(self,cmd,Parameters,Parammustok=True):            
+    def send_immediate_gcode(self,gcode,isok=True,ending='\n',logcmd=False):                    
+        self.ser_read_thread.port_write(gcode,isok,ending,logcmd)            
+    
+    def send_queue_gcode(self,gcode,isok=True,ending='\n',logcmd=False):            
+        self.ser_read_thread.queue_write(gcode,isok,ending,logcmd)  
+
+    def send_queue_command(self,action,Parameters,Parammustok=True):            
         Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters,Parammustok)
         if isok==True or Parammustok==False:
-            self.srl_cmd_queue.self.ser_port.write(str(Gcode+'\n').encode())
+            isok=True
+            self.ser_read_thread.queue_write(Gcode,isok)            
+        else:
+            logging.error('Command not Added to queue!')    
+
+
+    def send_immediate_command(self,action,Parameters,Parammustok=True):            
+        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters,Parammustok)
+        if isok==True or Parammustok==False:
+            isok=True
+            self.ser_read_thread.port_write(Gcode,isok)            
         else:
             logging.error('Command not sent to serial!')  
 
     def send_queue_command(self,action,Parameters,Parammustok=True):            
         Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters,Parammustok)
         if isok==True or Parammustok==False:
-            self.srl_cmd_queue.put(Gcode+'\n')
+            isok=True
+            self.ser_read_thread.queue_write(Gcode,isok)            
         else:
             logging.error('Command not Added to queue!')    
+
+    def send_queue_command_paramlist(self,action,parnamelist=[],parvarlist=[]):        
+        params=self.CH.fill_parameters(parnamelist,parvallist)            
+        self.send_queue_command(action,params,True)
+
+    def send_immediate_command_paramlist(self,action,parnamelist=[],parvarlist=[]):        
+        params=self.CH.fill_parameters(parnamelist,parvallist)            
+        self.send_immediate_command(action,params,True)
 
     def goto_(self,x=None,y=None,z=None,f=None,atype=0):
         if atype==0:
@@ -1361,7 +1396,7 @@ class XYZMulti:
             cmd='linearMove'
         params=self.CH.fill_parameters(parnamelist,parvallist)        
         self.send_queue_command(cmd,params,True)
-
+     
     def goto_xz(self, x, z):
         #self.srl_cmd_queue.put('G0 X' + str(x) + ' Z' + str(z) + '\n')
         self.goto_(x,None,z,None,0)
@@ -1394,14 +1429,7 @@ class XYZMulti:
         #self.srl_cmd_queue.put('G0 Y' + str(y) + '\n')	
         self.goto_(None,y,None,None,0)
     
-    def clear_state(self):   
-        '''
-        if self.ser_read_thread.is_tinyg==1:
-            self.srl_cmd_queue.put( chr(24) + '\n') #reset signal
-        else:   
-            self.srl_cmd_queue.put( '$X' + '\n') #reset signal
-            self.srl_cmd_queue.put( chr(24) + '\n') #reset signal 
-        '''
+    def clear_state(self):        
         cmd='clearAlarm'        
         params={}
         self.send_queue_command(cmd,params,True)
@@ -1424,37 +1452,28 @@ class XYZMulti:
     def read(self):
         return self.ser_read_thread.read()
 
-    def grbl_gcode_cmd(self,gcode_cmd,toqueue=True):
-        '''
-        if self.ser_read_thread.is_tinyg==2 and gcode_cmd=='M410':
-            self.grbl_stop()     
-        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='!':
-            self.grbl_feed_hold()         
-        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='~':
-            self.grbl_event_resume.set()
-        elif self.ser_read_thread.is_tinyg==0 and gcode_cmd=='^X':                
-            self.grbl_event_softreset.set()               
-        else:
-            self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
-        '''
+    def grbl_gcode_cmd(self,gcode_cmd,toqueue=True):        
         Glist=[]
         aclist=['quickPause','quickResume','quickStop','queueFlush','clearAlarm','unlockAlarm','softReset','emergencyKill']
         actionparamsfound=self.CH.get_action_from_gcode(gcode_cmd,self.CH.id)
         immediate=False
-        
+        print(actionparamsfound)
         for action in actionparamsfound:
             if action in aclist and action is not '_action_code_':
                 # if is exactly the immediate command
                 immediate=self.CH.action_code_match_action(actionparamsfound['_action_code_'],action)    
                 if immediate==True:
+                    #print('here inside critical action')
                     immediate=self.Do_immediate_command(action) #will set events and return True if it set the event
                     toqueue=False
                 break            
         if immediate==False:            
             if toqueue==False:    
-                self.send_immediate_command(gcode_cmd,{},True)
-            else:
-                self.srl_cmd_queue.put( str(gcode_cmd) + '\n') #send command
+                #print('here inside NON critical not queue action')
+                self.send_immediate_gcode(gcode_cmd)
+            else:                
+                #print('here inside NON immediate queue action')
+                self.send_queue_gcode(gcode_cmd)                
 
     
     def grbl_feed_hold(self):
@@ -1500,19 +1519,24 @@ class XYZMulti:
     def Do_immediate_command(self,action):
         #aclist=['quickPause','quickResume','quickStop','queueFlush','clearAlarm','unlockAlarm','softReset','emergencyKill']
         if action is 'quickPause':
-            self.grbl_event_hold.set()
+            self.ser_read_thread.Send_Hold(1)
+            #self.grbl_event_hold.set()
             immediate=True
         elif action is 'quickResume':
-            self.grbl_event_resume.set()
+            self.ser_read_thread.Send_Resume(1)
+            #self.grbl_event_resume.set()
             immediate=True
         elif action is 'quickStop':
-            self.grbl_event_stop.set()            
+            self.ser_read_thread.Send_Stop(1)
+            #self.grbl_event_stop.set()            
             immediate=True
         elif action is 'softReset':
-            self.grbl_event_softreset.set()
+            self.ser_read_thread.Send_SoftReset(1)
+            #self.grbl_event_softreset.set()
             immediate=True
         elif action is 'emergencyKill':
-            self.kill_event.set()
+            self.ser_read_thread.Send_Kill(1)
+            #self.kill_event.set()
             immediate=True
         else:    
             immediate=False

@@ -10,16 +10,19 @@ from common import *
 logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s')
 class XYZ_Update(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,button_hold_start_1,frame_hold_stop):
+    def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,label_Stateact,button_hold_start_1,frame_hold_stop,button_stop_1):
         threading.Thread.__init__(self, name="XYZ Update")
         logging.info("XYZ Update Started")
-        self.xyz_thread=xyz_thread
-        self.cycle_time=0.1
+        self.xyz_thread=xyz_thread        
+        self.cycle_time=self.xyz_thread.ser_read_thread.cycle_time
+        self.CH=self.xyz_thread.ser_read_thread.CH
         self.label_XactPos=label_XactPos
         self.label_YactPos=label_YactPos
         self.label_ZactPos=label_ZactPos
+        self.label_Stateact=label_Stateact
         self.killer_event=killer_event
         self.button_hold_start_1=button_hold_start_1
+        self.button_stop_1=button_stop_1
         self.frame_hold_stop=frame_hold_stop
         self.state_xyz=0
         self.oldstate_xyz=0
@@ -32,6 +35,8 @@ class XYZ_Update(threading.Thread):
                 self.data = self.xyz_thread.read()
                 self.Set_Actual_Position_Values(self.data['XPOS'],self.data['YPOS'],self.data['ZPOS']) 
                 self.state_xyz=self.data['STATE_XYZ'] 
+                self.Status=self.data['STATUS'] #self.xyz_thread.ser_read_thread.Set_Status_from_StateXYZ
+                self.Set_Actual_State_Value(self.state_xyz,self.Status)
                 self.Enable_Disable_Hold_Start()
                 #time.sleep(self.cycle_time)
             except:
@@ -50,33 +55,47 @@ class XYZ_Update(threading.Thread):
          #1=reset, 2=alarm, 3=idle, 4=end, 5=run, 6=hold, 7=probe, 8=cycling,  9=homing, 10 =jogging 11=error
         if self.state_xyz==1:
             self.button_hold_start_1.setEnabled(False) 
-            self.frame_hold_stop.setEnabled(False) 
+            self.button_stop_1.setEnabled(False)
+            self.frame_hold_stop.setEnabled(False)             
         elif self.state_xyz==2:
-            self.button_hold_start_1.setEnabled(True)  
-            self.frame_hold_stop.setEnabled(True)    
+            self.button_hold_start_1.setEnabled(False)  
+            self.button_stop_1.setEnabled(False)
+            self.frame_hold_stop.setEnabled(False)    
         elif self.state_xyz==3:
             self.button_hold_start_1.setEnabled(False)
+            self.button_stop_1.setEnabled(False)
             self.frame_hold_stop.setEnabled(False) 
         elif self.state_xyz==4:
             self.button_hold_start_1.setEnabled(False) 
+            self.button_stop_1.setEnabled(False)
             self.frame_hold_stop.setEnabled(False)  
         elif self.state_xyz==5:
             self.button_hold_start_1.setEnabled(True)
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)
         elif self.state_xyz==6:
             self.button_hold_start_1.setEnabled(True)
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)
         elif self.state_xyz==7:
             self.button_hold_start_1.setEnabled(True) 
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)
         elif self.state_xyz==8:
             self.button_hold_start_1.setEnabled(True) 
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)     
         elif self.state_xyz==9:
             self.button_hold_start_1.setEnabled(True)
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(True)  
+        elif self.state_xyz==10:
+            self.button_hold_start_1.setEnabled(True)
+            self.button_stop_1.setEnabled(True)
+            self.frame_hold_stop.setEnabled(True)
         else:
             self.button_hold_start_1.setEnabled(False)
+            self.button_stop_1.setEnabled(True)
             self.frame_hold_stop.setEnabled(False)                      
 
     def Set_Actual_Position_Values(self,xxx,yyy,zzz):                            
@@ -90,3 +109,11 @@ class XYZ_Update(threading.Thread):
         self.label_YactPos.adjustSize()
         self.label_ZactPos.setText(_translate("MainWindow","Z = "+str(zzz)))
         self.label_ZactPos.adjustSize()    
+    
+    def Set_Actual_State_Value(self,StateXYZ,Status=''):                                    
+        self.state_xyz=StateXYZ
+        self.status=Status
+        _translate = QtCore.QCoreApplication.translate
+        self.label_Stateact.setText(_translate("MainWindow","S_XYZ = "+str(StateXYZ)+" "+str(Status) ))
+        self.label_Stateact.adjustSize()
+        

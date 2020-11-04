@@ -211,7 +211,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         icon10 = QtGui.QIcon()
         icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         #-------------------------------------------------------
-        self.Icon_stop=icon10
+        self.Icon_pause=icon10
         icon10a = QtGui.QIcon()
         icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.Icon_start=icon10a
@@ -231,12 +231,21 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_ConnSpeed.addItem("57600")
         self.comboBox_ConnSpeed.addItem("91600")
         self.comboBox_ConnSpeed.addItem("115200")
-        self.comboBox_ConnSpeed.addItem("250000")
-        
+        self.comboBox_ConnSpeed.addItem("250000")     
+
         #Set default
         self.COMBaudRate="115200"
         index= self.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFixedString)
         self.comboBox_ConnSpeed.setCurrentIndex(index)
+
+        self.comboBox_GcodeStreamType.addItem("0")
+        self.comboBox_GcodeStreamType.addItem("1")
+        self.comboBox_GcodeStreamType.addItem("2")
+
+        self.GcodeStreamType="0"
+        index= self.comboBox_GcodeStreamType.findText(self.GcodeStreamType,QtCore.Qt.MatchFixedString)
+        self.comboBox_GcodeStreamType.setCurrentIndex(index)
+
         self.Fill_COM_Combo()
         self.Connect_Actions()
         self.init_Values()
@@ -276,6 +285,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_Reset.clicked.connect(self.PB_Reset_Signal)
         self.pushButton_Go.clicked.connect(self.PB_Go)
         self.pushButton_Pause_Resume.clicked.connect(self.PB_Pause_Resume)
+        self.pushButton_MoveStop.clicked.connect(self.PB_MoveStop)
         self.pushButton_Hold_Start_Gcode.clicked.connect(self.PB_Pause_Resume)
         self.pushButton_StopGcode.clicked.connect(self.PB_StopGcode)
 
@@ -370,6 +380,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.XYZRobot_com_port ='COM12'
         self.Version ='2.0.3'
         self.author=__author__ 
+        self.state_xyz=0
+        self.Status=''
         self.x_pos = 0
         self.y_pos = 0
         self.z_pos = 0
@@ -585,19 +597,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.stream_event_stop.set()
         self.xyz_thread.grbl_stop()
 
-    def PB_RunGcodeScript(self):
+    def PB_RunGcodeScript(self):        
         if self.checkBox_Gcode.isChecked()==True or self.isoncheckedstate_checkbox==True:
             self.isoncheckedstate_checkbox=not self.isoncheckedstate_checkbox # Case was not terminated correctly last time
-            self.xyz_thread.grbl_gcode_cmd('$C')
+            self.xyz_thread.send_queue_command('checkgcodeMode_On',{},True) 
             time.sleep(0.2) # wait to react 
         logging.info("Sending stream to thread")    
         text2stream=self.plaintextEdit_GcodeScript.toPlainText()
         self.P_Bar_Update_Gcode.SetStatus(0)
+        self.ComboBox_Select_GcodeStreamType()
+        self.xyz_gcodestream_thread.type_of_stream=int(self.GcodeStreamType)
         self.xyz_gcodestream_thread.Stream(text2stream,self.P_Bar_Update_Gcode)
 
-
         if self.isoncheckedstate_checkbox==True:
-            self.xyz_thread.grbl_gcode_cmd('$C')
+            self.xyz_thread.send_queue_command('checkgcodeMode_Off',{},True) 
             logging.info("Checkmode Disabled and Grbl reset") 
             self.isoncheckedstate_checkbox=False
             self.checkBox_Gcode.setChecked(False)
@@ -752,10 +765,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.frame_GcodePauseStop.setEnabled(self.StatusConnected)
             self.checkBox_Gcode.setEnabled(self.StatusConnected)
             self.PushButton_RunGcodeScript.setEnabled(self.StatusConnected)
+            self.comboBox_GcodeStreamType.setEnabled(self.StatusConnected)
             self.groupBox_Gcode.setEnabled(self.StatusConnected)
-
-
-
 
     def Set_actX_Value(self):
         text=self.label_XactPos.text()
@@ -818,10 +829,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         #self.Fill_Deltas()    
 
     def Move_Delta(self,DeltaX,DeltaY,DeltaZ):    
-        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
-        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
-        self.pushButton_Pause_Resume.setText("Hold")
-        self.pushButton_Hold_Start_Gcode.setText("Hold")
+        self.Show_inbutton_pause()
         self.Get_Actual_Pos()
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         self.end_pos=[self.ini_pos[0]+DeltaX,self.ini_pos[1]+DeltaY,self.ini_pos[2]+DeltaZ]               
@@ -931,7 +939,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             #self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
             self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)            
             self.xyz_thread.start()
-            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.pushButton_Pause_Resume,self.frame_GcodePauseStop)
+            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.label_Stateact,self.pushButton_Pause_Resume,self.frame_GcodePauseStop,self.pushButton_MoveStop)
             self.xyz_update_thread.setName("XYZ Update") 
             self.xyz_update_thread.start()
             self.stream_event_stop= threading.Event()
@@ -975,6 +983,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.xyz_update_thread.y_pos = yyy
             self.xyz_update_thread.z_pos = zzz
             self.xyz_update_thread.Set_Actual_Position_Values(xxx,yyy,zzz)
+            self.xyz_update_thread.state_xyz=self.state_xyz            
+            self.xyz_update_thread.Status=self.Status   
+            self.xyz_update_thread.Set_Actual_State_Value(self.state_xyz,self.Status)
         except:    
             self.x_pos = xxx
             self.y_pos = yyy
@@ -1321,6 +1332,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.COMPort=self.comboBox_COM.currentText()
         self.COMBaudRate=self.comboBox_ConnSpeed.currentText()
     
+    def ComboBox_Select_GcodeStreamType(self):
+        self.GcodeStreamType=self.comboBox_GcodeStreamType.currentText()      
+    
     def PB_Connect(self):
         if self.StatusConnected==False:
             self.ComboBox_Select_Item()
@@ -1374,22 +1388,25 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def PB_Refresh(self):
         self.Fill_COM_Combo()
 
+    def PB_MoveStop(self):
+        if self.XYZRobot_found==1:
+            self.data_LastPos= self.xyz_thread.read() #get last known value
+            logging.info("Resuming XYZRobot")
+            self.Show_inbutton_pause()
+            self.pushButton_Pause_Resume.setEnabled(False) 
+            self.pushButton_Hold_Start_Gcode.setEnabled(False)
+            self.xyz_thread.grbl_stop()
+
     def PB_Pause_Resume(self):
         if self.XYZRobot_found==1:
             self.data_LastPos= self.xyz_thread.read() #get last known value
             if self.data_LastPos['STATE_XYZ']==6: # on Hold
                 logging.info("Resuming XYZRobot")
-                self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
-                self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
-                self.pushButton_Pause_Resume.setText("Hold")
-                self.pushButton_Hold_Start_Gcode.setText("Hold")
+                self.Show_inbutton_pause()
                 self.PB_Resume()
             else:    
                 logging.info("Pausing XYZRobot")
-                self.pushButton_Pause_Resume.setIcon(self.Icon_start)
-                self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_start)
-                self.pushButton_Pause_Resume.setText("Start")
-                self.pushButton_Hold_Start_Gcode.setText("Start")
+                self.Show_inbutton_play()                
                 self.xyz_thread.grbl_feed_hold()
                 #time.sleep(2)
                 self.x_pos=self.data_LastPos['XPOS']
@@ -1425,12 +1442,22 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.pushButton_Hold_Start_Gcode.setEnabled(True)
         else:
             logging.info("XYZ Robot Not Found for Starting") 
-
-    def PB_Reset_Signal(self):
-        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
-        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
+    
+    def Show_inbutton_pause(self):
+        self.pushButton_Pause_Resume.setIcon(self.Icon_pause)
+        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_pause)
         self.pushButton_Pause_Resume.setText("Hold")
         self.pushButton_Hold_Start_Gcode.setText("Hold")
+
+    def Show_inbutton_play(self):
+        self.pushButton_Pause_Resume.setIcon(self.Icon_start)
+        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_start)
+        self.pushButton_Pause_Resume.setText("Start")
+        self.pushButton_Hold_Start_Gcode.setText("Start")
+
+    def PB_Reset_Signal(self):
+        self.Show_inbutton_pause()
+        
         if self.XYZRobot_found==1:
             logging.info("Reseting XYZRobot")
             #self.XYZRobot_port.write(str.encode(chr(24)))
@@ -1473,24 +1500,15 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def PB_Set_Position(self):
         self.Read_Input_xyz()            
-        #self.xyz_update_thread.Set_Actual_Position_Values(self.X,self.Y,self.Z)
-        self.Set_Actual_Position_Values(self.X,self.Y,self.Z)
+        self.Set_Actual_Position_Values(self.X,self.Y,self.Z)        
         self.Get_Actual_Pos()
         if self.XYZRobot_found==1:
-            self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)
+            self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)            
         else:            
-            logging.info("XYZ Robot not Connected for setting Position")        
-        #try:
-        #    logging.info("Calibrating table to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))
-        #    self.XYZRobot_port.write(str.encode('g92 x' + str(self.X) + ' y' + str(self.Y)+ ' z' + str(self.Z) + '\n'))
-        #except:
-        #    logging.info("Calibrating Error!")    
+            logging.info("XYZ Robot not Connected for setting Position")                
 
     def PB_Go(self):  
-        self.pushButton_Pause_Resume.setIcon(self.Icon_stop)
-        self.pushButton_Hold_Start_Gcode.setIcon(self.Icon_stop)
-        self.pushButton_Pause_Resume.setText("Hold")
-        self.pushButton_Hold_Start_Gcode.setText("Hold")
+        self.Show_inbutton_pause()
         self.Read_Input_xyz()   
         self.end_pos=[self.X,self.Y,self.Z]               
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
@@ -1579,8 +1597,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.y_pos=self.xyz_update_thread.y_pos
             self.z_pos=self.xyz_update_thread.z_pos
             self.state_xyz=self.xyz_update_thread.state_xyz
+            self.Status=self.xyz_update_thread.Status
         except:    
             self.x_pos=self.x_pos
+            pass
         
 
     def wait_response_xyz(self,usefixedtime,Fix_time_spec):

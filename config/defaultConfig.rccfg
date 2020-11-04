@@ -23,7 +23,7 @@
 <acknowledgecommandexecutedRead>_<>_<r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]>_<r'([oO][kK])'[1{ACK}]>_<>
 <acknowledgecommandreceivedRead>_<r'([oO][kK])'[1{ACKCMD}]>_<r'([oO][kK])'[1{ACKCMD}]>_<>_<>
 <errorRead>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[:](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<>
-<alarmRead>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>
+<alarmRead>_<r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>
 <infoRead>_<r'^\[(.*)\]'[1{INFO}]>_<>_<r'^echo:(.*)'[1{INFO}]>_<>
 <actionRead>_<>_<>_<r'action(.*)'[1{ACTION}]>_<>
 <configRead>_<r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<r'\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}][4{ConfUnit}]>_<>_<>
