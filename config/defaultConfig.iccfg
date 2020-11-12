@@ -68,3 +68,24 @@
 <timeforMachineStartup_info>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>_<*(0)>_<*(0)>_<*(0)>
 <logNoread_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
 <logNoread>_<True>_<True>_<>_<>
+<movementactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<movementactionlist>_<rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<>_<>_<>
+<probingactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<probingactionlist>_<Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<>_<>_<>
+<modecontinueactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<modecontinueactionlist>_<coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<>_<>_<>
+<modecancelactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<modecancelactionlist>_<checkgcodeMode_Off,cancelModalmode>_<>_<>_<>
+<modeinitactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<modeinitactionlist>_<jogMode>_<>_<>_<>
+<timeblockactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<timeblockactionlist>_<dwell,userPause,programPause,timedPause,quickPause>_<>_<>_<>
+<modeinitactionlist_info>_<Initialize mode commandlist: Leave Blank for Default: jogMode>_<*(0)>_<*(0)>_<*(0)>
+<timeblockactionlist_info>_<Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause>_<*(0)>_<*(0)>_<*(0)>
+<modecancelactionlist_info>_<Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode>_<*(0)>_<*(0)>_<*(0)>
+<probingactionlist_info>_<Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<*(0)>_<*(0)>_<*(0)>
+<movementactionlist_info>_<Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<*(0)>_<*(0)>_<*(0)>
+<modecontinueactionlist_info>_<Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<*(0)>_<*(0)>_<*(0)>
+<immediateactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
+<immediateactionlist>_<movingstatusReport>_<>_<>_<>
+<immediateactionlist_info>_<list of actions to be sent immediately and not to the queue.>_<*(0)>_<*(0)>_<*(0)>

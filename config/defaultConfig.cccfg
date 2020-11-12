@@ -47,7 +47,7 @@
 <reportParserState>_<$G>_<>_<>_<>
 <reportGcodeParameters>_<$#>_<>_<>_<>
 <statusReport>_<?>_<?>_<M114[{par}]>_<>
-<movingstatusReport>_<?>_<?>_<S000>_<>
+<movingstatusReport>_<? >_<? >_<S000>_<>
 <Comment>_<;{msg}>_<;{msg}>_<({msg})>_<>
 <Message>_<({msg})>_<({msg})>_<M117 {msg}>_<>
 <automaticstatusReports-Disable>_<>_<$sv=0>_<>_<>
@@ -67,6 +67,7 @@
 <softReset>_<char(0x18)>_<char(0x18)>_<M999>_<>
 <emergencyKill>_<^X>_<char(0x18)>_<M112>_<>  
 <Home>_<$H>_<G28.2 X0 Y0 Z0>_<G28>_<> 
+<Home_info>_<No parameters>_<*(0)>_<*(0)>_<*(0)> 
 <timedPause>_<M0 [P{P}]||[S{S}]>_<M0 [P{P}]||[S{S}]>_<M0 [P{P}]||[S{S}]>_<>
 # -------Gcode programs commands-----
 <programPause>_<M0 [P{P}][S{S}]>_<M0 [P{P}][S{S}]>_<M0 [P{P}][S{S}]>_<>
@@ -162,3 +163,4 @@
 <test2>_<[&&(1)]{coordSet}>_<>_<>_<>
 <test2_info>_<>_<>_<>_<>
 <test3>_<[&&(1)]{coordSet}>_<>_<>_<>
+<movingstatusReport_info>_<add spaces if matches statusReport>_<>_<>_<>

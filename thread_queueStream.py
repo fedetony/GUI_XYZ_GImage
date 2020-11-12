@@ -15,8 +15,14 @@ import os
 from common import *
 
 
-logging.basicConfig(level=logging.INFO,
-                    format='[%(levelname)s] (%(threadName)-10s) %(message)s')
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+
 
  
 class queueStream(threading.Thread):
@@ -66,8 +72,8 @@ class queueStream(threading.Thread):
         '''
         if Buffer_size<=0:
             Buffer_size=5
-        if Buffer_size>self.Max_Buffer_size:
-            Buffer_size=self.Max_Buffer_size
+        if Buffer_size>int(self.Max_Buffer_size/2):
+            Buffer_size=int(self.Max_Buffer_size/2)
         self.Buff_size=Buffer_size
         self.Buff_fill=Refill_value
         
@@ -86,18 +92,15 @@ class queueStream(threading.Thread):
     
     def quit(self):
         self.killer_event.set()        
-        self.join()
+        #self.join()
 
     def Get_Progress_Percentage(self,sss,Numsss,Perini=0,Perend=100):
-        if sss>Numsss:
-            self.Pbar_Set_Status(Perend)
+        if sss>Numsss:            
             return Perend
-        if sss<0 or Numsss<=0:
-            self.Pbar_Set_Status(Perini)
+        if sss<0 or Numsss<=0:            
             return Perini
         if (Perend-Perini)<=0:
-            Per=min(abs(Perini),abs(Perend))  
-            self.Pbar_Set_Status(Per)
+            Per=min(abs(Perini),abs(Perend))              
             return Per 
         Per=round(Perini+(sss/Numsss)*(Perend-Perini),2)        
         return Per   
@@ -109,14 +112,19 @@ class queueStream(threading.Thread):
                 numlines= sum(1 for _ in my_file)
             my_file.close()
         except Exception as e:
-            logging.error(e)
+            log.error(e)
             numlines=None
             pass
         return numlines
-
+    
+    def refresh_Pbars(self):
+        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_buff(),self.Buff_size,Perini=0,Perend=100)
+        self.Pbar_Set_Status(self.Pbar_buffer,sstat)
+        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
+        self.Pbar_Set_Status(self.Pbar_Stream,sstat)
 
     def run(self):                
-        count=0
+        
         #print('Entered Run------------------------------------')
         if self.Filelength is not None:
             if self.Filelength>0:
@@ -126,7 +134,7 @@ class queueStream(threading.Thread):
                 except:
                     sfile=None
                     self.killer_event.set()
-                    logging.error('Error with file opening '+self.filename)
+                    log.error('Error with file opening '+self.filename)
                     pass
                 # fill some text to the text queue before entering loop
                 if self.Filelength<=2*self.Buff_size:
@@ -137,12 +145,12 @@ class queueStream(threading.Thread):
                     self.Add_to_text_queue_from_file(sfile)                
                 self.Set_qsizes()
             else:
-                logging.error('Filesize is '+str(self.Filelength))
+                log.error('Filesize is '+str(self.Filelength))
                 self.quit()
         else:
-            logging.error('File empty '+self.filename)            
+            log.error('File empty '+self.filename)            
             self.quit()
-
+        count=0
         #print('is file:',sfile)
         while not self.killer_event.wait(self.cycle_time):   
             try:
@@ -155,48 +163,52 @@ class queueStream(threading.Thread):
                     self.Add_to_output_queue() 
                     self.itemsinbuffer_event.set()                     
                     self.Add1tobuffer_event.clear()   
-                
-                if self.Stream_Finished==True:
-                    self.killer_event.set()
-                    break           
+                if count==3:
+                    self.refresh_Pbars()
+                    count=0
+                count=count+1
+                #if self.Stream_Finished==True:
+                #    self.killer_event.set()
+                #    break           
             except Exception as e:
                 self.killer_event.set()
-                logging.error(e)
-                logging.error("Stream Queue fatal error! exiting thread!")                                         
+                log.error(e)
+                log.error("Stream Queue fatal error! exiting thread!")                                         
                 raise  
-                          
-        logging.info("Stream Queue Ended!")  
+        if self.killer_event.is_set():
+            log.info("Stream Queue Killing event Detected!")                        
+        log.info("Stream Queue Ended!")  
         try: 
             sfile.close()
         except:
-            pass
-        sstat=0
-        self.Pbar_Set_Status(self.Pbar_buffer,sstat)        
-        self.Pbar_Set_Status(self.Pbar_Stream,sstat)        
+            pass        
+        self.Pbar_Set_Status(self.Pbar_buffer,0)        
+        self.Pbar_Set_Status(self.Pbar_Stream,100)        
         #self.quit() 
     
     def Add_to_text_queue_from_file(self,sfile):        
         if self.Is_textintoqueue_Finished==False:
             if sfile is not None:
-                try:
-                    line=sfile.readline()                
-                    if line=='':
-                        line=None                    
-                    line=line.rstrip()
-                    if line!='':                    
-                        self.text_queue.put(line)
-                        self.Streamsize=self.Streamsize+1
-                        self.Set_qsizes()
-                        #print('In text queue->',line)
-                except Exception as e:
-                    #logging.error(e)
-                    logging.info('Finished queueing text! Lines in queue:'+str(self.Streamsize))
-                    sfile.close()
-                    sfile=None
-                    #print('Finish text into queue -------------------------------------------------------')
-                    self.Is_textintoqueue_Finished=True
-                    pass
-        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands(),Perini=0,Perend=100)        
+                if self.get_num_of_commands_txt()<=self.Max_Buffer_size:
+                    try:
+                        line=sfile.readline()                
+                        if line=='':
+                            line=None                    
+                        line=line.rstrip()
+                        if line!='':                    
+                            self.text_queue.put(line)
+                            self.Streamsize=self.Streamsize+1
+                            self.Set_qsizes()
+                            #print('In text queue->',line)
+                    except Exception as e:
+                        #log.error(e)
+                        log.info('Finished queueing text! Lines in queue:'+str(self.Streamsize))
+                        sfile.close()
+                        sfile=None
+                        #print('Finish text into queue -------------------------------------------------------')
+                        self.Is_textintoqueue_Finished=True
+                        pass
+        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
         self.Pbar_Set_Status(self.Pbar_Stream,sstat)
         
 
@@ -207,14 +219,35 @@ class queueStream(threading.Thread):
         if self.outqsize==0:
             self.itemsinbuffer_event.clear()
         # Finished when both queues are empty
-        if self.get_num_of_commands_left()==0 and self.get_num_of_commands_executed()==self.get_num_of_total_commands():
+        [buff,txt,consumed,left,tot,totfile]=self.get_all_nums(False)
+        if left==0 and consumed==tot and consumed>0:
             self.Stream_Finished=True
 
-    def get_num_of_commands_executed(self):
+    def get_all_nums(self,logprint=False):
+        buff=self.get_num_of_commands_buff()
+        txt=self.get_num_of_commands_txt()
+        left=self.get_num_of_commands_left()
+        consumed=self.get_num_of_commands_consumed()
+        tot=self.get_num_of_total_commands()
+        totfile=self.get_num_of_total_commands_onFile()
+        if logprint==True:
+            log.info('Stream Queue Thread Exit Report:')
+            log.info('Lines in Buffer-----: '+str(buff))
+            log.info('Lines to be Buffered: '+str(txt))
+            log.info('Lines to be Consumed: '+str(left))
+            log.info('Lines Consumed------: '+str(consumed))
+            log.info('Lines in Memory-----: '+str(tot))
+            log.info('Lines in Total------: '+str(totfile))
+        return [buff,txt,consumed,left,tot,totfile]
+
+    def get_num_of_commands_consumed(self):
         return self.Streamsize-(self.textqsize+self.outqsize)
 
     def get_num_of_commands_left(self):
-        return self.textqsize+self.outqsize
+        if self.Stream_Finished==False:
+            return self.textqsize+self.outqsize
+        else:
+            return -1    
 
     def get_num_of_commands_txt(self):
         return self.textqsize
@@ -224,6 +257,9 @@ class queueStream(threading.Thread):
 
     def get_num_of_total_commands(self):
         return self.Streamsize     
+    
+    def get_num_of_total_commands_onFile(self):
+        return self.Filelength
 
     def Add_to_output_queue(self):        
         try:        
@@ -250,7 +286,7 @@ class queueStream(threading.Thread):
 
     def Set_Streamtext_to_text_queue(self,text2stream):
         if text2stream is None or text2stream=='':
-            logging.error('No text to stream!')
+            log.error('No text to stream!')
             self.quit()
         self.Pbar_Set_Status(self.Pbar_buffer,0)        
         self.Pbar_Set_Status(self.Pbar_Stream,0)            
@@ -269,29 +305,29 @@ class queueStream(threading.Thread):
             except:
                 filename=filename+'.gcode' 
                 pass       
-            logging.info('Saving temporary file to stream:'+filename) 
+            log.info('Saving temporary file to stream:'+filename) 
             try:
                 with open(filename, 'w') as yourFile:
                     yourFile.write(text2stream)                
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("Temporary File was not Written!")
+                log.error(e)
+                log.info("Temporary File was not Written!")
                 self.quit()
                 pass
     
     def Get_linelist_from_file(self,filename):        
         linelist=[]
         if filename is not None:            
-            logging.info('Opening:'+filename)
+            log.info('Opening:'+filename)
             try:
                 self.plaintextEdit_GcodeScript.clear()
                 with open(filename, 'r') as yourFile:                    
                     linelist=yourFile.readlines() #makes list of lines                  
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("File was not read!")
+                log.error(e)
+                log.info("File was not read!")
         return linelist    
 
     def get_appPath(self):
@@ -322,13 +358,23 @@ def main():
     cycle_time=0.1
     qstream=queueStream(text2stream,cycle_time,kill_ev,Refill_value=15,Buffer_size=20,Pbar_buffer=None,Pbar_Stream=None)
     qstream.start()
-    print('inbuff:',qstream.get_num_of_commands_buff(),'Executed:',qstream.get_num_of_commands_executed(),'Total:',qstream.get_num_of_total_commands())
-    while not kill_ev.is_set():        
-        txt=qstream.Consume_buff(True)
-        print('inbuff:',qstream.get_num_of_commands_buff(),'Executed:',qstream.get_num_of_commands_executed(),'Total:',qstream.get_num_of_total_commands())
-        if txt != None:
-            print(txt)
-        time.sleep(1)
+    print('inbuff:',qstream.get_num_of_commands_buff(),'Executed:',qstream.get_num_of_commands_consumed(),'Total:',qstream.get_num_of_total_commands())
+    #while not kill_ev.is_set():    
+    try:
+        while qstream.is_alive()==True:                
+            txt=qstream.Consume_buff(True)
+            print('inbuff:',qstream.get_num_of_commands_buff(),'Executed:',qstream.get_num_of_commands_consumed(),'Total:',qstream.get_num_of_total_commands())
+            if txt != None:
+                print(txt)
+            time.sleep(0.1)
+            if qstream.get_num_of_commands_left()==20:
+                qstream.get_all_nums(True)
+                kill_ev.set()
+                #qstream.join()
+            print(qstream.is_alive())    
+    except:
+        pass
+
     
 
     

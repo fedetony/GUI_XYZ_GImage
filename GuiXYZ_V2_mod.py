@@ -28,8 +28,22 @@ import io #TextIOWrapper
 import binascii
 import logging
 import queue
-
 import threading
+#import atexit
+#import keyboard for keyboard inputs
+
+#Configure logger before importing classes (so they become child loggers)
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+'''
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+'''
 #from thread_xyz_grbl import XYZGrbl
 from thread_xyz_multi_interface import XYZMulti
 import thread_Gcode_Stream
@@ -40,12 +54,13 @@ import GuiXYZ_V1
 import GuiXYZ_LSTD
 import GuiXYZ_CCD
 import GuiXYZ_RTD
-#import atexit
-#import keyboard for keyboard inputs
 import class_CCD   
 import class_LSTD 
 import class_RTD
 import class_File_Dialogs
+
+
+
 class QLabel_altered(QLabel):
     resize=pyqtSignal()
     #clicked=pyqtSignal()
@@ -170,8 +185,7 @@ class QCodeEditor(QtWidgets.QPlainTextEdit):
 
 
 
-log = logging.getLogger()
-log.setLevel(logging.INFO)
+
 class MyWindow(QtWidgets.QMainWindow):
     def closeEvent(self,event):
         result = QtWidgets.QMessageBox.question(self,
@@ -186,17 +200,17 @@ class MyWindow(QtWidgets.QMainWindow):
             try:                
                 ui.CCDialog.quit()                   
             except Exception as e:
-                #logging.error(e)     
+                #log.error(e)     
                 pass      
             try:                
                 ui.LSTDialog.quit()                   
             except Exception as e:
-                #logging.error(e)     
+                #log.error(e)     
                 pass      
             try:                                
                 ui.RTDialog.quit()             
             except Exception as e:
-                #logging.error(e)     
+                #log.error(e)     
                 pass      
             ui.killer_event.set()            
             event.accept()
@@ -270,13 +284,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Fill_Image_Config_Table()
 
         self.P_Bar_Update_Gcode=ProgressBar_Update(MainWindow)        
-        self.P_Bar_Update_Gcode.tick.connect(self.progressBar_Gcode.setValue)
+        self.P_Bar_Update_Gcode.tick.connect(self.Update_value_and_time_elapsed)
         self.P_Bar_Update_Gimage=ProgressBar_Update(MainWindow)        
         self.P_Bar_Update_Gimage.tick.connect(self.progressBar_Gimage.setValue)
+        self.P_Bar_buffer_Gcode=ProgressBar_Update(MainWindow)                
         
-    
-    #No More retranslate in this class-> inherits from GuiXYZ_V1
-
+    def Update_value_and_time_elapsed(self,aValue):
+        self.progressBar_Gcode.setValue(aValue)
+        try:            
+            if aValue==100:
+                self.xyz_update_thread.Stop_Timer()  
+            #else:                
+            #    self.xyz_update_thread.Show_elapsed_Time()     
+        except:
+            pass
 
     def Connect_Actions(self):
         self.pushButton_Connect.clicked.connect(self.PB_Connect)
@@ -394,6 +415,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Config_Table_NumCols=0
         self.isoncheckedstate_checkbox=False
         self.IsImageThread=False
+        self.LoggerCount=0
         #------------
         self.G_Image=GImage() #Class instance initialization
         #self.G_Image.Set_Initial_Image_Config_Data() # Setup Variables
@@ -548,13 +570,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         #print(self.XYZRobot_found)
         if self.XYZRobot_found==1:
             if self.xyz_thread.CH.filename==afilename:   
-                logging.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
-                #logging.info("Refreshing Configuration in Threads using "+afilename)             
+                log.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
+                #log.info("Refreshing Configuration in Threads using "+afilename)             
                 #while self.xyz_thread.IsRunning_event.wait(0.5):
-                #    logging.info("....waiting to refresh configuration")
+                #    log.info("....waiting to refresh configuration")
                 #self.xyz_thread.CH.Setup_Command_Handler(log_check=False)
         else:            
-            logging.info("Event filename changed!"+afilename)
+            log.info("Event filename changed!"+afilename)
         
 
 
@@ -586,7 +608,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 self.LSTDialog.close()
             self.Open_LayerSelectionToolDialog()
         except Exception as e:
-            #logging.error(e)
+            #log.error(e)
             pass
         
 
@@ -602,16 +624,18 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.isoncheckedstate_checkbox=not self.isoncheckedstate_checkbox # Case was not terminated correctly last time
             self.xyz_thread.send_queue_command('checkgcodeMode_On',{},True) 
             time.sleep(0.2) # wait to react 
-        logging.info("Sending stream to thread")    
+        log.info("Sending stream to thread")    
         text2stream=self.plaintextEdit_GcodeScript.toPlainText()
         self.P_Bar_Update_Gcode.SetStatus(0)
+        self.P_Bar_buffer_Gcode.SetStatus(0)
         self.ComboBox_Select_GcodeStreamType()
-        self.xyz_gcodestream_thread.type_of_stream=int(self.GcodeStreamType)
-        self.xyz_gcodestream_thread.Stream(text2stream,self.P_Bar_Update_Gcode)
+        self.xyz_gcodestream_thread.type_of_stream=int(self.GcodeStreamType)        
+        self.xyz_update_thread.Start_Timer()
+        self.xyz_gcodestream_thread.Stream_queue(text2stream,self.P_Bar_Update_Gcode,self.P_Bar_buffer_Gcode)
 
         if self.isoncheckedstate_checkbox==True:
             self.xyz_thread.send_queue_command('checkgcodeMode_Off',{},True) 
-            logging.info("Checkmode Disabled and Grbl reset") 
+            log.info("Checkmode Disabled and Grbl reset") 
             self.isoncheckedstate_checkbox=False
             self.checkBox_Gcode.setChecked(False)
             
@@ -621,7 +645,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         filename=aDialog.openFileNameDialog(0) #0 gcode
         
         if filename is not None:
-            logging.info('Opening:'+filename)
+            log.info('Opening:'+filename)
             try:
                 self.plaintextEdit_GcodeScript.clear()
                 with open(filename, 'r') as yourFile:
@@ -630,8 +654,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                               
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("File was not read!")
+                log.error(e)
+                log.info("File was not read!")
             
     def PB_SaveGcode(self):        
         filename=aDialog.saveFileDialog(0) #0 gcode        
@@ -642,14 +666,14 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                     filename=filename+'.gcode'
             except:
                 filename=filename+'.gcode'        
-            logging.info('Saving:'+filename) 
+            log.info('Saving:'+filename) 
             try:
                 with open(filename, 'w') as yourFile:
                     yourFile.write(str(self.plaintextEdit_GcodeScript.toPlainText()))                
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("File was not Written!")
+                log.error(e)
+                log.info("File was not Written!")
 
     def setImage(self,alabel, image):
         alabel.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
@@ -676,11 +700,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 pass
     
     def Show_Processed_Image_Preview(self):
-        #logging.info('Image Process preview entered')
+        #log.info('Image Process preview entered')
         if self.G_Image.IsProcessedimagetoprint==True:
             qimp = ImageQt(self.G_Image.imp)
             self.the_pixmap_p=QtGui.QPixmap.fromImage(qimp)            
-            #logging.info('Image Process preview showing')
+            #log.info('Image Process preview showing')
             self.setPixmap(self.label_Image_Preview_Processed,self.the_pixmap_p)
             try:
                 self.RTD_Refresh()
@@ -698,9 +722,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 Gimage_Code=self.xyz_gimagestream_thread.Generate_Gimage_Code(self.G_Image.imp,Gimage_Data,self.P_Bar_Update_Gimage)
                 self.plaintextEdit_GcodeScript.appendPlainText(Gimage_Code)
                 self.P_Bar_Update_Gimage.SetStatus(0)                
-                logging.info('GImage Gcode Ready!')
+                log.info('GImage Gcode Ready!')
             else:    
-                logging.info('No processed image available!')
+                log.info('No processed image available!')
         
     def PB_Process_Image(self):
         self.G_Image.Process_Image()
@@ -728,8 +752,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                             #print(aaa+':'+data[ccc])
                             #break                
             except Exception as e:
-                logging.error(e)
-                logging.error('Some items could not be read! ' +ccc )
+                log.error(e)
+                log.error('Some items could not be read! ' +ccc )
                 pass   
         #print('Read from file:'+self.G_Image.Image_Config_Data['Robot_XYZ']+' '+data['Robot_XYZ'])     
         self.G_Image.Check_Image_Config_Data()
@@ -739,7 +763,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         filename=aDialog.openFileNameDialog(1) #1 Images
         
         if filename is not None:
-            logging.info('Opening:'+filename)
+            log.info('Opening:'+filename)
             try:    
                             
                 self.G_Image.open_image(filename)                                
@@ -747,8 +771,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 self.PB_Set_Changes_Image_Config()
                 self.Show_Processed_Image_Preview()
             except Exception as e:
-                logging.error(e)
-                logging.info("Could not open Image!")
+                log.error(e)
+                log.info("Could not open Image!")
     
 
     def Set_Icons_Status_OnOFF(self,Is_on):
@@ -834,7 +858,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         self.end_pos=[self.ini_pos[0]+DeltaX,self.ini_pos[1]+DeltaY,self.ini_pos[2]+DeltaZ]               
         if self.XYZRobot_found==1:
-            logging.info("Going to: X = " + str(self.end_pos[0]) + ", Y = " + str(self.end_pos[1])+", Z = " + str(self.end_pos[2]))            
+            log.info("Going to: X = " + str(self.end_pos[0]) + ", Y = " + str(self.end_pos[1])+", Z = " + str(self.end_pos[2]))            
             if self.Feedrate==None:
                 self.xyz_thread.goto_xyz(self.end_pos[0],self.end_pos[1],self.end_pos[2])
             else:
@@ -842,10 +866,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             #usefixedtime=0
             #self.wait_response_xyz(usefixedtime,5)
         else:
-            logging.info("XYZ Robot Not Found for Moving") 
+            log.info("XYZ Robot Not Found for Moving") 
     def PB_Gcodesend(self):
         gcodeline=self.lineEdit_Gcode.text()
-        logging.info("Sending Gcode: "+gcodeline)
+        log.info("Sending Gcode: "+gcodeline)
         self.xyz_thread.grbl_gcode_cmd(gcodeline)
 
     def PB_XLeft(self):
@@ -912,9 +936,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.lineEdit_DeltaZ.setText(str(self.DeltaZ))
 
 
-    def write_GUI_Log(self, sss):
-        self.textEdit_Logger.setFontWeight(QtGui.QFont.Normal)
-        self.textEdit_Logger.append(sss)
+    def write_GUI_Log(self, sss): 
+        try:       
+            if self.LoggerCount==0:
+                self.textEdit_Logger.setText('')
+                self.textEdit_Logger.setFontWeight(QtGui.QFont.Normal)                
+            self.textEdit_Logger.append(sss)
+            if self.LoggerCount>10000:
+                self.LoggerCount=0        
+            else:
+                self.LoggerCount=self.LoggerCount+1
+        except:
+            pass
+    
+        
 
     def Start_Image_Thread(self):
         try:            
@@ -922,13 +957,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.xyz_gimagestream_thread=Image_Gcode_Stream(self.killer_event,self.plaintextEdit_GcodeScript) 
             self.xyz_gimagestream_thread.setName("Gimage Stream") 
             self.xyz_gimagestream_thread.start()
-            logging.info("SUCCESS: Image to Gcode thread Initialized :)")  
+            log.info("SUCCESS: Image to Gcode thread Initialized :)")  
             self.IsImageThread=True 
             
         except Exception as e:               
-            #logging.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
-            logging.error(e)
-            logging.error("Failed to initialise Image thread :( -> No Image to Gcode")
+            #log.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
+            log.error(e)
+            log.error("Failed to initialise Image thread :( -> No Image to Gcode")
             self.IsImageThread=False
             
     def Start_XYZ_Thread(self):            
@@ -939,7 +974,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             #self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
             self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)            
             self.xyz_thread.start()
-            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.label_Stateact,self.pushButton_Pause_Resume,self.frame_GcodePauseStop,self.pushButton_MoveStop)
+            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.label_Stateact,self.pushButton_Pause_Resume,self.frame_GcodePauseStop,self.pushButton_MoveStop,self.label_time)
             self.xyz_update_thread.setName("XYZ Update") 
             self.xyz_update_thread.start()
             self.stream_event_stop= threading.Event()
@@ -952,17 +987,17 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             if self.IsImageThread==True:                    
                 self.xyz_gimagestream_thread.Set_xyz_thread(self.xyz_thread,self.stream_event_stop)
 
-            logging.info("First Run Calibrating to: X = " + str(self.x_pos) + ", Y = " + str(self.y_pos) + ", Z = " + str(self.z_pos))
+            log.info("First Run Calibrating to: X = " + str(self.x_pos) + ", Y = " + str(self.y_pos) + ", Z = " + str(self.z_pos))
             self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)
             self.XYZRobot_found=1
             
-            logging.info("SUCCESS: XYZ Initialized :)")   
+            log.info("SUCCESS: XYZ Initialized :)")   
             
         except Exception as e:   
             self.XYZRobot_found=0
-            #logging.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
-            logging.error(e)
-            logging.error("Failed to initialise xyz_thread :( -> No Robot ")
+            #log.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
+            log.error(e)
+            log.error("Failed to initialise xyz_thread :( -> No Robot ")
             self.Show_Message("Error","Failed to Initialize XYZ Robot :( (Check Port)")
             #print("Is XYZRobot in port "+ XYZRobot_port + "?")
         #finally:
@@ -1025,14 +1060,14 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.Fill_Config_Table()        
     
     def Fill_Image_Config_Table(self):  
-        #logging.info("Filling Gimage Configuration!")
+        #log.info("Filling Gimage Configuration!")
         self.tableWidget_Image_Config.clear()  
         config=self.G_Image.Get_Image_Config_Data()
         Num_Items=0
         for ccc in config:
             if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:                                
                 Num_Items=Num_Items+1
-        #logging.info("Filling Gimage Configuration! Items found "+ str(Num_Items))        
+        #log.info("Filling Gimage Configuration! Items found "+ str(Num_Items))        
         self.Image_Config_Table_NumRows=Num_Items        
         self.Image_Config_Table_NumCols=5
         self.tableWidget_Image_Config.setRowCount(self.Image_Config_Table_NumRows)
@@ -1111,7 +1146,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         for row in range(self.Config_Table_NumRows):                        
             hhh=self.tableWidget_Config.item(row, 0).text()
             hhhval=self.tableWidget_Config.item(row, 1).text()            
-            #logging.info(self.xyz_thread.Read_Config_Parameter(hhh.replace('$', '')))                        
+            #log.info(self.xyz_thread.Read_Config_Parameter(hhh.replace('$', '')))                        
             if str(config[hhh])!=hhhval:
                 is_different=True
                 break
@@ -1130,13 +1165,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                     Value=self.xyz_thread.set_correct_type(hhhval,False)            
                     isaccepted=self.xyz_thread.change_grbl_config_parameter(hhh,Value)
                     if isaccepted==False:
-                        logging.error('Parameter '+ hhh + ' was not accepted as '+str(Value)) 
+                        log.error('Parameter '+ hhh + ' was not accepted as '+str(Value)) 
                         changed=True
                         break
                     changed=True
                     while self.xyz_thread.Is_system_ready()==False:
                         time.sleep(0.2)
-                        logging.info("Stuck here?")
+                        log.info("Stuck here?")
         #No need is done in fill                
         #if changed==True:
         #    config=self.xyz_thread.read_grbl_config(True,False)
@@ -1169,14 +1204,14 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         return data            
 
     def Is_Image_Config_Table_Empty(self):
-        #logging.info('Numrows->'+str(self.Config_Table_NumRows))
+        #log.info('Numrows->'+str(self.Config_Table_NumRows))
         if self.Image_Config_Table_NumRows==0:
             return True
         else:
             return False          
 
     def Is_Config_Table_Empty(self):
-        #logging.info('Numrows->'+str(self.Config_Table_NumRows))
+        #log.info('Numrows->'+str(self.Config_Table_NumRows))
         if self.Config_Table_NumRows==0:
             return True
         else:
@@ -1191,18 +1226,18 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.Is_Config_Table_Empty()==True:
             self.Fill_Config_Combo_and_Table()
         if self.Is_Config_Table_diff_to_device()==True:
-            logging.info("Writting Configuration Table to Device")
+            log.info("Writting Configuration Table to Device")
             self.write_Config_to_device()
             self.Fill_Config_Table()
         else:
-            logging.info("No Configuration Changes found")
+            log.info("No Configuration Changes found")
     
     def Load_Image_config_from_file(self):
         filename=aDialog.openFileNameDialog(2) #0 gcode, 1 Images 2 txt else all 
         data={}
         if filename is not None:
             
-            logging.info('Opening:'+filename)
+            log.info('Opening:'+filename)
             try:
                 self.plaintextEdit_GcodeScript.clear()
                 with open(filename, 'r') as yourFile:
@@ -1211,15 +1246,15 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 data=self.Get_Config_Data_From_List(linelist)                                                
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("File was not read!")
+                log.error(e)
+                log.info("File was not read!")
         return data        
 
     
     def Get_Config_Data_From_List(self,linelist):
         data={}
         for line in linelist:
-            #logging.info(line)
+            #log.info(line)
             try:                           
                 #mf = re.search('<(.*)>_<([+-]?\d*[\.,]?\d*?)>_<(.*)>_<(.*)>_<(.*)>',line)                               
                 mf = re.search('<(.*)>_<(.*)>_<(.*)>_<(.*)>_<(.*)>',line)                               
@@ -1227,8 +1262,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 mf = None
             try:
                 if mf is not None: #any type
-                    #logging.info('storing float')
-                    #logging.info('mf ->'+str(mf.groups()))
+                    #log.info('storing float')
+                    #log.info('mf ->'+str(mf.groups()))
                     if mf.group(5):    
                         data[str(mf.group(1))+'_Type']=str(mf.group(5))
                     else:
@@ -1250,7 +1285,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                         data[str(mf.group(1))+'_Info']=''
                         
             except:
-                logging.error('Bad format for Image Config Read!')
+                log.error('Bad format for Image Config Read!')
                 pass
         return data    
 
@@ -1273,7 +1308,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                     except:
                         fileName=fileName+'.txt'        
                     file = open(fileName,'w')   
-                    logging.info('Saving:'+fileName)      
+                    log.info('Saving:'+fileName)      
                     Tabledata=[]            
                     for row in range(self.Image_Config_Table_NumRows):  
                         Tabledata.append('<')                                                  
@@ -1283,11 +1318,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                                 Tabledata.append('>_<')                                        
                         Tabledata.append('>\n')                
                     file.writelines(Tabledata)    
-                    logging.info("File Saved as:" + fileName)
+                    log.info("File Saved as:" + fileName)
                     file.close()
                 except Exception as e:
-                    logging.error(e)
-                    logging.info("File was not Written!")        
+                    log.error(e)
+                    log.info("File was not Written!")        
     
     def Reload_Interface_Configuration(self):
         if self.XYZRobot_found==1:
@@ -1315,11 +1350,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                             Tabledata.append(' ')                                        
                         Tabledata.append('\n')                
                     file.writelines(Tabledata)    
-                    logging.info("File Saved as:" + fileName)
+                    log.info("File Saved as:" + fileName)
                     file.close()
                 except Exception as e:
-                    logging.error(e)
-                    logging.info("File was not Written!")
+                    log.error(e)
+                    log.info("File was not Written!")
             
 
     def Fill_COM_Combo(self):
@@ -1338,7 +1373,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def PB_Connect(self):
         if self.StatusConnected==False:
             self.ComboBox_Select_Item()
-            logging.info("Opening XYZ Robot port")
+            log.info("Opening XYZ Robot port")
             self.Start_XYZ_Thread()
             self.Enable_GroupXYZ_ComIcon()
             self.Set_Icons_Status_OnOFF(True)
@@ -1351,7 +1386,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:      
             if self.StatusConnected==True:
                self.StatusConnected=False                   
-            logging.info("Disconnecting Robot")
+            log.info("Disconnecting Robot")
             self.App_Close_Event()
             self.pushButton_Connect.setText("Connect")
             
@@ -1359,10 +1394,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def Enable_GroupXYZ_ComIcon(self):
         if self.XYZRobot_found==1:      
             self.StatusConnected=True                  
-            logging.info("Waiting for XYZ Robot Setup to finish")
-            #logging.info('-------------Reading device configuration-----------------------')
+            log.info("Waiting for XYZ Robot Setup to finish")
+            #log.info('-------------Reading device configuration-----------------------')
             #config=self.xyz_thread.read_grbl_config(True,True)
-            #logging.info('----------------------------------------------------------------')
+            #log.info('----------------------------------------------------------------')
             """
             count=1
             while not self.xyz_thread.Is_system_ready() and count<100:
@@ -1391,7 +1426,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def PB_MoveStop(self):
         if self.XYZRobot_found==1:
             self.data_LastPos= self.xyz_thread.read() #get last known value
-            logging.info("Resuming XYZRobot")
+            log.info("Resuming XYZRobot")
             self.Show_inbutton_pause()
             self.pushButton_Pause_Resume.setEnabled(False) 
             self.pushButton_Hold_Start_Gcode.setEnabled(False)
@@ -1401,11 +1436,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:
             self.data_LastPos= self.xyz_thread.read() #get last known value
             if self.data_LastPos['STATE_XYZ']==6: # on Hold
-                logging.info("Resuming XYZRobot")
+                log.info("Resuming XYZRobot")
                 self.Show_inbutton_pause()
                 self.PB_Resume()
             else:    
-                logging.info("Pausing XYZRobot")
+                log.info("Pausing XYZRobot")
                 self.Show_inbutton_play()                
                 self.xyz_thread.grbl_feed_hold()
                 #time.sleep(2)
@@ -1422,18 +1457,18 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 
         else:
             if self.data_LastPos['STATE_XYZ']==6:
-                logging.info("XYZ Robot Not Found for Starting") 
+                log.info("XYZ Robot Not Found for Starting") 
             else:
-                logging.info("XYZ Robot Not Found for Holding") 
+                log.info("XYZ Robot Not Found for Holding") 
     
     def PB_Resume(self):
         if self.XYZRobot_found==1:
             time.sleep(0.3)
             Last_Data= self.xyz_thread.read() #get last known value
             Last_Data= self.data_LastPos
-            #logging.info("Starting XYZRobot--->" +str(Last_Data['STATE_XYZ']))
+            #log.info("Starting XYZRobot--->" +str(Last_Data['STATE_XYZ']))
             if Last_Data['STATE_XYZ']==6:
-                logging.info("Starting XYZRobot")
+                log.info("Starting XYZRobot")
                 self.xyz_thread.grbl_feed_start()      
             self.pushButton_Pause_Resume.setEnabled(False) 
             self.pushButton_Hold_Start_Gcode.setEnabled(False)   
@@ -1441,7 +1476,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.pushButton_Pause_Resume.setEnabled(True)
             self.pushButton_Hold_Start_Gcode.setEnabled(True)
         else:
-            logging.info("XYZ Robot Not Found for Starting") 
+            log.info("XYZ Robot Not Found for Starting") 
     
     def Show_inbutton_pause(self):
         self.pushButton_Pause_Resume.setIcon(self.Icon_pause)
@@ -1459,7 +1494,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Show_inbutton_pause()
         
         if self.XYZRobot_found==1:
-            logging.info("Reseting XYZRobot")
+            log.info("Reseting XYZRobot")
             #self.XYZRobot_port.write(str.encode(chr(24)))
             self.data_LastPos= self.xyz_thread.read() #get last known value
             self.xyz_thread.clear_state()
@@ -1469,7 +1504,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.z_pos=self.data_LastPos['ZPOS']
             self.Set_Actual_Position_Values(self.x_pos,self.y_pos,self.z_pos)
         else:
-            logging.info("XYZ Robot Not Found for Reset")    
+            log.info("XYZ Robot Not Found for Reset")    
 
     def Read_Input_xyz(self):
         try :                        
@@ -1505,7 +1540,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if self.XYZRobot_found==1:
             self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)            
         else:            
-            logging.info("XYZ Robot not Connected for setting Position")                
+            log.info("XYZ Robot not Connected for setting Position")                
 
     def PB_Go(self):  
         self.Show_inbutton_pause()
@@ -1513,7 +1548,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.end_pos=[self.X,self.Y,self.Z]               
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         if self.XYZRobot_found==1:
-            logging.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))
+            log.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))
             #self.XYZRobot_port.write(str.encode('g0 x' + str(self.X) + ' y' + str(self.Y)+ ' z' + str(self.Z) + '\n'))
             if self.Feedrate==None:
                 self.xyz_thread.goto_xyz(self.X,self.Y,self.Z)
@@ -1524,7 +1559,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             #usefixedtime=0
             #self.wait_response_xyz(usefixedtime,5)
         else:
-            logging.info("XYZ Robot Not Found for Going")        
+            log.info("XYZ Robot Not Found for Going")        
             
             
                 
@@ -1574,7 +1609,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             event.accept()
 
     def App_Close_Event(self):
-        logging.info("Close Event Triggered -> stopping threads")
+        log.info("Close Event Triggered -> stopping threads")
         self.killer_event.set()
         if self.XYZRobot_found==1:
             self.xyz_update_thread.join()
@@ -1583,11 +1618,11 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.xyz_thread=None 
         self.xyz_update_thread=None    
 
-        logging.info("waiting 1s")        
+        log.info("waiting 1s")        
         time.sleep(1)
-        logging.info("cleaning kill event")
+        log.info("cleaning kill event")
         self.killer_event.clear()   
-        logging.info("finished")
+        log.info("finished")
 
         self.XYZRobot_found=0
     
@@ -1625,7 +1660,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                 time.sleep(0.1)
                 nnn=nnn+1
                 if nnn>200 or xystate==0:
-                    logging.info("No Response! More than 2 min waiting response")
+                    log.info("No Response! More than 2 min waiting response")
                     break
             #if xystate==0:
             #    print("XYZ robot not responding.")
@@ -1643,15 +1678,6 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             time.sleep(Fix_time_spec)
             return 1
 
-class ConsolePanelHandler(logging.Handler):
-
-    def __init__(self, parent):
-        logging.Handler.__init__(self)
-        self.parent = parent
-
-    def emit(self, record):
-        self.parent.write_GUI_Log(self.format(record))
-        
 class ProgressBar_Update(QtCore.QThread):
     tick = QtCore.pyqtSignal(int, name="valchanged") #New style signal
 
@@ -1662,8 +1688,36 @@ class ProgressBar_Update(QtCore.QThread):
         self.tick.emit(x)                     
         time.sleep(0.1)
 
+class ToFileLogger:
+    def __init__(self, name):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+
+        stream_handler = logging.StreamHandler(sys.stderr)
+        formatter = logging.Formatter(
+            "[%(asctime)s][%(levelname)s] (%(threadName)-10s) %(message)s", "%Y-%m-%d %H:%M:%S"
+        )
+        stream_handler.setFormatter(formatter)
+
+        stream_handler.setLevel(logging.DEBUG)
+        self.logger.addHandler(stream_handler)
+        # self.logger.propagate = False
+
+    def info(self, message):
+        self.logger.info("{}".format(message))
 
 
+
+class ConsolePanelHandler(logging.Handler):    
+    def __init__(self, parent):
+        logging.Handler.__init__(self)
+        self.parent = parent
+
+    def emit(self, record):
+        self.parent.write_GUI_Log(self.format(record))
+        #self.ui.write_GUI_Log(self.format(record))
+        #self.textedit.append(self.format(record))
+        
 
 if __name__ == "__main__":
     import sys
@@ -1672,10 +1726,19 @@ if __name__ == "__main__":
     ui = Ui_MainWindow_V2()
     ui.setupUi(MainWindow)
     ui.setupUi2(MainWindow)    
-    #aeventhandler=MainWindowevents(MainWindow)
+
+    
     handler = ConsolePanelHandler(ui)
+    #handler.ui=ui        
+    formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+    handler.setFormatter(formatter)           
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(formatter)    
+    if (log.hasHandlers()):
+        log.handlers.clear()
     log.addHandler(handler)
-    handler.setFormatter(logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s'))        
+    #my_logger = ToFileLogger("Logging debug")
+
     aDialog=class_File_Dialogs.Dialogs()
     MainWindow.show()
     sys.exit(app.exec_())

@@ -4,8 +4,17 @@ import logging
 import fileinput
 #from types import *
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+
 class Command_Handler:    
     def __init__(self,selected_interface_id,configfilelist=None,Required_actions={'interfaceId','interfaceName'}):            
+        self.__name__="CH"
         self.Set_id(selected_interface_id)
         self.Required_actions=Required_actions
         self.Required_read={}
@@ -28,7 +37,7 @@ class Command_Handler:
             self.Interfacefilename='config/defaultConfig.iccfg'    
             self.Readfilename='config/defaultConfig.rccfg'   
             return True
-        logging.error("No configuration files available!")    
+        log.error("No configuration files available!")    
         return False    
         
 
@@ -61,7 +70,7 @@ class Command_Handler:
         fileok=self.Check_command_config_file_Content(self.filename,self.Required_actions,logcheck=log_check)
         #open file .config
         if fileok==False:
-            logging.error('Configuration File contains Errors! Configuration Will not be loaded!')
+            log.error('Configuration File contains Errors! Configuration Will not be loaded!')
             self.Configdata={}
             self.Configdata_info={}
             self.Configdata_type={}
@@ -94,11 +103,11 @@ class Command_Handler:
                 isok=True
             if newid==self.id and isok==False:
                 self.Set_id(idlist[0])
-                logging.error('None existing Id changed to ', self.id)
+                log.error('None existing Id changed to ', self.id)
                 isok=True
         except Exception as e:
-            logging.error(e)
-            logging.error('Invalid Machine Id!!!!!')
+            log.error(e)
+            log.error('Invalid Machine Id!!!!!')
             isok=False
             pass    
         return isok
@@ -115,8 +124,8 @@ class Command_Handler:
             if newid in idlist:
                 isok=True            
         except Exception as e:
-            logging.error(e)
-            logging.error('Id in data error!!!!!')
+            log.error(e)
+            log.error('Id in data error!!!!!')
             isok=False
             pass    
         return isok
@@ -126,8 +135,8 @@ class Command_Handler:
         try:
             idlist=data['interfaceId']
         except Exception as e:
-            logging.error(e)
-            logging.error('Number interfaces')
+            log.error(e)
+            log.error('Number interfaces')
             idlist=[]
             pass
         sss=0    
@@ -144,9 +153,9 @@ class Command_Handler:
             if idcol!=None:
                 return aclist[idcol]
         except Exception as e:
-            #logging.error(e)   
+            #log.error(e)   
             #print(data,action,interface_id)
-            #logging.error('action format from id')         
+            #log.error('action format from id')         
             pass        
         return None
 
@@ -154,8 +163,8 @@ class Command_Handler:
         try:
             idlist=data['interfaceId']
         except Exception as e:
-            logging.error(e)
-            logging.error('interface column from id')
+            log.error(e)
+            log.error('interface column from id')
             idlist=[]
             pass
         ccc=0
@@ -211,7 +220,7 @@ class Command_Handler:
         data={}
         if filename is not None:            
             if Logopen==True:
-                logging.info('Opening:'+filename)
+                log.info('Opening:'+filename)
             try:                
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
@@ -221,8 +230,8 @@ class Command_Handler:
                 #    print(data)                                           
                 yourFile.close()                
             except Exception as e:
-                logging.error(e)
-                logging.info("Command Configuration File could not be read!")
+                log.error(e)
+                log.info("Command Configuration File could not be read!")
         return data        
     
     def Get_Command_Config_Data_From_List(self,linelist,typeofload=0):
@@ -236,7 +245,7 @@ class Command_Handler:
         typeofload=2 loads type (except interfaceId)
         '''
         for line in linelist:
-            #logging.info(line)          
+            #log.info(line)          
             Nomismatch=self.Check_one_Parenthesees(line,IniP='<',EndP='>')  
             lastchar=''
             actionname=''
@@ -276,8 +285,8 @@ class Command_Handler:
                 lastchar=achar                       
             if actionname!='': 
                 if Nomismatch==False:
-                    logging.info('Parenthesees <> Mismatch in:'+actionname)
-                #logging.info('action:'+actionname)   
+                    log.info('Parenthesees <> Mismatch in:'+actionname)
+                #log.info('action:'+actionname)   
                 #print(lineinfolist)
                 isinfo=False
                 istype=False
@@ -400,8 +409,8 @@ class Command_Handler:
             else:
                 alist.append(line)
         except Exception as e:            
-            logging.error(e)  
-            logging.error('split text')                      
+            log.error(e)  
+            log.error('split text')                      
             alist=[]
             pass
         return alist,count                   
@@ -464,7 +473,7 @@ class Command_Handler:
             txtlist,Nopend=self.Split_text(EndP,aFormat) 
             #print(Nopini,Nopend)
             if Nopini!=Nopend:
-                logging.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
+                log.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
                 #Nopini=0
             #else:    
             #    if Nopini>0:    
@@ -472,8 +481,8 @@ class Command_Handler:
             alist=self.get_list_in_between_txt(txt,Inisep,Endsep)    
             Nopini=len(alist)              
         except Exception as e:            
-            logging.error(e)     
-            logging.error('Inside Parentheses')                        
+            log.error(e)     
+            log.error('Inside Parentheses')                        
             alist=[]
             Nopini=0
             pass            
@@ -575,8 +584,8 @@ class Command_Handler:
                             else:                                
                                 fff=chr(int(valstr))
                     except Exception as e:            
-                        logging.error(e)  
-                        logging.error('format replace actions')
+                        log.error(e)  
+                        log.error('format replace actions')
                         fff=''
                         pass
                     if fff is not None:    
@@ -596,8 +605,8 @@ class Command_Handler:
                                 fff='{'+fff+'}'
                             newFormat=newFormat.replace('{'+var+'}',fff)
         except Exception as e:            
-            logging.error(e)  
-            logging.error('Format Replace actions!')                       
+            log.error(e)  
+            log.error('Format Replace actions!')                       
             newFormat=aFormat
             pass                     
         return newFormat
@@ -613,7 +622,7 @@ class Command_Handler:
             if paramok==True or Parammustok==False:
                 Gcode=self.Get_code(aFormat,Parameters)
         else:
-            logging.error('No action defined as '+action+' in configuration file!')    
+            log.error('No action defined as '+action+' in configuration file!')    
         return Gcode,paramok    
 
     def Get_code(self,aFormat,Parameters):
@@ -665,7 +674,7 @@ class Command_Handler:
                             The_code=The_code.replace('['+minop+']','')                                    
                     The_code=The_code.replace('['+option+']',optstr)            
                 varcode,Numvarleft=self.Format_which_Inside_Parenthesees(The_code,r'\{',r'\}')            
-                #logging.info('Required '+ str(minnumoptions)+' Option parameters, '+str(countnumoptions)+' found!')  
+                #log.info('Required '+ str(minnumoptions)+' Option parameters, '+str(countnumoptions)+' found!')  
                 #self.countnumoptions=countnumoptions      
                 #if Numvarleft>0:            
                 #    The_code=self.Get_code(The_code,Parameters,countnumoptions)
@@ -673,11 +682,11 @@ class Command_Handler:
                             
                 #countnumoptions=self.countnumoptions
             if countnumoptions<minnumoptions:
-                logging.error('Minimum '+ str(minnumoptions)+' Option parameters are Required: '+str(countnumoptions)+' found! '+str(minnumoptions-countnumoptions)+' missing!')        
+                log.error('Minimum '+ str(minnumoptions)+' Option parameters are Required: '+str(countnumoptions)+' found! '+str(minnumoptions-countnumoptions)+' missing!')        
         
         except Exception as e:            
-            logging.error(e)  
-            logging.error('Get Code!')                       
+            log.error(e)  
+            log.error('Get Code!')                       
             #The_code=''
             pass        
         return The_code    
@@ -692,7 +701,7 @@ class Command_Handler:
                     break   
             if isinparams==False:
                 if elog==True:
-                    logging.error('Missing parameter:'+var)
+                    log.error('Missing parameter:'+var)
                 break                                  
         return isinparams
 
@@ -720,7 +729,7 @@ class Command_Handler:
     def Get_Parameters_Needed_for_action(self,action,interface_id):
         Params={}
         if self.Is_action_in_Config(action)==False:
-            logging.error('action missing to get needed Parameters!')
+            log.error('action missing to get needed Parameters!')
             return Params
         aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
         Params=self.Get_Parameters_Needed_for_Format(aFormat) 
@@ -826,7 +835,7 @@ class Command_Handler:
         data={}
         if filename is not None:            
             if logcheck==True:
-                logging.info('Checking configuration in:'+filename)
+                log.info('Checking configuration in:'+filename)
             try:                
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
@@ -834,44 +843,44 @@ class Command_Handler:
                 data=self.Get_Command_Config_Data_From_List(linelist,typeofload=-1)                                                
                 yourFile.close()
             except Exception as e:
-                logging.error(e)
-                logging.info("File"+filename+" could not be Checked!")
+                log.error(e)
+                log.info("File"+filename+" could not be Checked!")
                 pass        
             achk=self.Check_num_actions_in_Data(data)
             if logcheck==True:    
-                logging.info('\t-Minimum Amount Check Passed:'+str(achk))                      
+                log.info('\t-Minimum Amount Check Passed:'+str(achk))                      
             if achk==False:
                 return False      
             
             achk=self.Check_id_in_Data(data,1)
             if logcheck==True:
-                logging.info('\t-Id Check Passed:'+str(achk))    
+                log.info('\t-Id Check Passed:'+str(achk))    
             if achk==False:
                 return False      
             
             
             achk=self.Check_number_Formats_in_Data(data)
             if logcheck==True:
-                logging.info('\t-Amount of Formats Check Passed:'+str(achk))    
+                log.info('\t-Amount of Formats Check Passed:'+str(achk))    
             if achk==False:
                 return False      
             
             
             achk=self.Check_Req_actions_are_in_Data(Reqactions,data)
             if logcheck==True:
-                logging.info('\t-Required actions Check Passed:'+str(achk))    
+                log.info('\t-Required actions Check Passed:'+str(achk))    
             if achk==False:
                 return False                  
 
             achk=self.Check_Parenthesees_in_all_Formats(data)
             if logcheck==True:
-                logging.info('\t-Parenthesees Check Passed:'+str(achk)) 
+                log.info('\t-Parenthesees Check Passed:'+str(achk)) 
             if achk==False and Checkstrickt==True:
                 return False   
 
             return True
                 
-        logging.error('No file to Check')    
+        log.error('No file to Check')    
         return False
 
     def Check_id_in_Data(self,data,min_interfaces=1):                    
@@ -879,19 +888,19 @@ class Command_Handler:
             idlist=data['interfaceId']
             idlistfound=True            
         except Exception as e:
-            #logging.error(e)
-            logging.error("No 'interfaceId' defined in configuration File!")
+            #log.error(e)
+            log.error("No 'interfaceId' defined in configuration File!")
             idlistfound=False            
             pass
         if idlistfound==True:
             Numinter=self.get_number_of_interfaces(data)
             if Numinter<min_interfaces or Numinter==None:
-                logging.error('At least '+str(min_interfaces)+ " interfaces must be defined in 'interfaceId' ")
+                log.error('At least '+str(min_interfaces)+ " interfaces must be defined in 'interfaceId' ")
                 return False  
             compidlist=[]      
             for ids in idlist:
                 if ids in compidlist:
-                    logging.error('Repeated id '+str(ids)+ " in 'interfaceId'. Unique id is required!")
+                    log.error('Repeated id '+str(ids)+ " in 'interfaceId'. Unique id is required!")
                     return False  
                 else:
                     compidlist.append(ids)                         
@@ -900,7 +909,7 @@ class Command_Handler:
     def Check_num_actions_in_Data(self,data):                    
         numactions=self.get_number_of_actions_in_Data(data)
         if numactions<1:
-            logging.error('No actions found in File!')
+            log.error('No actions found in File!')
             return False
         return True    
 
@@ -908,7 +917,7 @@ class Command_Handler:
         allok=True
         for reqa in Reqactions:
             if reqa not in data:
-                logging.error('Missing required action:' + str(reqa))
+                log.error('Missing required action:' + str(reqa))
                 allok=False
         return allok        
    
@@ -920,7 +929,7 @@ class Command_Handler:
                 alist=data[ddd]
                 intfound=len(alist)        
                 if Numinter>intfound:
-                    logging.error('Missing ' +str(Numinter-intfound) +' interface(s) on action: '+ddd)
+                    log.error('Missing ' +str(Numinter-intfound) +' interface(s) on action: '+ddd)
                     allok=False
         return allok            
     def Nums_Parenthesees(self,txt,IniP,EndP):
@@ -940,11 +949,11 @@ class Command_Handler:
             
             if Nopini!=Nopend:
                 if logerr==True:
-                    logging.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
+                    log.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
                 return False
             return True
         except:
-            logging.error('Bad Parenthesees Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
+            log.error('Bad Parenthesees Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
             pass
         return False
     
@@ -992,7 +1001,7 @@ class Command_Handler:
                 return True                    
         else:
             if logerr==True:
-                logging.error('Different amounts of opening and closing Parenthesees')
+                log.error('Different amounts of opening and closing Parenthesees')
             return False
 
         for p1 in p1list:
@@ -1011,15 +1020,15 @@ class Command_Handler:
             for aFor in alist:
                 P1=self.Check_one_Parenthesees(aFor,IniP=r'\[',EndP=r'\]',logerr=False)
                 if P1==False:
-                    logging.error('Parenthesees Mismatch "[ ]" in action: '+ddd+ ' Format <'+ aFor+'>')
+                    log.error('Parenthesees Mismatch "[ ]" in action: '+ddd+ ' Format <'+ aFor+'>')
                     allok=False
                 P2=self.Check_one_Parenthesees(aFor,IniP=r'\(',EndP=r'\)',logerr=False)
                 if P2==False:
-                    logging.error('Parenthesees Mismatch "( )" in action: '+ddd+ ' Format <'+ aFor+'>')
+                    log.error('Parenthesees Mismatch "( )" in action: '+ddd+ ' Format <'+ aFor+'>')
                     allok=False
                 P3=self.Check_one_Parenthesees(aFor,IniP=r'\{',EndP=r'\}',logerr=False)
                 if P3==False:
-                    logging.error('Parenthesees Mismatch "{ }" in action: '+ddd+ ' Format <'+ aFor+'>')
+                    log.error('Parenthesees Mismatch "{ }" in action: '+ddd+ ' Format <'+ aFor+'>')
                     allok=False
         if allok==True:
             for ddd in data:
@@ -1027,7 +1036,7 @@ class Command_Handler:
                 for aFor in alist:
                     Pe=self.Check_entangled_Parenthesees(aFor,logerr=False)            
                     if Pe==False:
-                        logging.error('Parenthesees Entangled {[( }]) in action: '+ddd+ ' Format <'+ aFor+'>')
+                        log.error('Parenthesees Entangled {[( }]) in action: '+ddd+ ' Format <'+ aFor+'>')
                         allok=False
 
         return allok
@@ -1037,20 +1046,20 @@ class Command_Handler:
         aFor=str(aFormat)
         P1=self.Check_one_Parenthesees(aFor,IniP=r'\[',EndP=r'\]',logerr=False)
         if P1==False:
-            logging.error('Parenthesees Mismatch "[ ]" in Format <'+ aFor+'>')
+            log.error('Parenthesees Mismatch "[ ]" in Format <'+ aFor+'>')
             allok=False
         P2=self.Check_one_Parenthesees(aFor,IniP=r'\(',EndP=r'\)',logerr=False)
         if P2==False:
-            logging.error('Parenthesees Mismatch "( )" in Format <'+ aFor+'>')
+            log.error('Parenthesees Mismatch "( )" in Format <'+ aFor+'>')
             allok=False
         P3=self.Check_one_Parenthesees(aFor,IniP=r'\{',EndP=r'\}',logerr=False)
         if P3==False:
-            logging.error('Parenthesees Mismatch "{ }" in Format <'+ aFor+'>')
+            log.error('Parenthesees Mismatch "{ }" in Format <'+ aFor+'>')
             allok=False
         if allok==True:
             Pe=self.Check_entangled_Parenthesees(aFor,logerr=False)            
             if Pe==False:
-                logging.error('Parenthesees Entangled {[( }]) in Format <'+ aFor+'>')
+                log.error('Parenthesees Entangled {[( }]) in Format <'+ aFor+'>')
                 allok=False
 
         return allok
@@ -1060,14 +1069,14 @@ class Command_Handler:
             d1list=data1['interfaceId']
             d2list=data2['interfaceId']
             if len(d1list)!=len(d2list):
-                logging.error('interfaceId with different amount of items!')    
+                log.error('interfaceId with different amount of items!')    
                 return False
             for l1 in d1list:
                 if l1 not in d2list:
-                    logging.error('id '+str(l1) +' Not found in one interfaceId configurations!')    
+                    log.error('id '+str(l1) +' Not found in one interfaceId configurations!')    
                     return False    
         except:
-            logging.error('No interfaceId found!')    
+            log.error('No interfaceId found!')    
             isok=False
             pass
         return isok
@@ -1234,8 +1243,8 @@ class Command_Handler:
                     actionparamsfound.update({action:Params})                    
                 except Exception as e:
                     if logerr==True:
-                        logging.error(e) 
-                        logging.error('Parameters from Gcode!')                     
+                        log.error(e) 
+                        log.error('Parameters from Gcode!')                     
                     pass
         return actionparamsfound        
 
@@ -1295,7 +1304,8 @@ class Command_Handler:
                 return True
             return justin    
         else:
-            return False         
+            return False    
+                 
     def Check_Format(self,aFormat,Parameters={}): 
         '''
         Checks parenthesees and if there is parameters the required parameters
@@ -1337,7 +1347,7 @@ class Command_Handler:
         else:
             isok=self.Check_Format(aFormat)
             if isok==False:
-                logging.error('Bad Format Entangled Parenthesees')
+                log.error('Bad Format Entangled Parenthesees')
                 return All_data
             MainComm=self.Format_Get_main_Command(aFormat)
             newFormat=self.Format_replace_actions(aFormat)
@@ -1445,8 +1455,8 @@ class Command_Handler:
                         success_=success_+1
             except Exception as e:
                 if logerr==True:
-                    logging.error(e) 
-                    logging.error('Read From Format!') 
+                    log.error(e) 
+                    log.error('Read From Format!') 
                 pass
         ParamRead.update({'__success__':success_})  #-1 No regex format, 0 No matches in format, # of matches found          
         return ParamRead
@@ -1463,7 +1473,7 @@ class Command_Handler:
             oldline, newline=self.get_new_line_old_line_for_action(data,anaction,aFormat,anid)
             #print(oldline, newline)
             if Logopen==True:
-                logging.info('Opening:'+filename+'to change a format!')
+                log.info('Opening:'+filename+'to change a format!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
                     if oldline in line:
@@ -1472,8 +1482,8 @@ class Command_Handler:
                 fileinput.close()                 
                 replaced=True
             except Exception as e:
-                logging.error(e)
-                logging.info("Action could not be replaced on File!")
+                log.error(e)
+                log.info("Action could not be replaced on File!")
         if replaced==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
             self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
@@ -1516,15 +1526,15 @@ class Command_Handler:
             # redirects STDOUT to the file in question
             newline=self.get_new_line_for_action(anaction)                
             if Logopen==True:
-                logging.info('Opening:'+filename+' to create empty action!')
+                log.info('Opening:'+filename+' to create empty action!')
             try:     
                 with open(filename, "a") as myfile:
                     myfile.write(newline)  
                 myfile.close()              
                 created=True
             except Exception as e:
-                logging.error(e)
-                logging.info("Action could not be append on File!")
+                log.error(e)
+                log.info("Action could not be append on File!")
                 pass
         if created==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
@@ -1550,7 +1560,7 @@ class Command_Handler:
             oldline, newline=self.get_new_line_old_line_for_action(data,anaction,'',self.id)
             #print(oldline, newline)
             if Logopen==True:
-                logging.info('Opening:'+filename+' to delete action!')
+                log.info('Opening:'+filename+' to delete action!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
                     if oldline not in line:
@@ -1558,8 +1568,8 @@ class Command_Handler:
                 fileinput.close()                 
                 isdel=True
             except Exception as e:
-                logging.error(e)
-                logging.info("Action could not be deleted on File!")
+                log.error(e)
+                log.info("Action could not be deleted on File!")
                 pass
         if isdel==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
             self.Setup_Command_Handler(False) #don't log checking
@@ -1628,7 +1638,7 @@ class Command_Handler:
         #print(filename)            
         if filename is not None:                          
             if Logopen==True:
-                logging.info('Opening:'+filename+'to create an interface!')
+                log.info('Opening:'+filename+'to create an interface!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
                     onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
@@ -1636,7 +1646,7 @@ class Command_Handler:
                         oldline, newline=self.get_new_line_old_line_for_action(data,action,'',self.id,typeofload=-1) #-1-> do not replace _info or _type
                         newline=oldline    
                         if action !='':
-                            #logging.info(action+'->'+newline)                                  
+                            #log.info(action+'->'+newline)                                  
                             if 'interfaceId' == action: 
                                 newline=newline+'_<'+str(anid)+'>'
                             elif 'interfaceName' == action:
@@ -1654,8 +1664,8 @@ class Command_Handler:
                 fileinput.close()                 
                 createdint=True
             except Exception as e:
-                logging.error(e)
-                logging.info("Interface could not be created on File!")
+                log.error(e)
+                log.info("Interface could not be created on File!")
         #only refresh if the 3 files have the new interface        
         if dorefresh==True:
             if createdint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
@@ -1671,7 +1681,7 @@ class Command_Handler:
                     
         if filename is not None:                          
             if Logopen==True:
-                logging.info('Opening:'+filename+'to delete an interface!')
+                log.info('Opening:'+filename+'to delete an interface!')
             try:     
                 for line in fileinput.input(filename, inplace = 1): 
                     onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
@@ -1685,8 +1695,8 @@ class Command_Handler:
                 fileinput.close()                 
                 deletedint=True
             except Exception as e:
-                logging.error(e)
-                logging.info("Interface could not be created on File!")
+                log.error(e)
+                log.info("Interface could not be created on File!")
         #only refresh if the 3 files have the new interface        
         if dorefresh==True:
             if deletedint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
@@ -1704,8 +1714,8 @@ class Command_Handler:
             info=str(self.getGformatforActiondataid(data,action,anid))
             
         except Exception as e:
-            #logging.error(e)
-            #logging.error('get info type id')
+            #log.error(e)
+            #log.error('get info type id')
             info=''
             pass
         #print('before:',info)

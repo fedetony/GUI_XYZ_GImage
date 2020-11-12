@@ -6,16 +6,24 @@ import re
 import logging
 import time
 from common import *
+import datetime
 
-logging.basicConfig(level=logging.INFO,
-                    format='[%(levelname)s] (%(threadName)-10s) %(message)s')
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+
 class XYZ_Update(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,label_Stateact,button_hold_start_1,frame_hold_stop,button_stop_1):
+    def __init__(self,xyz_thread,killer_event,label_XactPos,label_YactPos,label_ZactPos,label_Stateact,button_hold_start_1,frame_hold_stop,button_stop_1,label_time):
         threading.Thread.__init__(self, name="XYZ Update")
-        logging.info("XYZ Update Started")
+        log.info("XYZ Update Started")
         self.xyz_thread=xyz_thread        
         self.cycle_time=self.xyz_thread.ser_read_thread.cycle_time
         self.CH=self.xyz_thread.ser_read_thread.CH
+        self.label_time=label_time
         self.label_XactPos=label_XactPos
         self.label_YactPos=label_YactPos
         self.label_ZactPos=label_ZactPos
@@ -26,10 +34,45 @@ class XYZ_Update(threading.Thread):
         self.frame_hold_stop=frame_hold_stop
         self.state_xyz=0
         self.oldstate_xyz=0
+        self.TimerON=False
+        self.Lasttimertxt=''
 
+    def Clear_Timer(self):
+        self.Set_timer_start()
+        timetxt=self.elapsed_time(self.Start_Time,False)
+        self.label_time.setText(timetxt)
+        self.Lasttimertxt=timetxt
+
+    def Start_Timer(self):
+        self.Clear_Timer()
+        self.TimerON=True
+    
+    def Stop_Timer(self):
+        self.TimerON=False
+
+    def Set_timer_start(self):
+        now = datetime.datetime.now()
+        self.Start_Time=now 
+    
+    def Show_elapsed_Time(self):
+        if self.TimerON==True:
+            timetxt=self.elapsed_time(self.Start_Time,False)
+            self.label_time.setText(timetxt)
+            self.Lasttimertxt=timetxt
+        else:
+            self.label_time.setText(self.Lasttimertxt)    
+
+    def elapsed_time(self,tstart,dolog=False): 
+        now = datetime.datetime.now()
+        timepassed=now-tstart    
+        txttime=str(datetime.timedelta(seconds=timepassed.seconds))    
+        if dolog==True:
+            log.info('Time elapsed: '+ txttime)    
+        return txttime
 
     def run(self):                
         count=0
+        timer_count=0
         while not self.killer_event.wait(self.cycle_time):   
             try:
                 self.data = self.xyz_thread.read()
@@ -39,14 +82,19 @@ class XYZ_Update(threading.Thread):
                 self.Set_Actual_State_Value(self.state_xyz,self.Status)
                 self.Enable_Disable_Hold_Start()
                 #time.sleep(self.cycle_time)
+                if self.TimerON==True:
+                    timer_count=timer_count+self.cycle_time
+                if timer_count>=1: #Update value once per second
+                    self.Show_elapsed_Time()
+                    timer_count=0
             except:
                 if count==0:
-                    logging.info("XYZ Update can't get data to update")                         
+                    log.info("XYZ Update can't get data to update")                         
                 else:
                    count=count+1
                 if count>=2000:
                     count=0        
-        logging.info("XYZ Update killed")          
+        log.info("XYZ Update killed")          
 
     def read(self):
         return self.data

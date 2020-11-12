@@ -6,12 +6,21 @@ import io #TextIOWrapper
 import logging
 import GuiXYZ_LSTD
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+
 class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
     set_clicked= QtCore.pyqtSignal(list)
     #def __init__(self,NumLayers,Selected_Layers,parent=None):    
     #    super().__init__(parent)
-    def __init__(self,NumLayers,Selected_Layers, *args, **kwargs):
+    def __init__(self,NumLayers,Selected_Layers, *args, **kwargs):        
         super(LayerSelectionToolDialog, self).__init__(*args, **kwargs)    
+        self.__name__="LSTD"
         self.Number_of_Layers=NumLayers
         if self.Number_of_Layers<1:
             self.Number_of_Layers=1
@@ -49,8 +58,8 @@ class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
                
 
             except Exception as e:
-                logging.error(e)
-                logging.info("Label Error!"+Lname)
+                log.error(e)
+                log.info("Label Error!"+Lname)
                 pass    
 
 
@@ -62,8 +71,8 @@ class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
                 checkbox = self.Dialog_LSTD.findChild(QtWidgets.QCheckBox, CBname)                  
                 checkbox.setChecked(val)
             except Exception as e:
-                logging.error(e)
-                logging.info("Check Box Error!"+CBname)
+                log.error(e)
+                log.info("Check Box Error!"+CBname)
                 pass    
     
     def Get_Selected_Layers_From_checkbox(self):
@@ -78,8 +87,8 @@ class LayerSelectionToolDialog(QWidget,GuiXYZ_LSTD.Ui_Dialog_LSTD):
                     S_L.append(iii)
                     sss=sss+1
             except Exception as e:
-                logging.error(e)
-                logging.info("Check Box Error!"+CBname)
+                log.error(e)
+                log.info("Check Box Error!"+CBname)
                 pass    
         if sss==self.Number_of_Layers:
             S_L=[-1]    

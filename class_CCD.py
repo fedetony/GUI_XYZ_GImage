@@ -11,6 +11,13 @@ import os
 import shutil
 import sys
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
 
 class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     set_clicked= QtCore.pyqtSignal(list)
@@ -20,6 +27,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     #    super().__init__(parent)
     def __init__(self,selected_interface_id, *args, **kwargs):                
         super(CommandConfigurationDialog, self).__init__(*args, **kwargs)  
+        self.__name__="CCD"
         self.aDialog=class_File_Dialogs.Dialogs()     
         self.id=selected_interface_id #equivalent to is_tinyg
         self.Is_Dialog_Open=False   
@@ -114,12 +122,12 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         action=self.DCCui.lineEdit_CCD_action.text()
         if action == '':
             msgtxt="No action to Delete!"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testResult.setText(msgtxt)
             return
         if action == 'interfaceId' or 'interfaceId' in action:
             msgtxt=="Can't change this action"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testResult.setText(msgtxt)
             return
         allactions=self.CH.getListofActions(['interfaceId'])
@@ -134,7 +142,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             for jjj in range(len(formatlist)):
                 if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
                     msgtxt="Can't delete this action. Formats in other ids!"
-                    logging.error(msgtxt)
+                    log.error(msgtxt)
                     self.DCCui.label_CCD_testResult.setText(msgtxt)
                     delonlyFormat=True
                     break       
@@ -144,7 +152,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             for reqa in reqactions:
                 if action is reqa:
                     msgtxt="Can't delete this action, is a Required action!"
-                    logging.error(msgtxt)
+                    log.error(msgtxt)
                     self.DCCui.label_CCD_testResult.setText(msgtxt)                    
                     delonlyFormat=True
                     break
@@ -159,7 +167,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             if result == QtWidgets.QMessageBox.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.filename,action,'',self.id,self.CH.Configdata) 
                 msgtxt=msgtxt="action:  "+action+" Format cleared!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testResult.setText(msgtxt)   
         #delete the action       
         if knownaction==True and delonlyFormat==False:             
@@ -174,24 +182,24 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 self.Delete_action_in_ConfigFile(self.CH.filename,action+'_type',self.CH.Configdata_type) 
                 self.Delete_action_in_ConfigFile(self.CH.filename,action,self.CH.Configdata)                 
                 msgtxt=action+" Deleted!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testResult.setText(msgtxt)   
     
     def PB_CCD_IntactionDel(self):
         action=self.DCCui.lineEdit_CCD_Intaction.text()
         if action == '':
             msgtxt="No action to Delete!"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testIntResult.setText(msgtxt)
             return
         if action == 'interfaceId' or 'interfaceId' in action:
             msgtxt=="Can't change this action"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testIntResult.setText(msgtxt)
             return
         if '_type' in action:    
             msgtxt=="Can't delete types of an Interface action. Use + to replace them."
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testIntResult.setText(msgtxt)
             return
         allactions=self.CH.getListofInterfaceactions(['interfaceId'])
@@ -207,7 +215,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             for jjj in range(len(formatlist)):
                 if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
                     msgtxt="Can't delete this action. Formats in other ids!"
-                    logging.error(msgtxt)
+                    log.error(msgtxt)
                     self.DCCui.label_CCD_testIntResult.setText(msgtxt)
                     delonlyFormat=True
                     break       
@@ -216,7 +224,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             reqtypelist,isreq=self.get_list_Genint_required_types(action)            
             if isreq==True:
                 msgtxt="Can't delete this action, is a Required action!"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)                    
                 delonlyFormat=True
                     
@@ -231,7 +239,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             if result == QtWidgets.QMessageBox.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,'',self.id,self.CH.InterfaceConfigallids) 
                 msgtxt=msgtxt="action:  "+action+" Format cleared!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)   
         #delete the action       
         if knownaction==True and delonlyFormat==False:             
@@ -246,19 +254,19 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 self.Delete_action_in_ConfigFile(self.CH.Interfacefilename,action+'_type',self.CH.InterfaceConfigallids_type) 
                 self.Delete_action_in_ConfigFile(self.CH.Interfacefilename,action,self.CH.InterfaceConfigallids)                 
                 msgtxt=action+" Deleted!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)   
 
     def PB_CCD_readactionDel(self):
         action=self.DCCui.lineEdit_CCD_readaction.text()
         if action == '':
             msgtxt="No Read action to Delete!"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testreadResult.setText(msgtxt)
             return 
         if action == 'interfaceId' or 'interfaceId' in action:
             msgtxt=="Can't change this Read action"
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testreadResult.setText(msgtxt)
             return
         allactions=self.CH.getListofReadactions(['interfaceId'])
@@ -273,7 +281,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             for jjj in range(len(formatlist)):
                 if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
                     msgtxt="Can't delete this Read action. Formats exist in other ids!"
-                    logging.error(msgtxt)
+                    log.error(msgtxt)
                     self.DCCui.label_CCD_testreadResult.setText(msgtxt)
                     delonlyFormat=True
                     break       
@@ -283,7 +291,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             for reqa in reqactions:
                 if action is reqa:
                     msgtxt="Can't delete this Read action, is a Required Read action!"
-                    logging.error(msgtxt)
+                    log.error(msgtxt)
                     self.DCCui.label_CCD_testreadResult.setText(msgtxt)                    
                     delonlyFormat=True
                     break
@@ -298,7 +306,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             if result == QtWidgets.QMessageBox.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.Readfilename,action,'',self.id,self.CH.ReadConfigallids) 
                 msgtxt=msgtxt="Read action:  "+action+" Format cleared!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testreadResult.setText(msgtxt)   
         #delete only the action       
         if knownaction==True and delonlyFormat==False:             
@@ -313,7 +321,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 self.Delete_action_in_ConfigFile(self.CH.Readfilename,action+'_type',self.CH.ReadConfigallids_type) 
                 self.Delete_action_in_ConfigFile(self.CH.Readfilename,action,self.CH.ReadConfigallids)                 
                 msgtxt=action+" Deleted!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testreadResult.setText(msgtxt)   
     
     def Create_new_id(self):                
@@ -364,7 +372,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.CH.create_new_interface_in_file(self.CH.Interfacefilename,anid,InterfaceConfigallids_all,True,Logopen=False,newname=aname,cloneid=self.id)
             
             self.Fill_interface_combobox()
-            logging.info("Succesfully Added Cloned Interface!")
+            log.info("Succesfully Added Cloned Interface!")
         elif result == 1: #QtWidgets.QMessageBox.YesRole:    
             aname='New'
             
@@ -382,7 +390,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.CH.create_new_interface_in_file(self.CH.Interfacefilename,anid,InterfaceConfigallids_all,True,Logopen=False,newname=aname,cloneid=None)
             
             self.Fill_interface_combobox()
-            logging.info("Succesfully Added Empty Interface!")
+            log.info("Succesfully Added Empty Interface!")
     
     def PB_Del_Interface(self):        
         anid=self.CH.id
@@ -390,7 +398,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         numinterfaces=self.CH.Num_interfaces
         if numinterfaces<=1:
             amsg="Can't delete the interface at least one interface must be present in the configuration files!"
-            logging.error(amsg)            
+            log.error(amsg)            
             msgbox = QtWidgets.QMessageBox()
             msgbox.setWindowTitle('Delete Interface ...')
             msgbox.setIcon(QtWidgets.QMessageBox.Critical)
@@ -423,7 +431,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.id=newid
             self.Force_CH_refresh_info_From_file(False)
             self.Fill_interface_combobox()
-            logging.info('Interface ID:'+str(anid)+ ' has been deleted!')
+            log.info('Interface ID:'+str(anid)+ ' has been deleted!')
             return True
         else:            
             msgbox = QtWidgets.QMessageBox()
@@ -439,14 +447,14 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             action=self.Selected_action_dict['action']
             if action == '':
                 msgtxt="No action to Add!"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testResult.setText(msgtxt)                
                 return
             newFormat=self.Selected_action_dict['Format']
             #print(action,newFormat)
             if action == 'interfaceId' or 'interfaceId' in action:
                 msgtxt="Can't change this action"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testResult.setText(msgtxt)                
                 return
 
@@ -464,12 +472,12 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 if result == QtWidgets.QMessageBox.Yes:
                     self.Replace_Format_in_ConfigFile(self.CH.filename,action,newFormat,self.id,dataset)
                     msgtxt="action:  "+action+" Format replaced for "+newFormat+" "
-                    logging.info(msgtxt)
+                    log.info(msgtxt)
                     self.DCCui.label_CCD_testResult.setText(msgtxt)      
             else:
                 self.Add_New_action_in_ConfigFile(self.CH.filename,action,newFormat,self.id,dataset)
                 msgtxt="Action "+action+" Added!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testResult.setText(msgtxt)
             if action=='interfaceName':
                 self.Fill_interface_combobox()    
@@ -480,14 +488,14 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             action=self.Selected_read_dict['action']
             if action == '':
                 msgtxt="No Read action to Add!"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testreadResult.setText(msgtxt)                
                 return
             newFormat=self.Selected_read_dict['Format']
             #print(action,newFormat)
             if action == 'interfaceId' or 'interfaceId' in action:
                 msgtxt="Can't change this Read action"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testreadResult.setText(msgtxt)                
                 return            
                                                 
@@ -505,13 +513,13 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 if result == QtWidgets.QMessageBox.Yes:
                     self.Replace_Format_in_ConfigFile(self.CH.Readfilename,action,newFormat,self.id,dataset)
                     msgtxt="action:  "+action+" Format replaced for "+newFormat+" "
-                    logging.info(msgtxt)
+                    log.info(msgtxt)
                     self.DCCui.label_CCD_testreadResult.setText(msgtxt)      
             else:
                 #print('here ok?')
                 self.Add_New_action_in_ConfigFile(self.CH.Readfilename,action,newFormat,self.id,dataset)
                 msgtxt="Read action "+action+" Added!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testreadResult.setText(msgtxt)            
     def PB_CCD_IntactionTest(self):
         self.Do_Test_Int()
@@ -522,14 +530,14 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             action=self.Selected_Int_dict['action']
             if action == '':
                 msgtxt="No Read action to Add!"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)                
                 return            
             newFormat=self.Selected_Int_dict['Format']
             #print(action,newFormat)
             if action == 'interfaceId' or 'interfaceId' in action:
                 msgtxt="Can't change this general action"
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)                
                 return            
                                                 
@@ -552,7 +560,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                         #print('Replaced type',newType)
                     self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,newFormat,self.id,dataset)                    
                     msgtxt="General action:  "+action+" Format replaced for "+newFormat+" "
-                    logging.info(msgtxt)
+                    log.info(msgtxt)
                     self.DCCui.label_CCD_testIntResult.setText(msgtxt)      
             else:
                 #print('here ok?')                
@@ -568,7 +576,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                             self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action+'_type','*('+str(self.id)+')',iii,self.CH.InterfaceConfigallids_type)
 
                 msgtxt="General action "+action+" Added! For all Interfaces!"
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testIntResult.setText(msgtxt)            
 
 
@@ -619,13 +627,13 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         # if unknown action don't allow to set info     
         if knownaction==False and isinfo==True:                                
             msgtxt="Can't add info without an action! Add first:"+action.replace('_info','')
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testResult.setText(msgtxt)   
             return -1,knownaction,isinfo,istype,dataset
         # if unknown action don't allow to set type                  
         if knownaction==False and istype==True:                   
             msgtxt="Can't add a type without an action! Add first:"+action.replace('_type','')
-            logging.error(msgtxt)
+            log.error(msgtxt)
             self.DCCui.label_CCD_testResult.setText(msgtxt)                
             return -1,knownaction,isinfo,istype,dataset         
         #check if info or type are in file
@@ -698,7 +706,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
         issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename)         
         if issame1 or issame2 or issame3:            
-            logging.error("Can't overwrite files in use!")
+            log.error("Can't overwrite files in use!")
         if issame3==False and issame2==False and issame1==False:
             desfn=self.extract_filename(filename,False)            
             desfn1=desfn+'.cccfg'
@@ -735,7 +743,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
         issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename) 
         if issame1 or issame2 or issame3:            
-            logging.info('Files already loaded!')
+            log.info('Files already loaded!')
         if issame3==False and issame2==False and issame1==False:
             desconfig=self.extract_filename(filename,False)
             desp=self.extract_path(filename)
@@ -753,7 +761,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 self.CH.Setup_Command_Handler(log_check=True)                
                 #print('Loaded')            
                 if self.CH.Num_interfaces==0:
-                    logging.error('Errors in File,'+ccname+'\nReverting to actual Configuration file!')
+                    log.error('Errors in File,'+ccname+'\nReverting to actual Configuration file!')
                     self.CH.filename = actualcc
                     self.CH.Setup_Command_Handler(log_check=True)    
                 else:    
@@ -761,9 +769,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     self.CH.Set_Interfacefilename(icname) 
                     isokrc,isokic=self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},True)                  
                     if isokrc==False:
-                        logging.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')
+                        log.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')
                     if isokic==False:
-                        logging.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')    
+                        log.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')    
                     if isokrc==False or isokic==False:
                         self.CH.Set_Readfilename(actualrc)
                         self.CH.Set_Interfacefilename(actualic) 
@@ -775,7 +783,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 self.Refresh_after_config_File_change()
                 
             else:
-                logging.info('Not all Files present! .cccfg .rccfg and .iccfg shall be in the same path!')    
+                log.info('Not all Files present! .cccfg .rccfg and .iccfg shall be in the same path!')    
 
             
 
@@ -878,7 +886,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 #print(ccc,'-->',ainfo)
                 self.DCCui.tableWidget_CCD.setItem(iii,2, QTableWidgetItem(ainfo))
             except: # Exception as e:
-                #logging.error(e) 
+                #log.error(e) 
                 self.DCCui.tableWidget_CCD.setItem(iii,2, QTableWidgetItem(''))
                 pass    
             try:
@@ -1071,18 +1079,65 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     isok=False
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None   
                 isok=False                
                 pass        
-                
+        elif atype=='list':   
+            try:         
+                aFormat=str(aFormat)                                
+                txtlist,Num=self.CH.Split_text(',',aFormat)
+                if Num>0:
+                    val=txtlist
+                    isok=True
+                elif Num==0 and aFormat!='':
+                    val=[aFormat]
+                    isok=True
+                else:
+                    val=[]
+                    isok=False
+            except Exception as e:
+                if showlog==True:
+                    log.error(e)     
+                val=None 
+                isok=False                   
+                pass  
+        elif atype=='dict':   
+            try:         
+                aFormat=str(aFormat)                                
+                txtlist,Num=self.CH.Split_text(',',aFormat)                
+                val={}
+                if Num>0:
+                    for item in txtlist:
+                        varpar,Numvp=self.CH.Split_text(':',item)                
+                        if Numvp==0 or Numvp==1:
+                            val.update({item:''})
+                        if Numvp==2:
+                            val.update({varpar(0):varpar(1)})    
+                        else:
+                            isok=False                            
+                            break
+                if Num==0:                    
+                    varpar,Numvp=self.CH.Split_text(':',aFormat)                
+                    if Numvp==0 or Numvp==1:
+                        val.update({aFormat:''})
+                    if Numvp==2:
+                        val.update({varpar(0):varpar(1)})    
+                    else:
+                        isok=False                                                    
+            except Exception as e:
+                if showlog==True:
+                    log.error(e)     
+                val=None 
+                isok=False                   
+                pass                                              
         elif atype=='str' or atype=='string':
             try:
                 val=str(aFormat)
                 isok=True
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None 
                 isok=False                   
                 pass                    
@@ -1092,7 +1147,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 isok=True    
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None
                 isok=False    
                 pass
@@ -1102,7 +1157,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 isok=True    
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None
                 isok=False    
                 pass    
@@ -1112,7 +1167,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 isok=True    
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None
                 isok=False    
                 pass    
@@ -1122,7 +1177,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 isok=True    
             except Exception as e:
                 if showlog==True:
-                    logging.error(e)     
+                    log.error(e)     
                 val=None
                 isok=False    
                 pass     
@@ -1138,7 +1193,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         if showlog==True:
             if isok == False:
                 msgtxt="Bad format of type "+atype
-                logging.error(msgtxt)
+                log.error(msgtxt)
                 self.DCCui.label_CCD_testIntResultFormat.setText(msgtxt)
             else:
                 try:
@@ -1146,7 +1201,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 except:
                     msgtxt="Format of type "+atype+" accepted"
                     pass
-                logging.info(msgtxt)
+                log.info(msgtxt)
                 self.DCCui.label_CCD_testIntResultFormat.setText(msgtxt)    
         return isok,val    
     
@@ -1339,7 +1394,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 if nummatch==0:
                     self.DCCui.label_CCD_testreadResult.setText("No matches found!")
                 if nummatch>0:
-                    #logging.info('Test found '+str(nummatch)+' match(es)')
+                    #log.info('Test found '+str(nummatch)+' match(es)')
                     self.DCCui.label_CCD_testreadResult.setText('Test found '+str(nummatch)+' match(es)!')
                     Table_NumRows=nummatch
                     self.DCCui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
@@ -1369,8 +1424,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                         
                     self.DCCui.tableWidget_CCD_readactionParam.resizeColumnsToContents()
             except Exception as e:
-                #logging.error(e) 
-                #logging.info('Test found no matches!')
+                #log.error(e) 
+                #log.info('Test found no matches!')
                 self.DCCui.label_CCD_testreadResult.setText("No matches found!")
                 pass
 
@@ -1439,7 +1494,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             iniread_done=False
             allread={}
             self.Selected_read_dict.update({'AlltestRead':allread})
-            logging.info('---------------All read actions Test---------------')
+            log.info('---------------All read actions Test---------------')
             iniindex=None
             txtlog=''
             for iii in self.CH.Read_Config:
@@ -1463,7 +1518,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                         read=self.Selected_read_dict['testRead']
                         action=self.Selected_read_dict['action']                    
                         evformat=self.Selected_read_dict['Format']                                        
-                        logging.info(action+'-->'+read)
+                        log.info(action+'-->'+read)
                         txtlog=txtlog+action+'-->'+read+'\n'
                         allread.update({index:{action,read,evformat}})                        
                     except:

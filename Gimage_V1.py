@@ -17,8 +17,13 @@ import serial
 
 import thread_Vectorize
 
-logging.basicConfig(level=logging.INFO,
-                    format='[%(levelname)s] (%(threadName)-10s) %(message)s')
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
 
 @dataclass
 class Struct_Process_Data:
@@ -68,6 +73,7 @@ class Struct_Stream_Data:
 
 class GImage:
     def __init__(self):
+        self.__name__="GImage"
         self.filename=''        
         self.prnt_height=0 # mm
         self.prnt_width=0  # mm
@@ -84,7 +90,7 @@ class GImage:
     def open_image(self,imagefilename):
         self.imagefilename=imagefilename
         try:
-            #logging.info('Trying to Open:'+self.filename)
+            #log.info('Trying to Open:'+self.filename)
             self.im = Image.open(imagefilename) # load an image from the hard drive
             self.im_width=self.im.width
             self.im_height=self.im.height   
@@ -132,7 +138,7 @@ class GImage:
             self.Create_Processed_Image(Process_Data)
             self.Crop_Image_to_Canvas_Size(Process_Data)
             self.appply_process_to_imp(Process_Data)
-            logging.info('Image Process Applied')
+            log.info('Image Process Applied')
             #print(str(self.IsProcessedimagetoprint))
             #Show image
 
@@ -141,7 +147,7 @@ class GImage:
         if self.Isimagetoprint==True:
             self.im.show() # load an image from the hard drive    
         else:
-            logging.info("NO IMAGE")      
+            log.info("NO IMAGE")      
     
     def Create_Processed_Image(self,P_Data):
         if self.Isimagetoprint==True:
@@ -186,7 +192,7 @@ class GImage:
             Selected_Layers=self.Get_list_of_Selected_Layers(P_Data.Selected_Layers,pimg_val_range,P_Data.PImg_Include)
             self.Retain_Selected_Layers(Selected_Layers)
                         
-            logging.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
+            log.info('Created '+ P_Data.Process + ' Processed Image of size -->'+str(self.imp.size)+' Pixels')    
     
     def get_Color_Pallete_imp(self,Number_of_Colors):
         ColorList=self.imp.getcolors(Number_of_Colors)    # (count, pixel) values  
@@ -596,7 +602,7 @@ class GImage:
             if Cinfo!=None:            
                 self.Image_Config_Data[ConfVar+'_Info']=Cinfo           
         except:
-            logging.error('Not possible to change:'+ConfVar)
+            log.error('Not possible to change:'+ConfVar)
             pass
     
     def Get_List_of_Image_Config_Names(self):
@@ -711,10 +717,10 @@ class GImage:
             I_Wd=self.Default_Image_Config_Data['Img_Width']
             if I_Hd!=I_H and I_Wd==I_W and pH!=0:
                 I_W=I_H*pW/pH
-                #logging.info('Here 1')
+                #log.info('Here 1')
             elif I_Hd==I_H and I_Wd!=I_W and pW!=0:     
                 I_H=I_W*pH/pW
-                #logging.info('Here 2')
+                #log.info('Here 2')
             else:    
                 if I_H>I_W and pW!=0:
                     I_H=I_W*pH/pW
@@ -725,7 +731,7 @@ class GImage:
             self.Image_Config_Data['Img_Height']=I_H    
             self.Image_Config_Data['Img_Width']=I_W    
             if I_Ho!=I_H or I_Wo!=I_W:
-                logging.info('Image Config Size Changed: Img_Width='+str(I_W)+' Img_Height='+str(I_H))            
+                log.info('Image Config Size Changed: Img_Width='+str(I_W)+' Img_Height='+str(I_H))            
 
 
     def Get_Variable_from_Image_Config_Data(self,Variable):
@@ -767,8 +773,8 @@ class GImage:
                                     #print("Inside vector->"+str(item))
                                     alist.append(float(item))                    
                         except Exception as e:
-                            logging.error('Bad float vector format in '+ Variable)
-                            logging.error(e)                        
+                            log.error('Bad float vector format in '+ Variable)
+                            log.error(e)                        
                             alist=[]
                             pass
                         return alist                
@@ -786,15 +792,15 @@ class GImage:
                                     #print("Inside vector->"+str(item))
                                     alist.append(int(item))                       
                         except Exception as e:
-                            logging.error('Bad int vector format in '+ Variable)
-                            logging.error(e)                        
+                            log.error('Bad int vector format in '+ Variable)
+                            log.error(e)                        
                             alist=[]
                             pass
                         return alist    
                     #Other formats return string                
                     return str(self.Image_Config_Data[Variable])
                 except:
-                    logging.error('Bad format in '+Variable)
+                    log.error('Bad format in '+Variable)
                     return None
         else:
             return None
@@ -901,7 +907,7 @@ class Image_Gcode_Stream(threading.Thread):
     #def __init__(self,xyz_thread,killer_event,holding_event,stoping_event):        
     def __init__(self,killer_event,plaintextEdit_GcodeScript):        
         threading.Thread.__init__(self, name="Image Gcode Stream")
-        logging.info("Image Gcode Stream Started")
+        log.info("Image Gcode Stream Started")
         self.plaintextEdit_GcodeScript=plaintextEdit_GcodeScript        
         #self.xyz_thread=xyz_thread
         self.killer_event=killer_event
@@ -952,13 +958,13 @@ class Image_Gcode_Stream(threading.Thread):
                         self.Stop_Clear()
                     if self.holding_event.is_set()==False:                    
                         try:
-                            #logging.info("Run entered 7")
+                            #log.info("Run entered 7")
                             line2stream= self.text_queue.get_nowait()
                             self.stream_one_line(line2stream)          
                             self.data = self.xyz_thread.read()                
                             self.get_state()
                             if self.state_xyz==11: # error
-                                logging.info("Error in Gcode detected! (" + str(line2stream)+') ' )
+                                log.info("Error in Gcode detected! (" + str(line2stream)+') ' )
                                 self.Stop_Clear()
                             self.wait_until_finished(20000)    
                         except queue.Empty:                    
@@ -967,18 +973,18 @@ class Image_Gcode_Stream(threading.Thread):
                     
                 except:
                     if count==0:
-                        logging.info("Image Gcode Stream can't get data to update")                         
+                        log.info("Image Gcode Stream can't get data to update")                         
                     else:
                         count=count+1
                     if count>=2000:
                         count=0        
-        logging.info("Image Gcode Stream killed")          
+        log.info("Image Gcode Stream killed")          
     
     def Stop_Clear(self):
         if self.istext2stream==True:
             self.text_queue.empty()
             self.istext2stream=False
-            logging.info("Image Gcode Stream Stopped!")
+            log.info("Image Gcode Stream Stopped!")
         self.stoping_event.clear()
 
     def read(self):
@@ -1032,7 +1038,7 @@ class Image_Gcode_Stream(threading.Thread):
             TCinfo['List_Selected_Layers']=self.Get_list_of_Selected_Layers(Gimage_Data.Selected_Layers,pimg_val_range)
             TCinfo=self.Check_TCinfo(TCinfo,pimg_val_range)
             
-            logging.info(self.Technique +' Process Started')             
+            log.info(self.Technique +' Process Started')             
             self.Gimage_Code='' 
             #print('Ini script-> '+Gimage_Data.Ini_Script)            
             self.print_length=0
@@ -1057,15 +1063,15 @@ class Image_Gcode_Stream(threading.Thread):
                 self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Vectorize(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)               
             if Gimage_Data.End_Script is not '':             
                 self.Gimage_Code=self.Gimage_Code+Gimage_Data.End_Script.replace('\\n','\n')
-            logging.info(self.Technique+' Process Finished')   
+            log.info(self.Technique+' Process Finished')   
                
-            logging.info('Layer Lengths =')
+            log.info('Layer Lengths =')
             ooo=1
             for aLlength in self.print_Layer_length:
-                logging.info('Layer '+str(ooo)+' '+str(round(aLlength/1000,3))+' [m]')
+                log.info('Layer '+str(ooo)+' '+str(round(aLlength/1000,3))+' [m]')
                 ooo=ooo+1
-            logging.info('Total Drawing Length ='+str(round(self.print_length/1000,3))+' [m]')
-            logging.info('Total Movement Length ='+str(round(self.movement_length))+' [m]')
+            log.info('Total Drawing Length ='+str(round(self.print_length/1000,3))+' [m]')
+            log.info('Total Movement Length ='+str(round(self.movement_length))+' [m]')
             
         return self.Gimage_Code    
 
@@ -1212,9 +1218,9 @@ class Image_Gcode_Stream(threading.Thread):
             self.print_Layer_length.append(self.print_length)                  
         else:                
             self.print_Layer_length.append(self.print_length-self.print_Layer_length[ppp-1])    
-        logging.info('Layer '+str(aaa)+' Length ='+str(int(self.print_Layer_length[ppp]))+' [mm]')    
-        logging.info('Drawing Length ='+str(int(self.print_length)/1000)+' [m] at Layer '+str(aaa))
-        logging.info('Movement Length ='+str(int(self.movement_length))+' [m] at Layer '+str(aaa))
+        log.info('Layer '+str(aaa)+' Length ='+str(int(self.print_Layer_length[ppp]))+' [mm]')    
+        log.info('Drawing Length ='+str(int(self.print_length)/1000)+' [m] at Layer '+str(aaa))
+        log.info('Movement Length ='+str(int(self.movement_length))+' [m] at Layer '+str(aaa))
 
     def Write_Gimage_Process_Code_Accumulative(self,Lcode,aaa,is_up,pimg_val_range,xxx,yyy,Zinfo):
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo                
@@ -1445,7 +1451,7 @@ class Image_Gcode_Stream(threading.Thread):
         imageRGBA = im.convert('RGBA')        
         Vectorize=thread_Vectorize.Vectorization(imageRGBA,self.killer_event,self.plaintextEdit_GcodeScript,Pbar)
         Vectorize.start()        
-        logging.info('Vectorization Thread Started! :)')      
+        log.info('Vectorization Thread Started! :)')      
         color_joined_pieces = Vectorize.Get_color_joined_pieces_from_rgba_image(imageRGBA, opaque, keep_every_point)
         svg=Vectorize.write_color_joined_pieces_to_svg_contiguous(im,color_joined_pieces)   
         try:  
@@ -1455,7 +1461,7 @@ class Image_Gcode_Stream(threading.Thread):
         except:
             pass    
         Vectorize.join()
-        logging.info('Vectorization Thread Finished! :)')      
+        log.info('Vectorization Thread Finished! :)')      
         return color_joined_pieces
     
     def Set_Progress_Percentage(self,P_Bar_Update_Gimage,sss,Numsss,Perini=0,Perend=100):

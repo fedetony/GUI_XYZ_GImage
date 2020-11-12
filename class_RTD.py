@@ -17,12 +17,21 @@ import logging
 
 import GuiXYZ_RTD 
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+ahandler=logging.StreamHandler()
+ahandler.setLevel(logging.INFO)
+ahandler.setFormatter(formatter)
+log.addHandler(ahandler)
+
 class ResizeToolDialog(QWidget,GuiXYZ_RTD.Ui_Dialog_RTD):
     set_clicked= QtCore.pyqtSignal(list)
     #def __init__(self,NumLayers,Selected_Layers,parent=None):    
     #    super().__init__(parent)
     def __init__(self,Resize_Data_List, *args, **kwargs):
         super(ResizeToolDialog, self).__init__(*args, **kwargs)    
+        self.__name__="RTD"
         self.IsRTDim=False
         self.Scale=1
         self.Resize_Data_List=Resize_Data_List    
@@ -156,7 +165,7 @@ class ResizeToolDialog(QWidget,GuiXYZ_RTD.Ui_Dialog_RTD):
             Data[1]=float(self.DRui.lineEdit_RTD_Machine_Size_y.text())
             Data[2]=float(self.DRui.lineEdit_RTD_Machine_Size_z.text())
         except Exception as e:
-            logging.error(e)
+            log.error(e)
             self.Set_Machine_Size(self.Machine_Size)
             Data=self.Machine_Size
         return Data    
@@ -175,7 +184,7 @@ class ResizeToolDialog(QWidget,GuiXYZ_RTD.Ui_Dialog_RTD):
             Data[1]=float(self.DRui.lineEdit_RTD_Machine_pos_y.text())
             Data[2]=float(self.DRui.lineEdit_RTD_Machine_pos_z.text())
         except Exception as e:
-            logging.error(e)
+            log.error(e)
             self.Set_Machine_pos(self.Machine_pos)
             Data=self.Machine_pos
         return Data   
