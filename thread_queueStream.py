@@ -118,8 +118,8 @@ class queueStream(threading.Thread):
         return numlines
     
     def refresh_Pbars(self):
-        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_buff(),self.Buff_size,Perini=0,Perend=100)
-        self.Pbar_Set_Status(self.Pbar_buffer,sstat)
+        sstatb=self.Get_Progress_Percentage(self.get_num_of_commands_buff(),self.Buff_size,Perini=0,Perend=100)
+        self.Pbar_Set_Status(self.Pbar_buffer,sstatb)
         sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
         self.Pbar_Set_Status(self.Pbar_Stream,sstat)
 
@@ -356,7 +356,7 @@ def main():
         text2stream=text2stream+'G0 X'+str(iii)+'\n'
         text2stream=text2stream+'G0 X'+str(-iii)+'\n'    
     cycle_time=0.1
-    qstream=queueStream(text2stream,cycle_time,kill_ev,Refill_value=15,Buffer_size=20,Pbar_buffer=None,Pbar_Stream=None)
+    qstream=queueStream(text2stream,cycle_time,kill_ev,Refill_value=15,Buffer_size=20)
     qstream.start()
     print('inbuff:',qstream.get_num_of_commands_buff(),'Executed:',qstream.get_num_of_commands_consumed(),'Total:',qstream.get_num_of_total_commands())
     #while not kill_ev.is_set():    

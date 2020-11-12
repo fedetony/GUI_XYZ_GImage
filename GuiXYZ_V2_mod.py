@@ -287,7 +287,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.P_Bar_Update_Gcode.tick.connect(self.Update_value_and_time_elapsed)
         self.P_Bar_Update_Gimage=ProgressBar_Update(MainWindow)        
         self.P_Bar_Update_Gimage.tick.connect(self.progressBar_Gimage.setValue)
-        self.P_Bar_buffer_Gcode=ProgressBar_Update(MainWindow)                
+        self.P_Bar_buffer_Gcode=ProgressBar_Update(MainWindow) 
+        self.P_Bar_buffer_Gcode.tick.connect(self.progressBar_Gcodebuffer.setValue)               
         
     def Update_value_and_time_elapsed(self,aValue):
         self.progressBar_Gcode.setValue(aValue)
