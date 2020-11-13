@@ -79,6 +79,7 @@ class XYZ_Gcode_Stream(threading.Thread):
                     count=count+1
                 if count>=2000:
                     count=0        
+        self.sqkill_ev.set()
         log.info("XYZ Gcode Stream killed")         
 
     def Do_the_streaming(self,typeofstream=0):
@@ -134,12 +135,22 @@ class XYZ_Gcode_Stream(threading.Thread):
                             is_error=False 
                             is_alarm=False
                             while is_ack==False and is_error==False and is_alarm==False:
+                                if self.stoping_event.is_set()==True:
+                                    self.Stop_Clear()
+                                if self.killer_event.is_set()==True:
+                                    self.isqstream=False
+                                    self.sqkill_ev.set()                     
+                                    break  
                                 grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
                                 self.xyz_thread.ser_read_thread.Process_Read_Data(grbl_out,showok=False)
                                 [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools()                                                                   
+                                self.data = self.xyz_thread.read()                
+                                self.get_state()                                              
                                 if is_error==True or is_alarm==True: 
                                     while self.xyz_thread.Is_command_running()==True:                                   
                                         time.sleep(self.cycle_time)
+                                        if self.stoping_event.is_set()==True or self.killer_event.is_set()==True or self.sqkill_ev.is_set():                     
+                                            break 
                                     if errorcount==0:
                                         self.stream_one_line(line2stream,False)   #send through command recognition                                                          
                                     else:        
@@ -149,31 +160,13 @@ class XYZ_Gcode_Stream(threading.Thread):
                                     log.info("Error or alarm in Stream detected! (" + str(line2stream)+') ' )
                                     self.xyz_thread.ser_read_thread.Streamwriting=False                                                                          
                                     self.Stop_Clear()       
-                            
+                                #self.log_Counts()
                             self.xyz_thread.ser_read_thread.Streamwriting=False                                                                                                              
                 except Exception as e:                
                     log.error(e)
-                    log.error('On Do the streaming -> typeofstream==0')                                                            
+                    log.error('On Do the streaming -> typeofstream==1')                                                            
                     pass        
-        '''        
-        elif typeofstream==1:
-            try:                      
-                if not self.IsRunning_event.is_set() or self.text_queue.qsize()>0:      
-                    #log.info(' type 1 stream Is running event->'+str(self.IsRunning_event.is_set()))                                  
-                    if self.text_queue.qsize()>0:
-                        self.Do_line_count()
-                        self.istext2stream=True
-                    line2stream= self.text_queue.get_nowait()                            
-                    log.info("Sending command->("+str(self.line_count)+") "+line2stream)
-                    self.stream_one_line(line2stream)                                      
-                    self.data = self.xyz_thread.read()                
-                    self.get_state()
-                    if self.state_xyz==11: # error
-                        log.info("Error in Gcode detected! (" + str(line2stream)+') ' )
-                        self.Stop_Clear()   
-                    #self.IsRunning_event.clear()                                 
-            except queue.Empty:                    
-                pass    
+        '''               
         elif typeofstream==2:
             try:                        
                 
@@ -197,12 +190,15 @@ class XYZ_Gcode_Stream(threading.Thread):
             except queue.Empty:                    
                 pass            
         '''
-
+     
+        
+        
+        #else jus closes the msgbox
     def wait_until_finished(self,typeofstream):          
         if typeofstream==0:  
-            tastcount=0          
+            
             while self.IsRunning_event.wait(self.cycle_time): 
-                #[is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools() 
+                
                 if self.xyz_thread.Is_command_running()==False:               
                     break
                 if self.Isneededtimeforcommand==False:
@@ -217,9 +213,7 @@ class XYZ_Gcode_Stream(threading.Thread):
                 self.get_state()        
                 if self.oldstate_xyz!=self.state_xyz:
                     self.oldstate_xyz=self.state_xyz
-                if tastcount==0:    
-                    print('waiting ini..',tastcount)
-                tastcount=tastcount+1    
+            
                 # ask reports while waiting    
                 #if self.washasautoReport==False:
                 #self.xyz_thread.grbl_event_status.clear()
@@ -228,25 +222,11 @@ class XYZ_Gcode_Stream(threading.Thread):
                 #self.xyz_thread.ser_read_thread.port_write(Gcode,isok)  
                     
                 self.IfEnd_of_Stream()
-            print('waiting end ..',tastcount)
+            
 
-            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()  
-            linesacknowledged_count=self.xyz_thread.Get_linesacknowledgedCount()
-            num_events=self.linesfinalized_count-self.lastlinesfinalized_count+1
-            print('in Buffer:',self.qstream.get_num_of_commands_buff(),'Consumed:',self.qstream.get_num_of_commands_consumed(),'Total:',self.qstream.get_num_of_total_commands_onFile())
-            print('Finished:',self.linesfinalized_count,' Acknowledged:',linesacknowledged_count,'Num events',num_events)
-            #log.info("Type 0 Number Lines Finished->"+str(self.linesfinalized_count))    
-            #log.info("Type 0 Number Lines Acknowledged->"+str(linesacknowledged_count))    
-            #log.info("Type 0 Number events Finished->"+str(num_events))    
+            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()              
+            #self.log_Counts()
         '''
-        if typeofstream==1:
-            time.sleep(self.cycle_time)
-            self.data = self.xyz_thread.read()                
-            self.get_state()        
-            if self.oldstate_xyz!=self.state_xyz:
-                self.oldstate_xyz=self.state_xyz                 
-            self.IfEnd_of_Stream()
-
 
         if typeofstream==2:              
             #log.info("Debug Buffline->"+str(self.bufflines))                 
@@ -260,9 +240,13 @@ class XYZ_Gcode_Stream(threading.Thread):
             self.IfEnd_of_Stream()
         '''
     
-    def IfEnd_of_Stream(self):                
-        #if self.text_queue.qsize()==0:   #Nothing in queue             
-        #if self.qstream.get_num_of_commands_left()==-1: 
+    def log_Counts(self):
+        linesacknowledged_count=self.xyz_thread.Get_linesacknowledgedCount()
+        num_events=self.linesfinalized_count-self.lastlinesfinalized_count+1
+        log.info('In Buffer:'+str(self.qstream.get_num_of_commands_buff())+' Consumed:'+str(self.qstream.get_num_of_commands_consumed())+' Total:'+str(self.qstream.get_num_of_total_commands_onFile()))
+        log.info('Finished:'+str(self.linesfinalized_count)+' Acknowledged:'+str(linesacknowledged_count)+' Num events'+str(num_events))
+
+    def IfEnd_of_Stream(self):                        
         try:
             self.isqstream=self.qstream.is_alive()
             if self.isqstream==True:
@@ -282,46 +266,7 @@ class XYZ_Gcode_Stream(threading.Thread):
                     self.xyz_thread.ser_read_thread.set_selfconfigvalues()
         except:
             self.isqstream=False
-            pass
-        
-    '''
-    def Do_buffline_count(self):
-        if self.line_count==0:
-            self.bufflines=0            
-        elif self.line_count>self.streamsize:
-            self.line_count=0
-            self.bufflines=0                
-        elif self.line_count<=self.streamsize and self.streamsize>0 and self.line_count>0:            
-            if self.bufflines<=self.bufflinesize:       
-                self.bufflines=self.bufflines+1  
-        else:
-            self.bufflines=self.bufflinesize
-
-        
-
-    def Do_line_count(self):
-        if self.line_count==0:
-            self.bufflines=0
-            #self.streamsize=self.text_queue.qsize()
-            self.streamsize=self.qstream.get_num_of_total_commands_onFile()
-            self.line_count=1
-            self.xyz_thread.Reset_linesexecutedCount()            
-            self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()
-            self.lastlinesfinalized_count=self.linesfinalized_count
-            self.lastRunningstate=self.IsRunning_event.is_set()
-            #log.info('A reset Here')
-        elif self.line_count>self.streamsize:
-            self.line_count=0
-            self.bufflines=0                
-        elif self.line_count<=self.streamsize and self.streamsize>0 and self.line_count>0:
-            self.line_count=self.line_count+1                        
-        try:
-            if self.streamsize>0:
-                self.Pbarupdate.SetStatus(self.line_count/self.streamsize*100)  
-        except:
-            pass      
-        self.linesfinalized_count=self.xyz_thread.Get_linesexecutedCount()
-    ''' 
+            pass    
 
     def Stop_Clear(self):
         if self.istext2stream==True:

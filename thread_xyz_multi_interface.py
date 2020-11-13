@@ -1007,15 +1007,17 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         if state ==11:
             self.data['STATUS']='error' #hard alarm                
 
-    def Send_Homing(self):
+    def Send_Homing(self,index=0):
         '''
         Homing command for Homing
+        index -> 'Home'=0,'HomeX'=1,'HomeY'=2,'HomeZ'=3
         '''
-        cmd='Home'
+        Homelist=['Home','HomeX','HomeY','HomeZ']
+        cmd=Homelist[index]        
         Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
         self.queue_write(Gcode,isok)    
         if isok==True:     
-            log.info(Gcode+" Homing Command set in queue")
+            log.info(Gcode+" "+cmd+" Command set in queue")
         else:
             log.error("Homing Command not accepted! check action "+cmd+" in ID:"+str(self.CH.id))    
 
@@ -1731,8 +1733,12 @@ class XYZMulti:
     def Read_Config_Parameter(self,Param,Showlog=False):
         return self.ser_read_thread.Read_Config_Parameter(Param,Showlog)    
 
-    def Send_Homing(self):        
-        self.ser_read_thread.Send_Homing()
+    def Send_Homing(self,index=0):  
+        '''
+        Homing command for Homing
+        index -> 'Home'=0,'HomeX'=1,'HomeY'=2,'HomeZ'=3
+        '''      
+        self.ser_read_thread.Send_Homing(index)
     
     def Reset_linesexecutedCount(self):
         self.ser_read_thread.Reset_linesexecutedCount()

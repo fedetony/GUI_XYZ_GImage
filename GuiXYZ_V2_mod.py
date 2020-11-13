@@ -33,9 +33,9 @@ import threading
 #import keyboard for keyboard inputs
 
 #Configure logger before importing classes (so they become child loggers)
-log = logging.getLogger()
-log.setLevel(logging.INFO)
-'''
+#log = logging.getLogger()
+#log.setLevel(logging.INFO)
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
@@ -43,7 +43,7 @@ ahandler=logging.StreamHandler()
 ahandler.setLevel(logging.INFO)
 ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
-'''
+
 #from thread_xyz_grbl import XYZGrbl
 from thread_xyz_multi_interface import XYZMulti
 import thread_Gcode_Stream
@@ -58,6 +58,7 @@ import class_CCD
 import class_LSTD 
 import class_RTD
 import class_File_Dialogs
+import class_ST
 
 
 
@@ -288,15 +289,100 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.P_Bar_Update_Gimage=ProgressBar_Update(MainWindow)        
         self.P_Bar_Update_Gimage.tick.connect(self.progressBar_Gimage.setValue)
         self.P_Bar_buffer_Gcode=ProgressBar_Update(MainWindow) 
-        self.P_Bar_buffer_Gcode.tick.connect(self.progressBar_Gcodebuffer.setValue)               
+        self.P_Bar_buffer_Gcode.tick.connect(self.progressBar_Gcodebuffer.setValue)         
+        
+        #------------create signal tracker class
+        self.ST=class_ST.SignalTracker()
+        self.ST.enable_bHOLD.connect(self.Enable_HOLD_Button)
+        self.ST.enable_bSTOP.connect(self.Enable_STOP_Button)
+        self.ST.timer_change[str].connect(self.label_time.setText)
+        self.ST.enable_isSTREAMING.connect(self.Enable_STREAMING)
+        self.ST.data_change[dict].connect(self.Data_Change_Actualize)
+        self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
+        self.ST.stream_info_change.connect(self.Stream_Info_Update)
+
+    def Stream_Info_Update(self,streaminfolist):
+        atxt="Line "+str(streaminfolist[1])+ " of "+ str(streaminfolist[2])
+        self.label_GcodeLines.setText(atxt)
+        self.label_GcodeLines.adjustSize()
+        
+
+    def Data_Change_Actualize(self,data):        
+        try:
+            xxx=data['XPOS']
+            yyy=data['YPOS']
+            zzz=data['ZPOS']
+            StateXYZ=data['STATE_XYZ']
+            Status=data['STATUS']
+            self.x_pos = xxx
+            self.y_pos = yyy
+            self.z_pos = zzz            
+            self.state_xyz=StateXYZ
+            self.Status=Status
+        except:            
+            xxx=self.x_pos
+            yyy=self.y_pos 
+            zzz=self.z_pos 
+            StateXYZ=self.state_xyz
+            Status=self.Status
+            pass        
+        self.label_XactPos.setText("X = "+str(xxx))
+        self.label_XactPos.adjustSize()
+        self.label_YactPos.setText("Y = "+str(yyy))
+        self.label_YactPos.adjustSize()
+        self.label_ZactPos.setText("Z = "+str(zzz))
+        self.label_ZactPos.adjustSize()                
+        self.label_Stateact.setText("S_XYZ = "+str(StateXYZ)+" "+str(Status) )            
+        self.label_Stateact.adjustSize()
+        
+    
+
+    def Enable_HOLD_Button(self,isEnabled):   
+        self.pushButton_Pause_Resume.setEnabled(isEnabled) 
+        self.pushButton_Hold_Start_Gcode.setEnabled(isEnabled)
+    
+    def Enable_STOP_Button(self,isEnabled):   
+       self.pushButton_MoveStop.setEnabled(isEnabled) 
+       self.pushButton_StopGcode.setEnabled(isEnabled)
+
+    def Enable_STREAMING(self,isEnabled):
+        self.Is_streaming=isEnabled
+        #self.frame_GcodePauseStop.setEnabled(isEnabled)     
+        self.PushButton_RunGcodeScript.setEnabled(self.isnot(isEnabled))     
+
+    def isnot(self,val):
+        if val==False:
+            return True
+        return False
+
+    def Pause_Messagebox_Stream(self,ShowMsg=False):
+        if ShowMsg==True:
+            msgbox = QtWidgets.QMessageBox()
+            msgbox.setWindowTitle('Stream on Pause ...')
+            msgbox.setIcon(QtWidgets.QMessageBox.Question)
+            msgbox.setText("Would you like to Resume the Stream? \nor\n"+
+                        "Would you like to Stop the Stream?")
+            msgbox.addButton(QtWidgets.QPushButton('Resume'), QtWidgets.QMessageBox.AcceptRole)
+            msgbox.addButton(QtWidgets.QPushButton('Stop'), QtWidgets.QMessageBox.YesRole)
+            msgbox.addButton(QtWidgets.QPushButton('Cancel'), QtWidgets.QMessageBox.NoRole)
+            msgbox.setDefaultButton(QtWidgets.QMessageBox.Cancel)        
+            result = msgbox.exec_()
+            #print(result)
+            if result == 0: #Resume QtWidgets.QMessageBox.AcceptRole:      
+                self.xyz_thread.send_immediate_command('userResume',{},True)       
+                log.info('------------------------Stream Resumed -----------------------------')
+            elif result == 1: #Stop QtWidgets.QMessageBox.YesRole:  
+                self.xyz_gcodestream_thread.stoping_event.set()                      
+                self.PB_StopGcode()                
+                log.info('------------------------Stream Stop -----------------------------')
+                
+
         
     def Update_value_and_time_elapsed(self,aValue):
         self.progressBar_Gcode.setValue(aValue)
         try:            
             if aValue==100:
-                self.xyz_update_thread.Stop_Timer()  
-            #else:                
-            #    self.xyz_update_thread.Show_elapsed_Time()     
+                self.xyz_update_thread.Stop_Timer()                 
         except:
             pass
 
@@ -357,6 +443,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         
         self.pushButton_Gcodesend.clicked.connect(self.PB_Gcodesend)
         self.pushButton_Home.clicked.connect(self.PB_Home)
+        self.pushButton_Home_X.clicked.connect(self.PB_HomeX)
+        self.pushButton_Home_Y.clicked.connect(self.PB_HomeY)
+        self.pushButton_Home_Z.clicked.connect(self.PB_HomeZ)
         self.pushButton_CleanAlarm.clicked.connect(self.PB_CleanAlarm)
 
         #self.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo_and_Table)
@@ -619,6 +708,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def PB_StopGcode(self):
         self.stream_event_stop.set()
         self.xyz_thread.grbl_stop()
+        try:
+            self.xyz_gcodestream_thread.stoping_event.set()                      
+            self.xyz_thread.ser_read_thread.Streamwriting=False                                                                          
+            self.Stop_Clear() 
+        except:
+            pass
 
     def PB_RunGcodeScript(self):        
         if self.checkBox_Gcode.isChecked()==True or self.isoncheckedstate_checkbox==True:
@@ -824,7 +919,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.xyz_thread.clear_state()
 
     def PB_Home(self):
-        self.xyz_thread.Send_Homing()
+        self.xyz_thread.Send_Homing(0)
+
+    def PB_HomeX(self):
+        self.xyz_thread.Send_Homing(1)
+
+    def PB_HomeY(self):
+        self.xyz_thread.Send_Homing(2)        
+
+    def PB_HomeZ(self):
+        self.xyz_thread.Send_Homing(3)    
 
     def Set_DeltaXYZ_Values(self):
         
@@ -974,15 +1078,15 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             Baudrate=int(self.COMBaudRate)
             #self.xyz_thread = XYZGrbl(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)
             self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate, self.killer_event,self.IsRunning_event)            
-            self.xyz_thread.start()
-            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.xyz_thread,self.killer_event,self.label_XactPos,self.label_YactPos,self.label_ZactPos,self.label_Stateact,self.pushButton_Pause_Resume,self.frame_GcodePauseStop,self.pushButton_MoveStop,self.label_time)
-            self.xyz_update_thread.setName("XYZ Update") 
-            self.xyz_update_thread.start()
+            self.xyz_thread.start()                        
             self.stream_event_stop= threading.Event()
             self.stream_event_stop.clear()
             self.xyz_gcodestream_thread=thread_Gcode_Stream.XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
             self.xyz_gcodestream_thread.setName("XYZ Gcode Stream") 
             self.xyz_gcodestream_thread.start()
+            self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.ST,self.xyz_thread,self.xyz_gcodestream_thread,self.killer_event)
+            self.xyz_update_thread.setName("XYZ Update") 
+            self.xyz_update_thread.start()
             if self.IsImageThread==False:
                 self.Start_Image_Thread()
             if self.IsImageThread==True:                    
@@ -1012,6 +1116,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Set_Actual_Position_Values(self,xxx,yyy,zzz):        
         try:
+            self.ST.Signal_Data(self.xyz_update_thread.read())
+            '''
             self.x_pos = xxx
             self.y_pos = yyy
             self.z_pos = zzz
@@ -1022,6 +1128,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.xyz_update_thread.state_xyz=self.state_xyz            
             self.xyz_update_thread.Status=self.Status   
             self.xyz_update_thread.Set_Actual_State_Value(self.state_xyz,self.Status)
+            '''
         except:    
             self.x_pos = xxx
             self.y_pos = yyy
@@ -1728,7 +1835,7 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     ui.setupUi2(MainWindow)    
 
-    
+    '''
     handler = ConsolePanelHandler(ui)
     #handler.ui=ui        
     formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
@@ -1739,7 +1846,7 @@ if __name__ == "__main__":
         log.handlers.clear()
     log.addHandler(handler)
     #my_logger = ToFileLogger("Logging debug")
-
+    '''
     aDialog=class_File_Dialogs.Dialogs()
     MainWindow.show()
     sys.exit(app.exec_())

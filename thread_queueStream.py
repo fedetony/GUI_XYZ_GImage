@@ -117,11 +117,14 @@ class queueStream(threading.Thread):
             pass
         return numlines
     
-    def refresh_Pbars(self):
+    def refresh_Pbarb(self):
         sstatb=self.Get_Progress_Percentage(self.get_num_of_commands_buff(),self.Buff_size,Perini=0,Perend=100)
         self.Pbar_Set_Status(self.Pbar_buffer,sstatb)
-        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
+    
+    def refresh_Pbars(self):    
+        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_consumed(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
         self.Pbar_Set_Status(self.Pbar_Stream,sstat)
+        #print('buffer per:',sstatb,'%',' stream per:',sstat,'%')
 
     def run(self):                
         
@@ -163,6 +166,9 @@ class queueStream(threading.Thread):
                     self.Add_to_output_queue() 
                     self.itemsinbuffer_event.set()                     
                     self.Add1tobuffer_event.clear()   
+                #delay for refreshing in class    
+                if count==0:
+                    self.refresh_Pbarb()                    
                 if count==3:
                     self.refresh_Pbars()
                     count=0
@@ -208,7 +214,7 @@ class queueStream(threading.Thread):
                         #print('Finish text into queue -------------------------------------------------------')
                         self.Is_textintoqueue_Finished=True
                         pass
-        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_left(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
+        sstat=self.Get_Progress_Percentage(self.get_num_of_commands_consumed(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
         self.Pbar_Set_Status(self.Pbar_Stream,sstat)
         
 
