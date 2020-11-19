@@ -101,6 +101,7 @@ class XYZ_Update(threading.Thread):
         count=0
         timer_count=0
         while not self.killer_event.wait(self.cycle_time):   
+            #self.ST.Log_Update()
             try:
                 self.set_olddata()
                 self.data = self.xyz_thread.read()
@@ -144,6 +145,7 @@ class XYZ_Update(threading.Thread):
 
 
     def Signal_ALL(self):
+        #self.ST.Log_Update()
         self.ST.S_Enable_bHOLD(self.Is_bHOLD_Enabled.is_set())
         self.ST.S_Enable_bSTOP(self.Is_bSTOP_Enabled.is_set())
         if self.Lasttimertxt!=self.timertxt:
@@ -155,6 +157,7 @@ class XYZ_Update(threading.Thread):
         if self.IsStreaming==True:
             if self.Stream_info_changed==True:
                 self.ST.Signal_Stream_Info(self.Stream_info_list)
+        
 
 
     def Compare_Hasdatachanged(self,olddata,exceptlist=[]):

@@ -18,10 +18,14 @@ class SignalTracker(QWidget):
     enable_bSTOP= QtCore.pyqtSignal(bool)
     enable_isSTREAMING= QtCore.pyqtSignal(bool)
     is_hold_state= QtCore.pyqtSignal(bool)
+    log_update=QtCore.pyqtSignal(bool)
     
     def __init__(self, *args, **kwargs):        
         super(SignalTracker, self).__init__(*args, **kwargs)    
         self.__name__="ST"
+    
+    def Log_Update(self):
+        self.log_update.emit(True)
 
     def Signal_Data(self,datadict):
         self.data_change.emit(datadict)

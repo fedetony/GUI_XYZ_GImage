@@ -33,16 +33,31 @@ import threading
 #import keyboard for keyboard inputs
 
 #Configure logger before importing classes (so they become child loggers)
-#log = logging.getLogger()
-#log.setLevel(logging.INFO)
-
+import class_LogHandler
+ap=class_LogHandler.get_appPath()
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
+                    datefmt='%y-%m-%d %H:%M',
+                    filename=ap+'/temp/__last_run__.log',
+                    filemode='w')
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
-formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
-ahandler=logging.StreamHandler()
-ahandler.setLevel(logging.INFO)
-ahandler.setFormatter(formatter)
-log.addHandler(ahandler)
+log.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler(ap+'/temp/__last_run__.log')
+fh.setLevel(logging.DEBUG)
+# create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s')
+fh.setFormatter(formatter)
+# add the handlers to logger
+log.addHandler(fh)
+
+#log_queue = queue.Queue()  
+#queue_handler= class_LogHandler.QueueHandler(log_queue)  
+#queue_handler.setLevel(logging.INFO)      
+#formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+#queue_handler.setFormatter(formatter)
+#log.addHandler(queue_handler) 
+#print(log.handlers)
 
 #from thread_xyz_grbl import XYZGrbl
 from thread_xyz_multi_interface import XYZMulti
@@ -60,6 +75,7 @@ import class_RTD
 import class_File_Dialogs
 import class_ST
 
+#print(log.__dict__)
 
 
 class QLabel_altered(QLabel):
@@ -218,11 +234,26 @@ class MyWindow(QtWidgets.QMainWindow):
     
 class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
-        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)                                     
+        super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)  
+        #Start the log queue  
+        ''' 
+        self.log_queue = queue.Queue()        
+        self.queue_handler= QueueHandler(self.log_queue)  
+        self.queue_handler.setLevel(logging.INFO)      
+        self.formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+        self.queue_handler.setFormatter(self.formatter)
+        log.addHandler(self.queue_handler)                                
+        '''       
+        #self.kill_log_ev=threading.Event() 
+        #self.kill_log_ev.clear()
+        #self.LH_T=class_LogHandler.Log_Update(self.kill_log_ev) 
+        #self.LH_T.start()
+           
+
 
     def setupUi2(self, MainWindow):   
         # Before you copy -paste here all Object code, now is called directly from GuiXYZ_V1.py
-
+        
         icon10 = QtGui.QIcon()
         icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         #-------------------------------------------------------
@@ -257,7 +288,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_GcodeStreamType.addItem("1")
         self.comboBox_GcodeStreamType.addItem("2")
 
-        self.GcodeStreamType="0"
+        self.GcodeStreamType="1"
         index= self.comboBox_GcodeStreamType.findText(self.GcodeStreamType,QtCore.Qt.MatchFixedString)
         self.comboBox_GcodeStreamType.setCurrentIndex(index)
 
@@ -290,7 +321,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.P_Bar_Update_Gimage.tick.connect(self.progressBar_Gimage.setValue)
         self.P_Bar_buffer_Gcode=ProgressBar_Update(MainWindow) 
         self.P_Bar_buffer_Gcode.tick.connect(self.progressBar_Gcodebuffer.setValue)         
-        
+        #--------------connect logger class
+        #self.LH_T.ST.log_update.connect(self.poll_log_queue) 
         #------------create signal tracker class
         self.ST=class_ST.SignalTracker()
         self.ST.enable_bHOLD.connect(self.Enable_HOLD_Button)
@@ -299,13 +331,24 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.ST.enable_isSTREAMING.connect(self.Enable_STREAMING)
         self.ST.data_change[dict].connect(self.Data_Change_Actualize)
         self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
-        self.ST.stream_info_change.connect(self.Stream_Info_Update)
+        self.ST.stream_info_change.connect(self.Stream_Info_Update)    
+        
+
+    def poll_log_queue(self,logit=True):
+        # Check every 100ms if there is a new message in the queue to display 
+        #print('logger signal working?',log_queue.qsize())                       
+        while log_queue.qsize()>0:
+            try:
+                record = log_queue.get(block=False)
+                if logit==True:
+                    self.write_GUI_Log(record)
+            except queue.Empty:
+                break
 
     def Stream_Info_Update(self,streaminfolist):
         atxt="Line "+str(streaminfolist[1])+ " of "+ str(streaminfolist[2])
         self.label_GcodeLines.setText(atxt)
-        self.label_GcodeLines.adjustSize()
-        
+        self.label_GcodeLines.adjustSize()        
 
     def Data_Change_Actualize(self,data):        
         try:
@@ -1707,24 +1750,30 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
                       QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
         event.ignore()
 
-        if result == QtWidgets.QMessageBox.Yes:
+        if result == QtWidgets.QMessageBox.Yes:            
             self.App_Close_Event() 
             #print('inside def') 
             try:                
                 self.LSTDialog.close()                
             except:                
-                pass  
+                pass                                                  
             event.accept()
 
-    def App_Close_Event(self):
-        log.info("Close Event Triggered -> stopping threads")
-        self.killer_event.set()
-        if self.XYZRobot_found==1:
-            self.xyz_update_thread.join()
-            self.xyz_thread.join()            
-            self.XYZRobot_found=0
-        self.xyz_thread=None 
-        self.xyz_update_thread=None    
+    def App_Close_Event(self):          
+        try:      
+            log.info("Close Event Triggered -> stopping threads")
+            #self.LH_T.quit()
+            self.killer_event.set()
+            if self.XYZRobot_found==1:
+                self.xyz_update_thread.join()
+                self.xyz_thread.join()            
+                self.XYZRobot_found=0
+            self.xyz_thread=None 
+            self.xyz_update_thread=None               
+                                    
+        except:
+            raise
+        
 
         log.info("waiting 1s")        
         time.sleep(1)
@@ -1796,57 +1845,33 @@ class ProgressBar_Update(QtCore.QThread):
         self.tick.emit(x)                     
         time.sleep(0.1)
 
-class ToFileLogger:
-    def __init__(self, name):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.DEBUG)
-
-        stream_handler = logging.StreamHandler(sys.stderr)
-        formatter = logging.Formatter(
-            "[%(asctime)s][%(levelname)s] (%(threadName)-10s) %(message)s", "%Y-%m-%d %H:%M:%S"
-        )
-        stream_handler.setFormatter(formatter)
-
-        stream_handler.setLevel(logging.DEBUG)
-        self.logger.addHandler(stream_handler)
-        # self.logger.propagate = False
-
     def info(self, message):
         self.logger.info("{}".format(message))
 
-
-
-class ConsolePanelHandler(logging.Handler):    
-    def __init__(self, parent):
-        logging.Handler.__init__(self)
-        self.parent = parent
-
-    def emit(self, record):
-        self.parent.write_GUI_Log(self.format(record))
-        #self.ui.write_GUI_Log(self.format(record))
-        #self.textedit.append(self.format(record))
-        
-
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = MyWindow()#QtWidgets.QMainWindow()
     ui = Ui_MainWindow_V2()
     ui.setupUi(MainWindow)
     ui.setupUi2(MainWindow)    
-
-    '''
-    handler = ConsolePanelHandler(ui)
-    #handler.ui=ui        
+    
+    handler = class_LogHandler.ConsolePanelHandler(ui)          
     formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
     handler.setFormatter(formatter)           
     handler.setLevel(logging.INFO)
     handler.setFormatter(formatter)    
-    if (log.hasHandlers()):
-        log.handlers.clear()
+    #if (log.hasHandlers()):
+    #    log.handlers.clear()
     log.addHandler(handler)
     #my_logger = ToFileLogger("Logging debug")
-    '''
+    # add the handler to the root logger
+    #logging.getLogger('').addHandler(handler)    
+    print('----------------------------------------------Logging info--------------------------------------------')
+    print(log.__dict__)
+    print('------------------------------------------------------------------------------------------------------')
+    
     aDialog=class_File_Dialogs.Dialogs()
     MainWindow.show()
     sys.exit(app.exec_())
