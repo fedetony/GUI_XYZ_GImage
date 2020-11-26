@@ -33,7 +33,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Is_Dialog_Open=False   
         self.Actual_Tab=0
         self.Setup_Command_Config()
-        self.openCommandConfigDialog()   #comment this line to be called only when you want the dialog    
+        #self.openCommandConfigDialog()   #comment this line to be called only when you want the dialog    
     
     def Setup_Command_Config(self):
         self.CH=class_CH.Command_Handler(self.id)

@@ -743,6 +743,8 @@ class Ui_MainWindow(object):
         self.actionCommand_Configuration.setObjectName("actionCommand_Configuration")
         self.actionReload_Interface_Configuration = QtWidgets.QAction(MainWindow)
         self.actionReload_Interface_Configuration.setObjectName("actionReload_Interface_Configuration")
+        self.actionTranslate_Code = QtWidgets.QAction(MainWindow)
+        self.actionTranslate_Code.setObjectName("actionTranslate_Code")
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionSave_Config)
         self.menuGcode.addAction(self.actionLoad_Gcode)
@@ -766,6 +768,8 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionResize)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionCommand_Configuration)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionTranslate_Code)
         self.menuTools.addSeparator()
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
@@ -873,6 +877,7 @@ class Ui_MainWindow(object):
         self.actionSave_svg_Gimage.setText(_translate("MainWindow", "Save svg Gimage"))
         self.actionCommand_Configuration.setText(_translate("MainWindow", "Interface Configuration"))
         self.actionReload_Interface_Configuration.setText(_translate("MainWindow", "Reload Interface Configuration"))
+        self.actionTranslate_Code.setText(_translate("MainWindow", "Translate Code"))
 
 
 if __name__ == "__main__":

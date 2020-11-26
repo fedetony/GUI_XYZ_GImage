@@ -1403,6 +1403,8 @@
     <addaction name="separator"/>
     <addaction name="actionCommand_Configuration"/>
     <addaction name="separator"/>
+    <addaction name="actionTranslate_Code"/>
+    <addaction name="separator"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -1476,6 +1478,11 @@
   <action name="actionReload_Interface_Configuration">
    <property name="text">
     <string>Reload Interface Configuration</string>
+   </property>
+  </action>
+  <action name="actionTranslate_Code">
+   <property name="text">
+    <string>Translate Code</string>
    </property>
   </action>
  </widget>

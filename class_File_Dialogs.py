@@ -18,7 +18,10 @@ class Dialogs(QWidget):
             self.selected_filter = "Text Files (*.txt)"
         elif filter==3:
             self.filters="All Files (*);;Configuration Files (*.cccfg *.iccfg *.rccfg);;Interface Files (*.iccfg);;Read Files (*.rccfg);;Command Files (*.cccfg)"
-            self.selected_filter = "Configuration Files (*.cccfg *.iccfg *.rccfg)"    
+            self.selected_filter = "Configuration Files (*.cccfg *.iccfg *.rccfg)" 
+        elif filter==4:
+            self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Action Files (*.acode)"
+            self.selected_filter = "Gcode Files (*.gcode)"   
         else:
             self.filters="All Files (*)"
             self.selected_filter = "All Files (*)"    
@@ -30,6 +33,7 @@ class Dialogs(QWidget):
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
         3->Configuration Files (*.config)
+        4->Gcode and Action Files (*.gcode *.acode) 
         else all Files
         '''        
         #dir = self.sourceDir

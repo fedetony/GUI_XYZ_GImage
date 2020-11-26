@@ -72,6 +72,7 @@ import GuiXYZ_RTD
 import class_CCD   
 import class_LSTD 
 import class_RTD
+import class_TTD
 import class_File_Dialogs
 import class_ST
 
@@ -228,7 +229,12 @@ class MyWindow(QtWidgets.QMainWindow):
                 ui.RTDialog.quit()             
             except Exception as e:
                 #log.error(e)     
-                pass      
+                pass    
+            try:                                
+                ui.TTDialog.quit()             
+            except Exception as e:
+                #log.error(e)     
+                pass    
             ui.killer_event.set()            
             event.accept()
     
@@ -456,6 +462,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.actionLayer_Selection.triggered.connect(self.Open_LayerSelectionToolDialog)
         self.actionResize.triggered.connect(self.Open_ResizeToolDialog)
         self.actionCommand_Configuration.triggered.connect(self.Open_CommandConfigurationDialog)
+        self.actionTranslate_Code.triggered.connect(self.Open_TranslateToolDialog)
         
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
@@ -493,7 +500,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
         #self.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo_and_Table)
         self.pushButton_LoadGcode.clicked.connect(self.PB_LoadGcode)
-        self.pushButton_SaveGcode.clicked.connect(self.PB_SaveGcode)
+        self.pushButton_SaveGcode.clicked.connect(self.PB_SaveGcode_)
         self.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript)
         self.pushButton_Emergency.clicked.connect(self.PB_Emergency)
 
@@ -583,6 +590,31 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Open_CommandConfigurationDialog(self):        
         self.CCDialog.openCommandConfigDialog()
+
+    def Open_TranslateToolDialog(self):  
+        try:
+            isok=self.TTDialog.Is_Translating
+            newTTD=False
+        except:
+            newTTD=True
+            pass
+        if newTTD==True:
+            self.TTDialog=class_TTD.TranslateToolDialog(self.Actual_Interface,None,None)   
+            self.TTDialog.save_gcode_to_file[str].connect(self.SaveGcode_Temp)    
+            self.TTDialog.DTTui.buttonBox_TTD.accepted.connect(self.TTD_acceptbuttonClicked)  
+            self.TTDialog.DTTui.buttonBox_TTD.rejected.connect(self.TTD_rejectbuttonClicked) 
+        else:
+            self.TTDialog.Dialog_TTD.show()
+
+    def TTD_acceptbuttonClicked(self):
+        print('TTD Accept clicked')
+    
+    def TTD_rejectbuttonClicked(self):
+        print('TTD Reject clicked')
+        #self.TTDialog.quit()
+
+    def SaveGcode_Temp(self,f_n):
+        self.PB_SaveGcode(f_n)
 
     def Open_ResizeToolDialog(self):
         RTD_List=self.G_Image.RTD_Get_Data_List()
@@ -795,9 +827,16 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             except Exception as e:
                 log.error(e)
                 log.info("File was not read!")
-            
-    def PB_SaveGcode(self):        
-        filename=aDialog.saveFileDialog(0) #0 gcode        
+
+    def PB_SaveGcode_(self):
+        self.PB_SaveGcode(f_n=None)
+
+    def PB_SaveGcode(self,f_n=None):        
+        if f_n==None:
+            filename=aDialog.saveFileDialog(0) #0 gcode        
+        else:
+            filename=f_n
+
         if filename is not None:       
             mfile=re.search('(\.gcode$)',filename)
             try:
@@ -1743,6 +1782,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             except (OSError, serial.SerialException):
                 pass
         return result
+    '''    
     def closeEvent(self,event):
         result = QtWidgets.QMessageBox.question(self,
                       "Confirm Exit...",
@@ -1758,7 +1798,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             except:                
                 pass                                                  
             event.accept()
-
+    '''
     def App_Close_Event(self):          
         try:      
             log.info("Close Event Triggered -> stopping threads")

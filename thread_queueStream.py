@@ -189,7 +189,8 @@ class queueStream(threading.Thread):
         except:
             pass        
         self.Pbar_Set_Status(self.Pbar_buffer,0)        
-        self.Pbar_Set_Status(self.Pbar_Stream,100)        
+        self.Pbar_Set_Status(self.Pbar_Stream,100)     
+        self.killer_event.set()   
         #self.quit() 
     
     def Add_to_text_queue_from_file(self,sfile):        

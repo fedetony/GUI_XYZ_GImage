@@ -625,6 +625,44 @@ class Command_Handler:
             log.error('No action defined as '+action+' in configuration file!')    
         return Gcode,paramok    
 
+    def Get_Gcode_for_Action_id(self,action,anId,Parameters={},Parammustok=True):
+        Gcode=''
+        paramok=False        
+        if self.Is_action_in_Config(action)==True:
+            aFormat=self.getGformatforActionid(action,anId)
+            #print(aFormat)  
+            paramok=self.Check_Parameters_for_Action(action,Parameters)
+            #print('Paramok=',paramok)
+            if paramok==True or Parammustok==False:
+                Gcode=self.Get_code(aFormat,Parameters)
+        else:            
+            log.error('No action defined as '+action+' in configuration file!')    
+        return Gcode,paramok   
+
+    def Get_Gcode_for_Actionparamsfound(self,actionparamsfound,anId,Parammustok=True):
+        Gcode=''
+        paramok=False        
+        actionline=actionparamsfound['_action_code_']
+        for action in actionparamsfound:
+            if action !='_action_code_':
+                if self.Is_action_in_Config(action)==True:
+                    aFormat=self.getGformatforActionid(action,anId)
+                    #print(aFormat)  
+                    Parameters=actionparamsfound[action]
+                    paramok=self.Check_Parameters_for_Action(action,Parameters,anId)
+                    #print('Paramok=',paramok)
+                    if paramok==False and Parammustok==True:
+                        break
+                    if paramok==True or Parammustok==False:
+                        aGcode=self.Get_code(aFormat,Parameters)
+                        actionline=actionline.replace('{'+action+'}',aGcode)                        
+                else:
+                    paramok=False                    
+                    log.error('No action defined as '+action+' in configuration file!')  
+                    break
+        Gcode=actionline
+        return Gcode,paramok 
+
     def Get_code(self,aFormat,Parameters):
         aFormat=str(aFormat)        
         try:
@@ -769,10 +807,12 @@ class Command_Handler:
         else:
             return False    
 
-    def Check_Parameters_for_Action(self,action,Parameters):   
+    def Check_Parameters_for_Action(self,action,Parameters,anId=None):   
+        if anId==None:
+            anId=self.id
         if self.Is_action_in_Config(action)==False:
             return False
-        RequiredParams=self.Get_Parameters_Needed_for_action(action,self.id)     
+        RequiredParams=self.Get_Parameters_Needed_for_action(action,anId)     
         minimum_required=0
         minimum_oprequired=0
         for reqParam in RequiredParams:
@@ -1008,9 +1048,9 @@ class Command_Handler:
             p2list,Nump2=self.Format_which_Inside_Parenthesees(p1,r'\[',r'\]') 
             p3list,Nump3=self.Format_which_Inside_Parenthesees(p1,r'\(',r'\)') 
             for p2 in p2list:
-                p2check=Check_one_Parenthesees(p2,IniP=r'\(',EndP=r'\)',logerr=False)
+                p2check=self.Check_one_Parenthesees(p2,IniP=r'\(',EndP=r'\)',logerr=False)
             for p3 in p3list:
-                p3check=Check_one_Parenthesees(p2,IniP=r'\(',EndP=r'\)',logerr=False)    
+                p3check=self.Check_one_Parenthesees(p3,IniP=r'\(',EndP=r'\)',logerr=False)    
         
 
     def Check_Parenthesees_in_all_Formats(self,data):
@@ -1220,7 +1260,8 @@ class Command_Handler:
             Params={}
             aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)                        
             ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
-            P_opread=self.get_regex_codes_to_find_parameters(aFormat)
+            P_opread=self.get_regex_codes_to_find_parameters(aFormat)   
+            print('CH get_parameters_from_Gcode->',P_opread)         
             if P_opread['num_var']==0:
                 actionparamsfound.update({action:Params})
             if P_opread['num_var']>0:
@@ -1248,7 +1289,11 @@ class Command_Handler:
                     pass
         return actionparamsfound        
 
-    def get_action_from_gcode(self,Gcode,interface_id=None):        
+    def get_action_from_gcode(self,Gcode,interface_id=None):    
+        '''
+        returns dictionary with {action:parameters} found in the Gcode for id given        
+        _action_code_ key holds the action code line        
+        '''    
         actionparamsfound={}
         if Gcode is not None or Gcode is not '':
             #allactions=self.getListofActions(exceptlist=['interfaceId','interfaceName'])
