@@ -53,7 +53,8 @@ class IdentifyID(threading.Thread):
         
     def quit(self):
         self.qstream.quit()
-        self.killer_event.set()        
+        self.killer_event.set()   
+        #log.info('Quit Identification!')          
 
     def run(self):  
         self.Do_Identification()  
@@ -168,7 +169,8 @@ class DoTranslation(threading.Thread):
         #self.cycle_time=cycle_time
         
     def quit(self):
-        self.killer_event.set()        
+        self.killer_event.set()  
+        #log.info('Quit Translation!')                
 
     def run(self):                        
         #while not self.killer_event.wait(self.cycle_time):
@@ -192,6 +194,8 @@ class DoTranslation(threading.Thread):
                         Translatedline,isok=self.Translate_Line(line2translate)
                         if self.loglines==True:
                             log.info(line2translate+'-->'+Translatedline.rstrip())
+                        if Translatedline.rstrip()=='' and isok==True:
+                            log.warning('Empty Gcode found on line '+str(linenum)+' for ID:'+str(self.File_ID_to))
                         if isok==False:
                             linenum=self.qstream.get_num_of_commands_consumed()
                             log.warning('Gcode Error in code Translation on line '+str(linenum))
@@ -222,6 +226,7 @@ class DoTranslation(threading.Thread):
             Transgcode,isok=self.CH.Get_Gcode_for_Actionparamsfound(actionparamsfound,self.File_ID_to,Parammustok=True)                        
             if isok==False:
                 print('False result',actionparamsfound,'ID to',self.File_ID_to)
+            
         elif self.File_Type_to=='.acode':
             Transgcode=str(actionparamsfound)
         Transgcode=Transgcode+'\n'
@@ -305,12 +310,16 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
         #print('Emmitted->',val)
 
     def quit(self):
-        log.info('TTD Quit detected')
-        self.reject()
-        self.RecognizeIDkill_ev.set()
-        self.sqkill_ev.set()         
-        #self.CCDialog.quit() # in reject
+        log.info('TTD Quit detected!!')
         self.Dialog_TTD.close()
+        self.reject()
+        #self.RecognizeIDkill_ev.set() # in reject        
+        #self.sqkill_ev.set() # in reject        
+        #self.CCDialog.quit() # in reject
+        #time.sleep(1)
+        
+        print('closed TTD')
+        
            
     def openTranslateToolDialog(self):
         self.Dialog_TTD = QtWidgets.QDialog()
@@ -328,7 +337,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
         if self.Trans_thread.is_alive()==False:
             self.sqkill_ev.set()     
         time.sleep(0.2)   
-        self.CCDialog.accept()
+        #self.CCDialog.accept()
         return self.filename_to
 
     def reject(self):  
@@ -340,6 +349,10 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
             pass
         try:
             self.Trans_thread.quit()
+        except:
+            pass
+        try:
+            self.qstream.quit()
         except:
             pass
         time.sleep(0.2)   

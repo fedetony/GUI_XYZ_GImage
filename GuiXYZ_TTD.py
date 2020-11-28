@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Dialog_TTD(object):
     def setupUi(self, Dialog_TTD):
         Dialog_TTD.setObjectName("Dialog_TTD")
-        Dialog_TTD.resize(412, 359)
+        Dialog_TTD.resize(412, 372)
         self.verticalLayout = QtWidgets.QVBoxLayout(Dialog_TTD)
         self.verticalLayout.setObjectName("verticalLayout")
         self.groupBox_TTD_from = QtWidgets.QGroupBox(Dialog_TTD)
@@ -91,7 +91,7 @@ class Ui_Dialog_TTD(object):
 
     def retranslateUi(self, Dialog_TTD):
         _translate = QtCore.QCoreApplication.translate
-        Dialog_TTD.setWindowTitle(_translate("Dialog_TTD", "Dialog"))
+        Dialog_TTD.setWindowTitle(_translate("Dialog_TTD", "Translate Tool Dialog"))
         self.groupBox_TTD_from.setTitle(_translate("Dialog_TTD", "Input"))
         self.pushButton_TTD_Load_Code.setText(_translate("Dialog_TTD", "Load Code"))
         self.label_TTD_File_Loaded.setText(_translate("Dialog_TTD", "TextLabel"))

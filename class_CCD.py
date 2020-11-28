@@ -33,6 +33,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Is_Dialog_Open=False   
         self.Actual_Tab=0
         self.Setup_Command_Config()
+        self.Activate_test_button=False
         #self.openCommandConfigDialog()   #comment this line to be called only when you want the dialog    
     
     def Setup_Command_Config(self):
@@ -72,7 +73,10 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Refresh_after_config_File_change()
         
         #Connect buttons
-        self.DCCui.pushButton_CCD_Refresh_Commands_File.clicked.connect(self.PB_CCD_Refresh_Commands_File)
+        if self.Activate_test_button==False:
+            self.DCCui.pushButton_CCD_Refresh_Commands_File.clicked.connect(self.PB_CCD_Refresh_Commands_File)
+        else:
+            self.DCCui.pushButton_CCD_Refresh_Commands_File.clicked.connect(self.PB_debugtests)
         self.DCCui.pushButton_CCD_Save_Commands.clicked.connect(self.PB_CCD_Save_Commands)
         self.DCCui.pushButton_CCD_Load_Commands.clicked.connect(self.PB_CCD_Load_Commands)
         self.DCCui.pushButton_CCD_actionTest.clicked.connect(self.PB_CCD_actionTest)
@@ -1595,17 +1599,21 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         '''
         print('--------------------------------------------------')
         #Gcodeline='G0 X0.5 Y0.8 Z3'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G0 X0.5 Z3 Y0.8'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
+        #print(self.CH.get_action_from_gcode(Gcodeline,2))
+        Gcodeline='G1 X0.5 Z3 Y0.8 F100'
+        print(self.CH.get_action_from_gcode(Gcodeline,2))
         #Gcodeline='G0 X0.5 Z0.8 Y3'
         #print(self.CH.get_action_from_gcode(Gcodeline))
         #Gcodeline='G0 Z8'
         #print(self.CH.get_action_from_gcode(Gcodeline))
         #Gcodeline='G92 X0.5'
         #print(self.CH.get_action_from_gcode(Gcodeline))
-        Gcodeline='G91 G0 X0.5 Y0.8 Z3'
-        print(self.CH.get_action_from_gcode(Gcodeline))
+        #Gcodeline='G1 X0.5 E0.8 Z3 F200'
+        #print(self.CH.get_action_from_gcode(Gcodeline,2))
+        Gcodeline='G1 G0 X0.5 Y0.8 Z3 F200'
+        print(self.CH.get_action_from_gcode(Gcodeline,2))
+        Gcodeline='G28 Z'
+        print(self.CH.get_action_from_gcode(Gcodeline,2))
         #Gcodeline='G54 G0 X0.5 Y0.8 Z3'
         #print(self.CH.get_action_from_gcode(Gcodeline,1))
     '''

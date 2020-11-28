@@ -149,8 +149,8 @@ class Command_Handler:
     def Get_action_format_from_id(self,data,action,interface_id):
         try:
             aclist=data[action]
-            idcol=self.Get_interface_column_from_id(data,interface_id)
-            if idcol!=None:
+            idcol=self.Get_interface_column_from_id(data,interface_id)            
+            if idcol!=None:                
                 return aclist[idcol]
         except Exception as e:
             #log.error(e)   
@@ -590,8 +590,8 @@ class Command_Handler:
                         pass
                     if fff is not None:    
                         newFormat=newFormat.replace('{'+var+'}',fff)    
-                for action in action_list:
-                    if action==var: # action in var:
+                for action in action_list:                    
+                    if action in var: #action==var: 
                         vlist,Numv=self.Format_which_Inside_Parenthesees(var,r'\(',r'\)') 
                         if Numv>0:                        
                             fff=self.Get_action_format_from_id(self.Configdata,action,vlist[0])
@@ -643,6 +643,8 @@ class Command_Handler:
         Gcode=''
         paramok=False        
         actionline=actionparamsfound['_action_code_']
+        actionline=self.Add_Id_to_actionFormat(actionline,anId)
+        #print('Get gcode for Actionparams->',actionline)
         for action in actionparamsfound:
             if action !='_action_code_':
                 if self.Is_action_in_Config(action)==True:
@@ -652,10 +654,11 @@ class Command_Handler:
                     paramok=self.Check_Parameters_for_Action(action,Parameters,anId)
                     #print('Paramok=',paramok)
                     if paramok==False and Parammustok==True:
+                        log.warning('Wrong Parameters for ID:'+anId+' action:'+action)
                         break
                     if paramok==True or Parammustok==False:
                         aGcode=self.Get_code(aFormat,Parameters)
-                        actionline=actionline.replace('{'+action+'}',aGcode)                        
+                        actionline=actionline.replace('{'+action+'('+anId+')}',aGcode)                        
                 else:
                     paramok=False                    
                     log.error('No action defined as '+action+' in configuration file!')  
@@ -1237,7 +1240,7 @@ class Command_Handler:
             Maincmd=self.Format_Get_main_Command(aFormat)
             for ppp in ParamsNeed:
                 if 'required' in ParamsNeed[ppp]:
-                    Maincmd.replace('{'+ppp+'}','')            
+                    Maincmd=Maincmd.replace('{'+ppp+'}','')            
             Maincmd_strip=Maincmd.strip()            
             if Maincmd_strip!='':                
                 stripfound=False
@@ -1251,6 +1254,30 @@ class Command_Handler:
                     foundactionslist.append(action)    
         return foundcodeslist,foundactionslist
     
+    def Add_Id_to_actionFormat(self,aFormat,anId):        
+        '''
+        Replaces only actions and adds the corresponding id to the format.
+        {action}->{action(id)}
+        {action(xx)}->{action(id)}
+        Returns the format.
+        '''
+        varalist,Numa=self.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}')             
+        if Numa>0:
+            actionlist=self.getListofActions(['interfaceId','interfaceName'])            
+            for actpar in varalist:
+                if 'char(' not in actpar:
+                    plist,Nump=self.Format_which_Inside_Parenthesees(actpar,r'\(',r'\)')
+                    if Nump>0:                                         
+                        #actpars=actpar.replace('('+plist[0]+')','('+str(anId)+')')
+                        actpare=actpar.replace('('+plist[0]+')','')
+                        if actpare in actionlist:
+                            aFormat=aFormat.replace('{'+actpar+'}','{'+actpare+'('+str(anId)+')}')  
+                    else:
+                        if actpar in actionlist:
+                            aFormat=aFormat.replace('{'+actpar+'}','{'+actpar+'('+str(anId)+')}') 
+                
+        return aFormat
+
     def get_parameters_from_Gcode(self,Gcode,actionlist,interface_id,logerr=False):
         '''
         returns actions and parameters found in the Gcode
@@ -1259,9 +1286,10 @@ class Command_Handler:
         for action in actionlist:
             Params={}
             aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)                        
-            ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
+            #ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
+            aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
             P_opread=self.get_regex_codes_to_find_parameters(aFormat)   
-            print('CH get_parameters_from_Gcode->',P_opread)         
+            #print('CH get parameters from Gcode->',aFormat,P_opread)         
             if P_opread['num_var']==0:
                 actionparamsfound.update({action:Params})
             if P_opread['num_var']>0:
@@ -1287,6 +1315,20 @@ class Command_Handler:
                         log.error(e) 
                         log.error('Parameters from Gcode!')                     
                     pass
+        replace=False
+        if len(actionparamsfound)>1:
+            for apf in actionparamsfound:
+                idgcode,isok=self.Get_Gcode_for_Action_id(apf,interface_id,actionparamsfound[apf],True)
+                if isok==True:
+                    testgcode=Gcode.replace(idgcode,'')
+                    if testgcode=='':
+                        # if it matches exactly one of the codes when there are more than one then returns only that one
+                        newapf={apf:actionparamsfound[apf]}
+                        replace=True
+                        break
+        if replace==True:
+            actionparamsfound=newapf                
+
         return actionparamsfound        
 
     def get_action_from_gcode(self,Gcode,interface_id=None):    
@@ -1307,15 +1349,20 @@ class Command_Handler:
                 actionparamsfound={}                
             else:
                 actionparamsfound=self.get_parameters_from_Gcode(Gcode,foundactionslist,interface_id)     
-            actioncode=self.get_action_code(actionparamsfound,Gcode,interface_id)    
+            actioncode=self.get_action_code(actionparamsfound,Gcode,interface_id)   
+            actioncode=self.Add_Id_to_actionFormat(actioncode,interface_id) 
             actionparamsfound.update({'_action_code_':actioncode})
         return actionparamsfound                   
 
     def get_action_code(self,actionsparamsfound,Gcode,interface_id):
+        '''
+        Returns the Gcode line replacing it for the actions matched for specified id.        
+        '''
         modGcode=Gcode
-        #print(actionsparamsfound)
+        #print('get action code actionsparamsfound ->',actionsparamsfound)
         for actpar in actionsparamsfound:            
             aFormat=self.getGformatforActionid(actpar,interface_id)
+            aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
             aFormat=self.Format_replace_actions(aFormat)
             #print('Here 1',modGcode,aFormat,actpar)
             if aFormat in Gcode:
@@ -1326,12 +1373,14 @@ class Command_Handler:
                 MainComm=self.Format_Get_main_Command(aFormat)
                 modGcode=modGcode.replace(MainComm,'{'+actpar+'}')
                 Parneed=self.Get_Parameters_Needed_for_action(actpar,interface_id)
+                aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
                 P_get=self.get_regex_codes_to_find_parameters(aFormat)
+                #print('inside getaction code->',aFormat,P_get)
                 for sss in range(P_get['num_var']):
                     mp=re.search(P_get['all_var_val'],modGcode)
                     try:
                         nmp=len(mp.groups())
-                        #print('Here 4')
+                        #print('Here found',mp)
                         for iii in range(nmp):
                             pareval=mp.group(iii+1)
                             modGcode=modGcode.replace(pareval,'')
