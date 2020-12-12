@@ -1202,12 +1202,21 @@ class Command_Handler:
         justoptxt=justoptxt.replace(' ','')          
         #print(justoptxt)
         #print(justoplist)
+        
         varandval='(['+justoptxt+'][^'+ch+'s'+justoptxt+']+)'
-        allval='['+justoptxt+']([^'+ch+'s'+justoptxt+']+)'
+        if '*' in justoptxt:
+            #varandval='(.+)'
+            allval='[;(\s]{1}(.+)' #comment type anything after first space or ; or (
+        else:
+            varandval='(['+justoptxt+'][^'+ch+'s'+justoptxt+']+)'
+            allval='['+justoptxt+']([^'+ch+'s'+justoptxt+']+)'
         allvar='(['+justoptxt+'])'
         P_opread={'all_var_txt':justoptxt,'var_list':justoplist,'num_var':len(justoplist),'all_var_val':varandval,'all_val':allval,'all_var':allvar,'paramslist':foundparameters}
         for optxtiii in justoplist:
-            P_opread.update({optxtiii:'['+optxtiii+']([^'+ch+'s'+justoptxt+']+)'})
+            if '*' in optxtiii:
+                P_opread.update({optxtiii:'(.+)'})
+            else:
+                P_opread.update({optxtiii:'['+optxtiii+']([^'+ch+'s'+justoptxt+']+)'})
         '''        
         newFormat=newFormat.replace(ch,ch+ch)                               
         newFormat=newFormat.replace('||','?')         
@@ -1289,7 +1298,7 @@ class Command_Handler:
             #ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
             aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
             P_opread=self.get_regex_codes_to_find_parameters(aFormat)   
-            #print('CH get parameters from Gcode->',aFormat,P_opread)         
+            print('CH get parameters from Gcode->',Gcode,aFormat,P_opread)         
             if P_opread['num_var']==0:
                 actionparamsfound.update({action:Params})
             if P_opread['num_var']>0:
@@ -1377,20 +1386,29 @@ class Command_Handler:
                 P_get=self.get_regex_codes_to_find_parameters(aFormat)
                 #print('inside getaction code->',aFormat,P_get)
                 for sss in range(P_get['num_var']):
-                    mp=re.search(P_get['all_var_val'],modGcode)
-                    try:
-                        nmp=len(mp.groups())
-                        #print('Here found',mp)
-                        for iii in range(nmp):
-                            pareval=mp.group(iii+1)
-                            modGcode=modGcode.replace(pareval,'')
-                            #print('Here 5')
-                    except:
-                        pass        
+                    Ismsgtext=False
+                    for par in P_get['var_list']:
+                        if '*' in par:
+                            Ismsgtext=False
+                            break
+                    if Ismsgtext==False:    
+                        mp=re.search(P_get['all_var_val'],modGcode)
+                        try:
+                            nmp=len(mp.groups())
+                            #print('Here found',mp)
+                            for iii in range(nmp):
+                                pareval=mp.group(iii+1)
+                                modGcode=modGcode.replace(pareval,'')
+                                #print('Here 5')
+                        except:
+                            pass        
+                    else:
+                        modGcode='{'+actpar+'}'
         while '  ' in modGcode: #replace all double spaces to single spaces
             modGcode=modGcode.replace('  ',' ')                            
         return modGcode    
 
+    
     def action_code_match_action(self,action_code,action,justin=False):
         atxt='{'+str(action)+'}'
         if  atxt in action_code:

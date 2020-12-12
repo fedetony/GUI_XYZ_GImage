@@ -49,7 +49,7 @@
 <statusReport>_<?>_<?>_<M114[{par}]>_<>
 <movingstatusReport>_<? >_<? >_<S000>_<>
 <Comment>_<;{msg}>_<;{msg}>_<({msg})>_<>
-<Message>_<{char(40)}[{msg}]{char(41)}>_<({msg})>_<M117 [{msg}]>_<>
+<Message>_<{char(40)}[{msg}]{char(41)}>_<({msg})>_<M117[ {msg}]>_<>
 <automaticstatusReports-Disable>_<>_<$sv=0>_<>_<>
 <automaticstatusReports-Moving>_<>_<$si={timems}>_<>_<>
 <automaticstatusReports-Filtered>_<>_<$sv=1>_<>_<>

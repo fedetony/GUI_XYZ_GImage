@@ -1198,6 +1198,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Set_Actual_Position_Values(self,xxx,yyy,zzz):        
         try:
+            self.xyz_update_thread.Set_Actual_Position_Values(xxx,yyy,zzz)
             self.ST.Signal_Data(self.xyz_update_thread.read())
             '''
             self.x_pos = xxx

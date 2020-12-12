@@ -312,12 +312,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
     def quit(self):
         log.info('TTD Quit detected!!')
         self.Dialog_TTD.close()
-        self.reject()
-        #self.RecognizeIDkill_ev.set() # in reject        
-        #self.sqkill_ev.set() # in reject        
-        #self.CCDialog.quit() # in reject
-        #time.sleep(1)
-        
+        self.reject()       
         print('closed TTD')
         
            
@@ -384,7 +379,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
             self.Recognize_ID_of_File(self.filename_from)                        
         self.File_ID_to=self.DTTui.comboBox_TTD_ID_Code.currentText()      
         
-    def Recognize_ID_of_File(self,aFile,minlines=1000):   
+    def Recognize_ID_of_File(self,aFile,minlines=100):   
         self.File_ID_from=self.CH.id
         idini=self.File_ID_from
         self.Is_Recognizing=True
