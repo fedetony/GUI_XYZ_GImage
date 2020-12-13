@@ -72,6 +72,13 @@
             </widget>
            </item>
            <item>
+            <widget class="QLabel" name="label_VBDD_Force_id">
+             <property name="text">
+              <string>Force interface to:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QComboBox" name="comboBox_VBDD_CHid"/>
            </item>
           </layout>
@@ -101,14 +108,14 @@
         <item>
          <widget class="QLabel" name="label_VBDD_Format">
           <property name="text">
-           <string>TextLabel</string>
+           <string>Action Format</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QLabel" name="label_VBDD_Result">
           <property name="text">
-           <string>TextLabel</string>
+           <string>Action Result</string>
           </property>
          </widget>
         </item>

@@ -87,7 +87,8 @@ class VBD_Button_set(QWidget):
         W,H=self.batton_data['Size']        
         self.frame.resize(int(W),int(H))
         self.resize(int(W),int(H))
-    
+        PBsize=self.pushButton.size()
+        self.pushButton.setIconSize(PBsize)
     
     def Signal_Data(self,datadict):
         self.data_change.emit(datadict)
@@ -121,7 +122,6 @@ class VBD_Button_set(QWidget):
         self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")        
         
-        
         #self.splitter = QtWidgets.QSplitter(self.frame)
         #self.splitter.setGeometry(QtCore.QRect(10, 10, int(W)-2*10, int(H)-2*10))
         #sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -142,14 +142,12 @@ class VBD_Button_set(QWidget):
         self.pushButton.setObjectName("pushButton")
         
         self.pushButton.setText(self.batton_data['Name'])
-        self.pushButton.clicked.connect(self.PB_clicked)
+        
         self.pushButton.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.pushButton.setSizePolicy(sizePolicy)
         self.verticalLayout.addWidget(self.pushButton)
         
-        
-
         self.tableWidget = QtWidgets.QTableWidget(self.frame)
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setColumnCount(3)
@@ -160,7 +158,33 @@ class VBD_Button_set(QWidget):
         #print('Parameters->',Parameters)
         if len(Parameters)==0:
             self.tableWidget.setHidden(True)
-        self.pushButton.adjustSize()
+        self.pushButton.adjustSize()        
+        self.Do_connections()
+    
+    def Do_connections(self):
+        self.pushButton.clicked.connect(self.PB_clicked)
+        self.tableWidget.itemChanged.connect(self.Parameter_Changed)
+    
+    def Parameter_Changed(self):
+        Parameters=self.Get_Parameter_Values_from_Table(self.tableWidget)
+        self.batton_data.update({'Params':Parameters})
+        Gcode=self.Get_Gcode_from_Batton(self.batton_data)
+        if Gcode is not '':
+            self.batton_data.update({'Gcode':Gcode})
+            
+    def Get_Gcode_from_Batton(self,batton_data,warlog=False):
+        Gcode=''
+        try:
+            anid=batton_data['id']
+        except:
+            anid=self.CH.id
+            pass
+        if self.CH.Is_action_in_Config(batton_data['action'])==True:
+            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action'],anid,Parameters=batton_data['Params'],Parammustok=True)            
+            if isok==False and warlog==True:
+                log.warning(batton_data['Name']+' has incorrect Gcode! Check the Parameters!')            
+        return Gcode
+
 
     def set_data_to_VBD_Button(self,batton_data):
         for item in batton_data:
@@ -174,11 +198,27 @@ class VBD_Button_set(QWidget):
                     self.tableWidget.setHidden(False)
                     self.pushButton.adjustSize()
                     self.Fill_Tablewidget(Parameters)
+            if item=='Icon':
+                Iconname=value
+                self.Set_button_icon(Iconname)
+            if item=='Name':
+                name=value
+                self.pushButton.setText(name)
+            
 
-
-    
+                
+    def Set_button_icon(self,iconname):
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(iconname), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.pushButton.setIcon(icon)
+        PBsize=self.pushButton.size()
+        self.pushButton.setIconSize(PBsize)
+            
     def Fill_Tablewidget(self,Parameters):
-        ReqOpParamsdict=self.batton_data['ReqOpParamsdict']
+        try:
+            ReqOpParamsdict=self.batton_data['ReqOpParamsdict']
+        except:
+            return
         Table_NumRows=len(ReqOpParamsdict)
         self.tableWidget.setRowCount(Table_NumRows)
         self.tableWidget.setHorizontalHeaderLabels(["Par", "Val","Const"])
@@ -248,7 +288,7 @@ class VBD_Button_set(QWidget):
             # Render the shape to the QPixmap to preserve the shape of the widget when dragging
             pixmap = QPixmap(self.size())
             #print(e.pos(),self.frame.size(),self)
-            print(e.pos(),self.size(),self)
+            #print(e.pos(),self.size(),self)
             self.render(pixmap)
             drag.setPixmap(pixmap)        
             drag.setHotSpot(e.pos() - self.rect().topLeft())                       
@@ -259,32 +299,46 @@ class VBD_Button_set(QWidget):
         else:
            self.setCursor(QCursor(QtCore.Qt.ArrowCursor))
     
-    def Fill_actionParameters_Table(self):
-        aFormat=self.CH.getGformatforActionid(self.batton_data['action'],self.CH.id)
+    def Get_Parameter_Values_from_Table(self,tableWidget):    
+        newparam={}    
+        numrows=tableWidget.rowCount()
+        try:
+            for row in range(numrows):                                   
+                Tpar=tableWidget.item(row, 0).text()             
+                Tvalue=tableWidget.item(row, 1).text()            
+                if Tpar is not '' and Tvalue is not '':
+                    newparam.update({Tpar:Tvalue})                    
+        except:
+            newparam={}
+            pass            
+        return newparam
+
+    def Fill_actionParameters_Table(self,tableWidget,batton_data):
+        aFormat=self.CH.getGformatforActionid(batton_data['action'],self.CH.id)
         isok=False
-        self.tableWidget.clear()
+        tableWidget.clear()
         Table_NumCols=3
-        self.tableWidget.setColumnCount(Table_NumCols)
+        tableWidget.setColumnCount(Table_NumCols)
         Table_NumRows=0
-        self.tableWidget.setRowCount(Table_NumRows)       
+        tableWidget.setRowCount(Table_NumRows)       
         if self.CH.Check_Format(aFormat)==False:
-            log.error("Wrong Format for action "+self.batton_data['action'])
-            self.batton_data.update({'Gcode':''})
-            self.batton_data.update({'Params':{}})
+            log.error("Wrong Format for action "+batton_data['action'])
+            batton_data.update({'Gcode':''})
+            batton_data.update({'Params':{}})
             return isok
         try:    
             P_Allinfo=self.CH.get_all_info_from_Format(aFormat)
         except:
             P_Allinfo={}
             log.error("Format contains Errors")
-            self.batton_data.update({'Gcode':''})
-            self.batton_data.update({'Params':{}})
+            batton_data.update({'Gcode':''})
+            batton_data.update({'Params':{}})
             pass
         if P_Allinfo is not {}:            
             if P_Allinfo['IsRegex']==True:
                 log.error("Format contains regex read Code")
-                self.batton_data.update({'Gcode':''})
-                self.batton_data.update({'Params':{}})
+                batton_data.update({'Gcode':''})
+                batton_data.update({'Params':{}})
                 return isok
             isok=True    
             ReqOpParamsdict=P_Allinfo['ReqOpParamsdict']
@@ -294,9 +348,9 @@ class VBD_Button_set(QWidget):
             minop=P_Allinfo['minRequiredOptions']
             log.info("Processed Format: "+str(P_Allinfo['processedFormat']))                            
             Table_NumRows=len(ReqOpParamsdict)
-            self.tableWidget.setRowCount(Table_NumRows)
-            self.tableWidget.setHorizontalHeaderLabels(["Parameter", "Value","Constraint"])
-            self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+            tableWidget.setRowCount(Table_NumRows)
+            tableWidget.setHorizontalHeaderLabels(["Parameter", "Value","Constraint"])
+            tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
             iii=0
             befaconstraint=''
             if P_Allinfo['IsOred']==True:
@@ -304,26 +358,26 @@ class VBD_Button_set(QWidget):
             aconstraint=befaconstraint  
             Parameters={}  
             for ccc in ReqOpParamsdict:   
-                self.tableWidget.setItem(iii,0, QTableWidgetItem(ccc))
-                self.tableWidget.setItem(iii,1, QTableWidgetItem(str(iii)))
+                tableWidget.setItem(iii,0, QTableWidgetItem(ccc))
+                tableWidget.setItem(iii,1, QTableWidgetItem(str(iii)))
                 Parameters.update({ccc:iii})
             
-                self.tableWidget.setItem(iii,2, QTableWidgetItem(befaconstraint+ReqOpParamsdict[ccc]))
+                tableWidget.setItem(iii,2, QTableWidgetItem(befaconstraint+ReqOpParamsdict[ccc]))
                 if ReqOpParamsdict[ccc]=='required':
                     color=QColor('lightblue')
-                    self.setColortoRow(self.tableWidget, iii, color)                
+                    self.setColortoRow(tableWidget, iii, color)                
                 iii=iii+1
-            self.tableWidget.resizeColumnsToContents()
+            tableWidget.resizeColumnsToContents()
             Gcode=self.CH.Get_code(aFormat,Parameters)
 
             log.info("Evaluated Gcode: "+str(Gcode))
             
-            self.batton_data.update({'Params':Parameters})
-            self.batton_data.update({'Format':aFormat})
-            self.batton_data.update({'Gcode':Gcode})
-            self.batton_data.update({'ReqOpParamsdict':ReqOpParamsdict})
+            batton_data.update({'Params':Parameters})
+            batton_data.update({'Format':aFormat})
+            batton_data.update({'Gcode':Gcode})
+            batton_data.update({'ReqOpParamsdict':ReqOpParamsdict})
             
-        return isok    
+        return isok,batton_data    
     
     def setColortoRow(self,table, rowIndex, color):
         for jjj in range(table.columnCount()):
@@ -367,7 +421,7 @@ class VBD_Handler(object):
         self.Object_List.append(Obj)
         self.Object_Key_List.append(anid)
         self.Selected_key=anid
-        print('added ',anid)
+        #print('added ',anid)
         return anid
     
     def Get_a_new_id(self):
@@ -380,7 +434,7 @@ class VBD_Handler(object):
         if self.Selected_key in self.Object_Key_List:
             for iiiid,Obj in zip(self.Object_Key_List,self.Object_List):
                 if iiiid is self.Selected_key: 
-                    print('Obj type',type(Obj))                   
+                    #print('Obj type',type(Obj))                   
                     return Obj    
             
 
@@ -398,21 +452,90 @@ class VBD_Handler(object):
                 self.Object_List.remove(Obj)
                 self.Object_Key_List.remove(anid)
                 self.Selected_key=None
+                Obj.deleteLater() 
         except:
             pass
        
 class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
-    
-    def __init__(self,Obj,CH, *args, **kwargs):  
+
+    def __init__(self,Obj, *args, **kwargs):  
         #QtWidgets.QWidget.__init__(self,parent)              
         super(VariableButtonDataDialog, self).__init__(*args, **kwargs)  
         self.__name__="VBDD"
-        self.CH=CH
         self.Obj=Obj
+        self.CH=self.Obj.CH        
         self.aDialog=class_File_Dialogs.Dialogs()             
-        self.Is_Dialog_Open=False      
-        print('started')
+        self.Is_Dialog_Open=False              
         self.openVariableButtonDataDialog()   #comment this line to be called only when you want the dialog 
+        self.Copy_original_data()
+        self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+    
+    def Fill_Form_with_Batton_Data(self,batton_data):
+        self.DVBDui.label_VBDD_id.setText('Batton ID:'+str(batton_data['key_id']))
+        self.Is_Forcedid=False
+        try:            
+            if self.CH.Check_id_in_dataConfig(self.CH.Configdata,batton_data['Force_id'])==True:
+                self.id=batton_data['Force_id']
+                self.Is_Forcedid=True
+            else:
+                self.id=self.CH.id
+        except:
+            self.id=self.CH.id
+            pass
+        if self.Is_Forcedid==True:
+            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.id)
+            self.DVBDui.label_VBDD_CHid.setText('Forced to interface: '+aname)
+        else:
+            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+            self.DVBDui.label_VBDD_CHid.setText('Actual interface: '+aname)
+
+        self.DVBDui.lineEdit_VBDD_Name.setText(batton_data['Name'])
+        
+        if self.CH.Is_action_in_Config(batton_data['action'])==True:
+            index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString)
+            is_action=True
+        else:
+            index=0
+            self.set_d('action','',True)
+            is_action=False
+        self.DVBDui.comboBox_VBDD_action.setCurrentIndex(index)        
+        
+        if is_action==True:
+            isok,newbatton_data=self.Obj.Fill_actionParameters_Table(self.DVBDui.tableWidget_VBDD_parameters,batton_data)
+        else:                        
+            isok=False     
+        if isok==True:
+            self.Obj.batton_data=newbatton_data             
+            Gcode=self.Obj.Get_Gcode_from_Batton(self.Obj.batton_data)
+            if Gcode is not '':
+                self.set_d('Gcode',Gcode,True)
+            self.DVBDui.label_VBDD_Result.setText(Gcode)
+        else:            
+            self.set_d('Params',{},True) 
+            self.DVBDui.tableWidget_VBDD_parameters.clear()
+            self.DVBDui.tableWidget_VBDD_parameters.setRowCount(0) 
+            self.Obj.tableWidget.clear()
+            self.Obj.tableWidget.setRowCount(0) 
+            
+        self.DVBDui.textEdit_VBDD_Gcode.setText(batton_data['Gcode'])
+
+
+    def accept(self):
+        log.info("Edit accepted!")
+        pass
+    
+    def reject(self):        
+        log.info("Edit canceled reverting to Original batton Data")
+        self.Obj.batton_data=self.Copy_data(self.Original_batton)        
+
+    def Copy_data(self,adict):
+        newdict={}
+        for item in adict:
+            newdict.update({item:adict[item]})
+        return newdict
+
+    def Copy_original_data(self):
+        self.Original_batton=self.Copy_data(self.Obj.batton_data)
     
     def openVariableButtonDataDialog(self):        
         self.Dialog_VBDD = QtWidgets.QDialog()
@@ -424,31 +547,58 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.Fill_action_combobox()        
         self.Connect_Data_buttons()
     
+    def ComboBox_Select_action(self):
+        selaction=self.DVBDui.comboBox_VBDD_action.currentText()                 
+        self.set_d('action',selaction,False)
+        if selaction is not '':
+            aFormat=self.CH.Get_action_format_from_id(self.CH.Configdata,selaction,self.id) 
+        else:
+            aFormat=''
+            self.set_d('Params',{},False)
+        self.set_d('Format',aFormat,True)
+        self.DVBDui.label_VBDD_Format.setText(aFormat) 
+        print('Info to be filled:',self.Obj.batton_data)
+        self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+
+    def set_d(self,Key,Value,refresh=False):
+        self.Obj.batton_data.update({Key:Value})
+        if refresh==True:
+            self.Obj.set_data_to_VBD_Button(self.Obj.batton_data)
+
+    def PB_Select_Icon(self):
+        iconname=self.aDialog.openFileNameDialog(1)   #1->Images (*.png *.xpm *.jpg *.bmp)
+        self.set_d('Icon',iconname,True)    
+            
+    def Name_Changed(self):        
+        aName=self.DVBDui.lineEdit_VBDD_Name.text()
+        self.set_d('Name',aName,True)
+
+
     def Connect_Data_buttons(self):
-        '''
+        self.DVBDui.buttonBox.accepted.connect(self.accept)
+        self.DVBDui.buttonBox.rejected.connect(self.reject)
+        self.DVBDui.pushButton_VBDD_Icon.clicked.connect(self.PB_Select_Icon)
         # activated-When user changes it
         # currentIndexChanged -> when user or program changes it
-        self.DVBui.comboBox_CCD_interface.activated.connect(self.ComboBox_Select_interface)
-        self.DVBui.comboBox_CCD_action.currentIndexChanged.connect(self.ComboBox_Select_action)
-        self.DVBui.comboBox_CCD_readaction.currentIndexChanged.connect(self.ComboBox_Select_Readaction)  
-        self.DVBui.comboBox_CCD_Intaction.currentIndexChanged.connect(self.ComboBox_Select_Intaction)
-        self.DVBui.comboBox_CCD_Inttype.currentIndexChanged.connect(self.ComboBox_Select_Inttype)
-        
+        self.DVBDui.comboBox_VBDD_action.activated.connect(self.ComboBox_Select_action)
         #textEdited->only when user changes, not by the program
         #textChanged-> when user changes or the program changes text
-        self.DVBui.lineEdit_CCD_testRead_text.textEdited.connect(self.Test_text_Changed) 
-        self.DVBui.lineEdit_CCD_readFormat.textChanged.connect(self.Test_text_Changed)
-        self.DVBui.lineEdit_CCD_Format.textChanged.connect(self.Test_format_Changed)
-        
-        
-        #self.DVBui.label_CCD_testResultFormat.left_clicked[int].connect(self.left_click_P)
-        #self.DVBui.label_CCD_testResultFormat.right_clicked[int].connect(self.right_click_P)
-        '''
-        print('Connecting Done')
+        self.DVBDui.lineEdit_VBDD_Name.textEdited.connect(self.Name_Changed)
+
+        self.DVBDui.tableWidget_VBDD_parameters.itemChanged.connect(self.Parameter_Changed)
+
+    def Parameter_Changed(self):
+        Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters)
+        self.set_d('Params',Parameters,True)
+        Gcode=self.Obj.Get_Gcode_from_Batton(self.Obj.batton_data)
+        if Gcode is not '':
+            self.set_d('Gcode',Gcode,True)
+        self.DVBDui.label_VBDD_Result.setText(Gcode)
+        self.DVBDui.textEdit_VBDD_Gcode.setText(Gcode)
 
 
-    
-    def quit(self):
+
+    def quit(self):            
         self.Dialog_VBDD.close()
         self.Is_Dialog_Open=False
            
@@ -464,7 +614,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
 
     def Fill_action_combobox(self):
         self.DVBDui.comboBox_VBDD_action.clear()
-        allactions=self.CH.getListofActions(['interfaceId','interfaceId_type','interfaceId_info'])
+        allactions=self.CH.getListofActions(['interfaceId','interfaceName','interfaceId_type','interfaceId_info'])
         self.DVBDui.comboBox_VBDD_action.addItem('')
         for iii in allactions:           
             self.DVBDui.comboBox_VBDD_action.addItem(iii)          
@@ -488,7 +638,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.Is_Dialog_Open=False   
         self.Selected_Item=None
         self.Setup_Command_Config()
-        self.Activate_test_button=True
+        self.Activate_test_button=False  #Edit as test
         self.openVariableButtonDialog()   #comment this line to be called only when you want the dialog 
         self.VBD_H=VBD_Handler()   
     
@@ -514,7 +664,27 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.CH.Required_actions=Reqcc    
         self.CH.Required_interface=Reqic    
 
+    def accept(self):
+        try:
+            self.VBDD_Dialog.quit()
+        except:
+            pass
+        log.info("Accepted Closing Dialog")
+        pass
+    
+    def reject(self):        
+        try:
+            self.VBDD_Dialog.quit()
+        except:
+            pass
+        log.info("Rejected Closing Dialog")
+        
+
     def quit(self):
+        try:
+            self.VBDD_Dialog.quit()
+        except:
+            pass
         self.Dialog_VBD.close()
         self.Is_Dialog_Open=False
            
@@ -559,6 +729,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         anid=self.VBD_H.Add_Obj(abtn)        
         abtn.batton_data.update({'key_id':anid})        
         abtn.show()
+        log.info('Batton Object Added ID:'+str(anid))
         #self.btn.pushButton.clicked.connect(self.btn_click)
         self.DVBui.groupBox_VBD_VarButtons.setAcceptDrops(True)
         abtn.data_change[dict].connect(self.VBD_Button_Clicked)
@@ -567,7 +738,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.Edit_Batton_Data(abtn)
 
     def Edit_Batton_Data(self,Obj):
-        self.VBDD_Dialog=VariableButtonDataDialog(Obj,self.CH)
+        self.VBDD_Dialog=VariableButtonDataDialog(Obj)
 
     def VBD_Set_Position(self,newpos):
         apos,anid=newpos
@@ -592,8 +763,14 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
 
     def VBD_Selected(self,anid):        
         self.VBD_H.Select_Object(anid)
-        self.Selected_Item=self.VBD_H.Selected_key        
+        self.Selected_Item=self.VBD_H.Selected_key                
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            if iiiid is anid:
+                Obj.frame.setStyleSheet("border: 2px solid blue;")
+            else:
+                Obj.frame.setStyleSheet("")
         '''
+        #Not returning obj but method :S
         Obj=self.VBD_H.Get_Selected_Object
         print(type(Obj))
         if Obj is not None:
@@ -602,20 +779,12 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             for Objiii in self.VBD_H.Object_List:
                 Objiii.frame.setStyleSheet("")
         '''        
-        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
-            if iiiid is anid:
-                Obj.frame.setStyleSheet("border: 2px solid blue;")
-            else:
-                Obj.frame.setStyleSheet("")
 
     def VBD_Button_Clicked(self,batton_data):
         print(batton_data)
 
     def dragEnterEvent(self, e: QDragEnterEvent):
         e.accept()
-    
-    def btn_click(self):
-        print('button click')
 
     def Connect_Main_Button(self):    
         #Connect buttons
@@ -624,12 +793,27 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         else:
             self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_debugtests)
         self.DVBui.pushButton_VBD_ButtonAdd.clicked.connect(self.PB_Add_Button)        
-        #self.DVBui.pushButton_VBD_ButtonRemove.clicked.connect(self.PB_Remove_Button)
+        self.DVBui.pushButton_VBD_ButtonRemove.clicked.connect(self.PB_Remove_Button)
         #self.DVBui.pushButton_VBD_Save.clicked.connect(self.PB_Save_Button_Layout)
         #self.DVBui.pushButton_VBD_Load.clicked.connect(self.PB_Load_Button_Layout)
-                
+        self.DVBui.buttonBox.accepted.connect(self.accept)
+        self.DVBui.buttonBox.rejected.connect(self.reject)
+
+    def PB_Remove_Button(self):
+        anid=self.Selected_Item                
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            if iiiid is anid:
+                self.VBD_H.Del_Obj(Obj)  
+                log.info('Batton Object Deleted ID:'+str(anid))
+                break              
+        
+                        
     def PB_Edit_Button(self):
-        print('Edit button pressed')
+        anid=self.Selected_Item                
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            if iiiid is anid:
+                self.Edit_Batton_Data(Obj)
+                #print('Edit button pressed')
     
     def Refresh_viewed_filenames(self):        
         fff=self.shorten_filename(self.extract_filename(self.CH.filename,False))
