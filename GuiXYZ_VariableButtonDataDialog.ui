@@ -56,10 +56,88 @@
         </item>
        </layout>
       </item>
+      <item row="3" column="0">
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_VBDD_Format">
+          <property name="text">
+           <string>Action Format</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_VBDD_Result">
+          <property name="text">
+           <string>Action Result</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="5" column="0" rowspan="2">
+       <widget class="QGroupBox" name="groupBox_VBDD_byScript">
+        <property name="toolTip">
+         <string>To send script no action and no Gcode must be present.</string>
+        </property>
+        <property name="title">
+         <string>By Script</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <widget class="QLabel" name="label_VBDD_Script">
+           <property name="text">
+            <string>No Script Selected</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_VBDD_Script">
+           <property name="text">
+            <string>PushButton</string>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>img/Document-icon.png</normaloff>img/Document-icon.png</iconset>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QGroupBox" name="groupBox_VBDD_byGcode">
+        <property name="toolTip">
+         <string>To send Gcode no action has to be selected.</string>
+        </property>
+        <property name="title">
+         <string>By Gcode</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <item>
+          <widget class="QPlainTextEdit" name="plainTextEdit_VBDD_Gcode"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
       <item row="2" column="0">
        <widget class="QGroupBox" name="groupBox_VBDD_byaction">
         <property name="title">
          <string>By action</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
         </property>
         <layout class="QGridLayout" name="gridLayout_2">
          <item row="0" column="0">
@@ -97,32 +175,23 @@
            </item>
           </layout>
          </item>
-         <item row="4" column="0">
-          <widget class="QTableWidget" name="tableWidget_VBDD_parameters"/>
+         <item row="4" column="0" rowspan="2">
+          <widget class="QGroupBox" name="groupBox_VBDD_Parameters">
+           <property name="title">
+            <string>Show Parameters</string>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_4">
+            <item>
+             <widget class="QTableWidget" name="tableWidget_VBDD_parameters"/>
+            </item>
+           </layout>
+          </widget>
          </item>
         </layout>
        </widget>
-      </item>
-      <item row="3" column="0">
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <item>
-         <widget class="QLabel" name="label_VBDD_Format">
-          <property name="text">
-           <string>Action Format</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_VBDD_Result">
-          <property name="text">
-           <string>Action Result</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="4" column="0">
-       <widget class="QTextEdit" name="textEdit_VBDD_Gcode"/>
       </item>
      </layout>
     </widget>
