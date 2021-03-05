@@ -34,10 +34,10 @@
 <beforestartupSequence_info>_<Commands to be sent after serial connection is stablished.>_<*(0)>_<*(0)>_<*(0)>
 <afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>
 <afterstartupSequence_info>_<Commands to be sent after startup sequence.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport>_<False>_<True>_<1>_<>
+<hasautoReport>_<False>_<True>_<False>_<>
 <hasautoReport_info>_<If interface autoreports will not ask for position reports every cycle.>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
-<interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<Marlin>_<reprap>
+<interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<echo:Unknown command:>_<reprap>
 <interfaceidentifyer_info>_<This allows to identify the interface by the response of the machine in startup sequence.>_<*(0)>_<*(0)>_<*(0)>
 <hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
 <beforestartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
@@ -67,7 +67,7 @@
 <timeforMachineStartup>_<0>_<>_<>_<>
 <timeforMachineStartup_info>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>_<*(0)>_<*(0)>_<*(0)>
 <logNoread_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<logNoread>_<True>_<True>_<>_<>
+<logNoread>_<True>_<True>_<True>_<>
 <movementactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
 <movementactionlist>_<rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<>_<>_<>
 <probingactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>

@@ -942,19 +942,9 @@
              <layout class="QHBoxLayout" name="horizontalLayout_7">
               <item>
                <layout class="QGridLayout" name="gridLayout_7">
-                <item row="0" column="0">
-                 <widget class="QPlainTextEdit" name="plaintextEdit_GcodeScript_2"/>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QProgressBar" name="progressBar_Gcode">
-                  <property name="value">
-                   <number>0</number>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <layout class="QVBoxLayout" name="verticalLayout_12">
-                  <item>
+                <item row="0" column="2">
+                 <layout class="QGridLayout" name="gridLayout_15">
+                  <item row="0" column="0">
                    <layout class="QVBoxLayout" name="verticalLayout_9">
                     <item>
                      <widget class="QPushButton" name="pushButton_LoadGcode">
@@ -992,63 +982,7 @@
                     </item>
                    </layout>
                   </item>
-                  <item>
-                   <widget class="QFrame" name="frame_GcodePauseStop">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="frameShape">
-                     <enum>QFrame::StyledPanel</enum>
-                    </property>
-                    <property name="frameShadow">
-                     <enum>QFrame::Raised</enum>
-                    </property>
-                    <layout class="QVBoxLayout" name="verticalLayout_11">
-                     <item>
-                      <layout class="QVBoxLayout" name="verticalLayout_8">
-                       <item>
-                        <widget class="QPushButton" name="pushButton_Hold_Start_Gcode">
-                         <property name="sizePolicy">
-                          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                           <horstretch>0</horstretch>
-                           <verstretch>0</verstretch>
-                          </sizepolicy>
-                         </property>
-                         <property name="text">
-                          <string>Hold</string>
-                         </property>
-                         <property name="icon">
-                          <iconset>
-                           <normaloff>img/Button-Pause-icon.png</normaloff>img/Button-Pause-icon.png</iconset>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QPushButton" name="pushButton_StopGcode">
-                         <property name="sizePolicy">
-                          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                           <horstretch>0</horstretch>
-                           <verstretch>0</verstretch>
-                          </sizepolicy>
-                         </property>
-                         <property name="text">
-                          <string>STOP</string>
-                         </property>
-                         <property name="icon">
-                          <iconset>
-                           <normaloff>img/Actions-process-stop-icon.png</normaloff>img/Actions-process-stop-icon.png</iconset>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
-                     </item>
-                    </layout>
-                   </widget>
-                  </item>
-                  <item>
+                  <item row="2" column="0">
                    <layout class="QVBoxLayout" name="verticalLayout_10">
                     <item>
                      <widget class="QCheckBox" name="checkBox_Gcode">
@@ -1067,12 +1001,32 @@
                      <widget class="QComboBox" name="comboBox_GcodeStreamType"/>
                     </item>
                     <item>
+                     <widget class="QSpinBox" name="spinBox_Stream_Linefrom">
+                      <property name="toolTip">
+                       <string>Line number from set to 0 for all</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QSpinBox" name="spinBox_Stream_Lineto">
+                      <property name="toolTip">
+                       <string>Line number to</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
                      <widget class="QPushButton" name="PushButton_RunGcodeScript">
                       <property name="sizePolicy">
                        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                         <horstretch>0</horstretch>
                         <verstretch>0</verstretch>
                        </sizepolicy>
+                      </property>
+                      <property name="minimumSize">
+                       <size>
+                        <width>0</width>
+                        <height>20</height>
+                       </size>
                       </property>
                       <property name="text">
                        <string>Run Gcode</string>
@@ -1083,6 +1037,20 @@
                   </item>
                  </layout>
                 </item>
+                <item row="2" column="2">
+                 <widget class="QLabel" name="label_GcodeLines">
+                  <property name="text">
+                   <string>Line 0 of 0</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QProgressBar" name="progressBar_Gcode">
+                  <property name="value">
+                   <number>0</number>
+                  </property>
+                 </widget>
+                </item>
                 <item row="1" column="0">
                  <widget class="QProgressBar" name="progressBar_Gcodebuffer">
                   <property name="value">
@@ -1090,18 +1058,74 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="1">
+                <item row="1" column="2">
                  <widget class="QLabel" name="label_time">
                   <property name="text">
                    <string>00:00:00</string>
                   </property>
                  </widget>
                 </item>
-                <item row="2" column="1">
-                 <widget class="QLabel" name="label_GcodeLines">
-                  <property name="text">
-                   <string>Line 0 of 0</string>
+                <item row="0" column="0">
+                 <widget class="QPlainTextEdit" name="plaintextEdit_GcodeScript_2">
+                  <property name="toolTip">
+                   <string>Line number from</string>
                   </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QFrame" name="frame_GcodePauseStop">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="frameShape">
+                   <enum>QFrame::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_11">
+                   <item>
+                    <layout class="QVBoxLayout" name="verticalLayout_8">
+                     <item>
+                      <widget class="QPushButton" name="pushButton_Hold_Start_Gcode">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>Hold</string>
+                       </property>
+                       <property name="icon">
+                        <iconset>
+                         <normaloff>img/Button-Pause-icon.png</normaloff>img/Button-Pause-icon.png</iconset>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="pushButton_StopGcode">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>STOP</string>
+                       </property>
+                       <property name="icon">
+                        <iconset>
+                         <normaloff>img/Actions-process-stop-icon.png</normaloff>img/Actions-process-stop-icon.png</iconset>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </item>
+                  </layout>
                  </widget>
                 </item>
                </layout>

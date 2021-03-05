@@ -303,6 +303,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         log.info("Changed Interface to id "+ str(self.CH.id)+' ->'+InterfaceName)  
         
         self.Initialize_Interface()
+        self.Init_Configurations()
         
         
     def Wait_for_serial_response(self,waittime,exitcount=1000000,loginfo=True,teaseini=20):
@@ -330,9 +331,9 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                wake.set()     
             count=count+1   
         if count>=exitcount:
-            log.error('Wait Timeout exit...')    
+            log.info('Wait Timeout exit...')    
         if self.grbl_event_stop.is_set() or self.killer_event.is_set() or self.grbl_event_softreset.is_set():
-            log.error('Wait exit by event...')        
+            log.info('Wait exit by event...')        
         return grbl_out
     
     def serialread_to_str(self,theread,coding=None):
@@ -815,7 +816,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         return  PRdata,foundmatch  
 
 
-    def Read_all_data(self,grbl_out):
+    def Read_all_data(self,grbl_out,FirstResponse=True):
         PRdata={}
         foundmatch=False
         for aitem in self.data:
@@ -829,30 +830,39 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     if PR is not '__success__':
                         PRdata.update({PR:PRead[PR]})
                 foundmatch=True        
-                break
+                if FirstResponse==True:
+                    break
         #print(foundmatch,PRdata)
         return  PRdata,foundmatch       
     
     def Get_reads_bools(self):
         '''
         [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]
-        '''
+        
+        '''                
         return [self.is_ack,self.is_ackcexecuted,self.is_ackcreceived,self.is_error,self.is_alarm]
 
     def Process_Read_Data(self,grbl_out,showok=False):
         if (grbl_out):            
-            self.is_ack=False
-            self.is_ackcexecuted=False
-            self.is_ackcreceived=False
-            self.is_error=False                    
-            self.is_alarm=False
+            
             if self.logAllReadData==True:
                 log.info(grbl_out)
             PRdata,foundmatch=self.Read_all_data(grbl_out)
             if foundmatch==False:                
                 if self.logNoread==True:
                     log.info("No read: "+ grbl_out)
-            else:                                    
+                if self.Streamwriting==True and self.grbl_event_running_command.is_set():
+                    #if serial command response is not recognized blocks the streaming until flag is cleared    
+                    log.warning("No read cleared running flag!")
+                    self.IsRunning_event.clear()
+                    self.grbl_event_running_command.clear() 
+            else:    
+                self.is_ack=False
+                self.is_ackcexecuted=False
+                self.is_ackcreceived=False
+                self.is_error=False                    
+                self.is_alarm=False
+
                 self.AllReadData=PRdata
                 #acknowledgecommandexecutedRead                
                 PRdata,astatus=self.Read_key_Status(PRdata,'ACK',showok)
@@ -1082,7 +1092,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     
     def Is_command_running(self):
         '''
-        Running command is set when a comand is set in serial port.
+        Running command is set when a command is set in serial port.
         Cleared when ACKCMD or state to IDLE.
         if no ACKCMD (grbl)
         '''        
@@ -1193,8 +1203,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         # Process the data    
         confignum=0
         for line in linebuff:
-            PRdata,foundmatch=self.Read_all_data(line)    
-            oneconf={}        
+            #print('found line->',line)
+            PRdata,foundmatch=self.Read_all_data(line,False)    
+            oneconf={}   
+            #print('found match->',foundmatch)     
             if foundmatch==True:
                 prlist=[]
                 for jjj in PRdata:

@@ -29,6 +29,7 @@ import binascii
 import logging
 import queue
 import threading
+import os
 #import atexit
 #import keyboard for keyboard inputs
 
@@ -132,7 +133,7 @@ class QLineNumberArea(QWidget):
         self.codeEditor.lineNumberAreaPaintEvent(event)
 
 
-class QCodeEditor(QtWidgets.QPlainTextEdit):
+class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.lineNumberArea = QLineNumberArea(self)
@@ -140,6 +141,24 @@ class QCodeEditor(QtWidgets.QPlainTextEdit):
         self.updateRequest.connect(self.updateLineNumberArea)
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
         self.updateLineNumberAreaWidth(0)
+        self._highlight_lines = dict()        
+        self.extraselections_lines=[]
+        self.block_from=0
+        self.block_to=0
+    
+    def setFromTo(self,b_from,b_to):        
+        if b_from<=0 or b_to<=0:
+            self.block_from=0
+            self.block_to=self.blockCount()
+            return
+        if b_to<b_from:
+            self.block_from=0
+            self.block_to=self.blockCount()
+            return
+        else:
+            self.block_from=b_from
+            self.block_to=b_to
+
 
     def lineNumberAreaWidth(self):
         digits = 1
@@ -169,12 +188,18 @@ class QCodeEditor(QtWidgets.QPlainTextEdit):
     def highlightCurrentLine(self):
         extraSelections = []
         if not self.isReadOnly():
-            selection = QTextEdit.ExtraSelection()
-            lineColor = QColor(Qt.yellow).lighter(160)
+            selection = QTextEdit.ExtraSelection()  
+            selection.cursor = self.textCursor()            
+            block = selection.cursor.block()
+            blockNumber = block.blockNumber()          
+            if blockNumber>=self.block_from-1 and blockNumber<self.block_to:
+                lineColor = QColor(Qt.blue).lighter(160)
+            else:
+                lineColor = QColor(Qt.yellow).lighter(160)
             selection.format.setBackground(lineColor)
-            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
-            selection.cursor = self.textCursor()
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)            
             selection.cursor.clearSelection()
+            
             extraSelections.append(selection)
         self.setExtraSelections(extraSelections)
 
@@ -193,7 +218,11 @@ class QCodeEditor(QtWidgets.QPlainTextEdit):
         while block.isValid() and (top <= event.rect().bottom()):
             if block.isVisible() and (bottom >= event.rect().top()):
                 number = str(blockNumber + 1)
-                painter.setPen(Qt.black)
+                
+                if blockNumber>=self.block_from-1 and blockNumber<self.block_to:
+                    painter.setPen(Qt.black)
+                else:
+                    painter.setPen(Qt.red)
                 painter.drawText(0, top, self.lineNumberArea.width(), height, Qt.AlignRight, number)
 
             block = block.next()
@@ -201,6 +230,42 @@ class QCodeEditor(QtWidgets.QPlainTextEdit):
             bottom = top + self.blockBoundingRect(block).height()
             blockNumber += 1
 
+    def highlight_line(self, line, fmt):        
+        if isinstance(line, int) and line >= 0 and isinstance(fmt, QTextCharFormat):
+            self._highlight_lines[line] = fmt
+            tb = self.document().findBlockByLineNumber(line)
+            extraSelections =  self.extraselections_lines            
+            try:
+                if not self.isReadOnly():                
+                    selection = QTextEdit.ExtraSelection()
+                    lineColor = QColor(Qt.blue).lighter(160)
+                    selection.format.setBackground(lineColor)
+                    selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+                    selection.cursor = QTextCursor(tb) #self.textCursor()
+                    selection.cursor.clearSelection()
+                    selection.cursor.setBlockCharFormat(fmt)
+                    extraSelections.append(selection)
+                    self.extraselections_lines.append(selection)
+                self.setExtraSelections(extraSelections)
+                #cursor = QTextCursor(tb)
+                #cursor.setBlockFormat(fmt)
+                #cursor.setBlockCharFormat(fmt) #QTextCursor class
+                #QtGui.QSyntaxHighlighter.rehighlightBlock(tb)
+                
+            except:
+                pass    
+
+    def clear_highlight(self):
+        self._highlight_lines = dict()
+        #self.setCurrentCharFormat(self.original_format)
+        self.extraselections_lines=[]
+        #QtGui.QSyntaxHighlighter.rehighlight()
+
+    def highlightBlock(self, text):
+        line = self.currentBlock().blockNumber()
+        fmt = self._highlight_lines.get(line)
+        if fmt is not None:
+            self.setFormat(0, len(text), fmt)
 
 
 
@@ -272,7 +337,9 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         #self.plaintextEdit_GcodeScript.setGeometry(QtCore.QRect(10, 20, 431, 351))
         self.plaintextEdit_GcodeScript.setObjectName("plaintextEdit_GcodeScript")
         self.gridLayout_7.addWidget(self.plaintextEdit_GcodeScript, 0, 0, 1, 1)
-
+        self.plaintextEdit_GcodeScript.blockCountChanged[int].connect(self.Set_from_to_Spinbox)
+        self.plaintextEdit_GcodeScript.updateRequest.connect(self.Update_Highlights_Spinbox)
+        
         #
         #Combobox Fill
         self.comboBox_ConnSpeed.addItem("9600")
@@ -338,6 +405,85 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.ST.data_change[dict].connect(self.Data_Change_Actualize)
         self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
         self.ST.stream_info_change.connect(self.Stream_Info_Update)    
+        
+    def Spinbox_val_change_from(self,val):
+        numlines=self.plaintextEdit_GcodeScript.blockCount() #self.spinBox_Stream_Linefrom.maximum()        
+        try:
+            val=int(val)
+        except:
+            val=0
+            pass
+        self.spinBox_Stream_Linefrom.setValue(val)
+        self.Stream_Linefrom=val
+        self.Stream_Lineto=self.spinBox_Stream_Lineto.value()
+        self.Set_from_to_Spinbox(numlines)
+        
+
+    def Spinbox_val_change_to(self,val):
+        numlines=self.plaintextEdit_GcodeScript.blockCount() #self.spinBox_Stream_Linefrom.maximum()
+        try:
+            val=int(val)
+        except:
+            val=0
+            pass
+        self.spinBox_Stream_Lineto.setValue(val)
+        self.Stream_Linefrom=self.spinBox_Stream_Linefrom.value()
+        self.Stream_Lineto=val
+        self.Set_from_to_Spinbox(numlines)
+    
+    def Update_Highlights_Spinbox(self):
+        numlines=self.plaintextEdit_GcodeScript.blockCount()
+        #self.Set_from_to_Spinbox(numlines)
+
+    def Set_from_to_Spinbox(self,numlines):
+        self.spinBox_Stream_Linefrom.setMinimum(0)
+        self.spinBox_Stream_Linefrom.setMaximum(numlines)
+        if self.spinBox_Stream_Linefrom.value()>numlines or self.spinBox_Stream_Linefrom.value()<=0:
+            self.spinBox_Stream_Linefrom.setValue(0)
+            self.spinBox_Stream_Lineto.setValue(numlines)
+            self.plaintextEdit_GcodeScript.clear_highlight()
+        self.spinBox_Stream_Lineto.setMinimum(self.spinBox_Stream_Linefrom.value())
+        self.spinBox_Stream_Lineto.setMaximum(numlines)               
+        self.Stream_Linefrom=self.spinBox_Stream_Linefrom.value()
+        self.Stream_Lineto=self.spinBox_Stream_Lineto.value()
+        self.plaintextEdit_GcodeScript.setFromTo(self.Stream_Linefrom,self.Stream_Lineto)        
+        #self.Set_from_to_Color_Highlight(numlines)
+    '''
+    def Set_from_to_Color_Highlight(self,numlines):  
+        color_format = self.plaintextEdit_GcodeScript.currentCharFormat()             
+        color_format1 = color_format
+        color=QColor('black')
+        color_format1.setForeground(color) 
+        color_format1.setFontItalic(False)   
+        color_format2=color_format1
+        color=QColor('blue')
+        color_format2.setForeground(color) 
+        color_format2.setFontItalic(True)             
+        self.plaintextEdit_GcodeScript.clear_highlight()
+        #self.plaintextEdit_GcodeScript.setCurrentCharFormat(color_format)    
+        block=self.plaintextEdit_GcodeScript.firstVisibleBlock()             
+        while block.isVisible() and block.isValid():
+            line =block.blockNumber()
+            #print('entered while')
+            if self.Stream_Linefrom>0 and line>=self.Stream_Linefrom-1 and line<self.Stream_Lineto:    
+                #self.plaintextEdit_GcodeScript.highlight_line(line,color_format1)
+                #only change it if is different (recursion issue)
+                #print(color_format.fontItalic())
+                self.plaintextEdit_GcodeScript.highlight_line(line,color_format2)
+                #if color_format.fontItalic()==False:
+                #    print('entered')
+                #    self.setLineFormat(self.plaintextEdit_GcodeScript,line,color_format2)
+                #    self.plaintextEdit_GcodeScript.highlight_line(line,color_format2)
+            else:
+                if color_format.fontItalic()==True:
+                    self.setLineFormat(self.plaintextEdit_GcodeScript,line,color_format1)                
+            block=block.next()                                                    
+
+    def setLineFormat(self, textEdit,lineNumber, charformat):
+        cursor = QTextCursor(textEdit.document().findBlockByNumber(lineNumber))
+        cursor.setBlockCharFormat(charformat)
+        #cursor.setBlockFormat(format)             
+    '''    
         
 
     def poll_log_queue(self,logit=True):
@@ -492,6 +638,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.pushButton_YZLD.clicked.connect(self.PB_YZLD)
         
         self.pushButton_Gcodesend.clicked.connect(self.PB_Gcodesend)
+        self.lineEdit_Gcode.returnPressed.connect(self.PB_Gcodesend)
         self.pushButton_Home.clicked.connect(self.PB_Home)
         self.pushButton_Home_X.clicked.connect(self.PB_HomeX)
         self.pushButton_Home_Y.clicked.connect(self.PB_HomeY)
@@ -518,7 +665,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
         self.pushButton_Generate_Gimage_Code.clicked.connect(self.PB_Generate_Gimage_Code)
 
-        
+        self.spinBox_Stream_Linefrom.valueChanged.connect(self.Spinbox_val_change_from)
+        self.spinBox_Stream_Lineto.valueChanged.connect(self.Spinbox_val_change_to)
 
         """
         for i,self.tabWidget in enumerate(bars):
@@ -577,6 +725,8 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.connect_label_actions()
         self.Fill_Image_process_Tool_Technique_Combo()
         self.Actual_Interface=0 #0=Grbl,1=TinyG,2=Marlin
+        self.Stream_Linefrom=0
+        self.Stream_Lineto=0
 
     def connect_label_actions(self):    
         #self.label_Image_Preview.clicked.connect(self.Image_Preview_Clicked) 
@@ -796,7 +946,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.xyz_thread.send_queue_command('checkgcodeMode_On',{},True) 
             time.sleep(0.2) # wait to react 
         log.info("Sending stream to thread")    
-        text2stream=self.plaintextEdit_GcodeScript.toPlainText()
+        text2stream=self.Get_Text_to_Stream(self.Stream_Linefrom,self.Stream_Lineto)
         self.P_Bar_Update_Gcode.SetStatus(0)
         self.P_Bar_buffer_Gcode.SetStatus(0)
         self.ComboBox_Select_GcodeStreamType()
@@ -810,20 +960,63 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.isoncheckedstate_checkbox=False
             self.checkBox_Gcode.setChecked(False)
             
+    def Get_Text_to_Stream(self,linefrom=-1,lineto=0):
+        if linefrom<=0:
+            text2stream=self.plaintextEdit_GcodeScript.toPlainText() 
+            return text2stream
+        text2stream=''
+        f_n=self.get_temppathFilename()
+        self.PB_SaveGcode(f_n)        
+        mylines = []                             # Declare an empty list named mylines.
+        with open (f_n, 'rt') as myfile: # Open lorem.txt for reading text data.
+            for myline in myfile:                # For each line, stored as myline,
+                mylines.append(myline)           # add its contents to mylines.
+        
+        num_lines=self.plaintextEdit_GcodeScript.blockCount()
+        
+        if linefrom>num_lines:
+            log.error('Wrong Stream Start Line Number!')
+        if lineto>=num_lines or lineto<linefrom:
+            lineto=num_lines
+        if linefrom>=1 and lineto<=num_lines:
+            block=self.plaintextEdit_GcodeScript.document().findBlockByLineNumber(linefrom-1)
+            #block.text()
+            for n_line, myline in enumerate(mylines, start=1):
+                if n_line>=linefrom and n_line<=lineto:
+                  text2stream=text2stream+myline           # add its contents to txt.
+        return text2stream
 
+    def get_appPath(self):
+        # determine if application is a script file or frozen exe
+        if getattr(sys, 'frozen', False):
+            application_path = os.path.dirname(sys.executable)
+        elif __file__:
+            application_path = os.path.dirname(__file__)
+        return application_path      
+
+    def get_temppathFilename(self):
+        temppath=self.get_appPath()+os.sep+'temp'+os.sep
+        try:
+            os.mkdir(temppath)
+        except:
+            pass
+        return temppath+'__TempMStream__.gcode'
 
     def PB_LoadGcode(self):        
         filename=aDialog.openFileNameDialog(0) #0 gcode
         
         if filename is not None:
             log.info('Opening:'+filename)
+            self.Spinbox_val_change_from(0)
+            #self.Spinbox_val_change_to(0)
             try:
                 self.plaintextEdit_GcodeScript.clear()
                 with open(filename, 'r') as yourFile:
                     #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
                     self.plaintextEdit_GcodeScript.appendPlainText(yourFile.read())        #plaintextedit
                               
-                yourFile.close()                
+                yourFile.close() 
+                self.Set_from_to_Spinbox(self.plaintextEdit_GcodeScript.blockCount())               
             except Exception as e:
                 log.error(e)
                 log.info("File was not read!")

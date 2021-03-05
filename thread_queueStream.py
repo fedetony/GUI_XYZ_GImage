@@ -40,7 +40,7 @@ class queueStream(threading.Thread):
         self.Pbar_buffer=Pbar_buffer
         self.Pbar_Stream=Pbar_Stream
         self.Pbarini=0
-        self.Pbarend=100
+        self.Pbarend=100        
         self.Pbar_Set_Status(self.Pbar_buffer,0)        
         self.Pbar_Set_Status(self.Pbar_Stream,0) 
         #event handled       
@@ -196,7 +196,10 @@ class queueStream(threading.Thread):
     def Add_to_text_queue_from_file(self,sfile):        
         if self.Is_textintoqueue_Finished==False:
             if sfile is not None:
-                if self.get_num_of_commands_txt()<=self.Max_Buffer_size:
+                [buff,txt,consumed,left,tot,totfile]=self.get_all_nums(False)
+                #actualqsize=self.get_num_of_commands_txt()
+
+                if txt<=self.Max_Buffer_size and totfile>=(consumed+buff):
                     try:
                         line=sfile.readline()                
                         if line=='':
@@ -212,7 +215,11 @@ class queueStream(threading.Thread):
                         log.info('Finished queueing text! Lines in queue:'+str(self.Streamsize))
                         sfile.close()
                         sfile=None
-                        #print('Finish text into queue -------------------------------------------------------')
+                        log.info('-------------------------------------------------------')
+                        log.info('-------------------------------------------------------')
+                        log.info('----------------Finish text into queue ----------------')
+                        log.info('-------------------------------------------------------')
+                        log.info('-------------------------------------------------------')
                         self.Is_textintoqueue_Finished=True
                         pass
         sstat=self.Get_Progress_Percentage(self.get_num_of_commands_consumed(),self.get_num_of_total_commands_onFile(),Perini=0,Perend=100)        
@@ -227,7 +234,7 @@ class queueStream(threading.Thread):
             self.itemsinbuffer_event.clear()
         # Finished when both queues are empty
         [buff,txt,consumed,left,tot,totfile]=self.get_all_nums(False)
-        if left==0 and consumed==tot and consumed>0:
+        if left==0 and consumed==totfile and consumed>0:
             self.Stream_Finished=True
 
     def get_all_nums(self,logprint=False):
@@ -300,6 +307,7 @@ class queueStream(threading.Thread):
         self.SavetempGcode(self.filename,text2stream)                
         self.Pbar_Set_Status(self.Pbar_Stream,10)
         self.Filelength=self.get_number_lines_in_file(self.filename) 
+        
         #print('Found ->',self.Filelength)       
                        
     ## Save to file -> open read -> fill buffer

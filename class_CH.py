@@ -1298,7 +1298,7 @@ class Command_Handler:
             #ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
             aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
             P_opread=self.get_regex_codes_to_find_parameters(aFormat)   
-            print('CH get parameters from Gcode->',Gcode,aFormat,P_opread)         
+            #print('CH get parameters from Gcode->',Gcode,aFormat,P_opread)         
             if P_opread['num_var']==0:
                 actionparamsfound.update({action:Params})
             if P_opread['num_var']>0:
