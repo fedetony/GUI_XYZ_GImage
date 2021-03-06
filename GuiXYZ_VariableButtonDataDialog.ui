@@ -213,7 +213,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="tab">
+     <widget class="QWidget" name="tabWidget_VBDFPage2">
       <attribute name="title">
        <string>Second State</string>
       </attribute>

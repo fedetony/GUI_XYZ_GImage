@@ -135,14 +135,14 @@ class VBD_Button_set(QWidget):
         self.verticalLayout.setObjectName("verticalLayout")
         self.pushButton = QtWidgets.QPushButton(self.frame)
         #self.pushButton = QtWidgets.QPushButton(self.splitter)
-
-        if self.batton_data['Icon']!=None:
-            icon = QtGui.QIcon()
-            icon.addPixmap(QtGui.QPixmap(self.batton_data['Icon']), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-            self.pushButton.setIcon(icon)
-
-        self.pushButton.setObjectName("pushButton")
-        
+        try:
+            if self.batton_data['Icon']!=None:
+                icon = QtGui.QIcon()
+                icon.addPixmap(QtGui.QPixmap(self.batton_data['Icon']), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                self.pushButton.setIcon(icon)
+        except:
+            pass
+        self.pushButton.setObjectName("pushButton")        
         self.pushButton.setText(self.batton_data['Name'])
         
         self.pushButton.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
@@ -163,12 +163,34 @@ class VBD_Button_set(QWidget):
             self.tableWidget.setHidden(True)
         else:
             self.batton_data['ShowParams']=True
+        
+        self.tableWidget_2 = QtWidgets.QTableWidget(self.frame)
+        self.tableWidget_2.setObjectName("tableWidget_2")
+        self.tableWidget_2.setColumnCount(3)
+        self.tableWidget_2.setRowCount(0)
+        self.verticalLayout.addWidget(self.tableWidget_2)
+        #self.tableWidget = QtWidgets.QTableWidget(self.splitter)
+        try:
+            Parameters_2=self.batton_data['Params_2']
+        except:
+            Parameters_2={}
+            pass
+        #print('Parameters->',Parameters)
+        if len(Parameters_2)==0:            
+            self.batton_data['ShowParams_2']=False
+            self.tableWidget_2.setHidden(True)
+        else:
+            self.batton_data['ShowParams_2']=True
+
         self.pushButton.adjustSize()        
         self.Do_connections()
     
     def Do_connections(self):
+        self.pushButton.pressed.connect(self.PB_Pressed)
+        self.pushButton.released.connect(self.PB_Released)
         self.pushButton.clicked.connect(self.PB_clicked)
         self.tableWidget.itemChanged.connect(self.Parameter_Changed)
+        self.tableWidget_2.itemChanged.connect(self.Parameter_Changed_2)
     
     def Parameter_Changed(self):
         Parameters=self.Get_Parameter_Values_from_Table(self.tableWidget)
@@ -179,6 +201,16 @@ class VBD_Button_set(QWidget):
         Gcode=self.Get_Gcode_from_Batton(self.batton_data)
         if Gcode is not '':
             self.batton_data.update({'Gcode':Gcode})
+    
+    def Parameter_Changed_2(self):
+        Parameters=self.Get_Parameter_Values_from_Table(self.tableWidget_2)
+        bparams=self.batton_data['Params_2']
+        for par in Parameters:
+            bparams.update({par:Parameters[par]})
+        self.batton_data.update({'Params_2':bparams})
+        Gcode=self.Get_Gcode_from_Batton_2(self.batton_data)
+        if Gcode is not '':
+            self.batton_data.update({'Gcode_2':Gcode})
             
     def Get_Gcode_from_Batton(self,batton_data,warlog=False):
         Gcode=''
@@ -194,6 +226,21 @@ class VBD_Button_set(QWidget):
             if isok==False and warlog==True:
                 log.warning(batton_data['Name']+' has incorrect Gcode! Check the Parameters!')            
         return Gcode
+    
+    def Get_Gcode_from_Batton_2(self,batton_data,warlog=False):
+        Gcode=''
+        try:
+            anid=batton_data['Force_id_2']
+            if anid is '':
+                anid=self.CH.id    
+        except:
+            anid=self.CH.id
+            pass
+        if self.CH.Is_action_in_Config(batton_data['action_2'])==True:
+            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action_2'],anid,Parameters=batton_data['Params_2'],Parammustok=True)            
+            if isok==False and warlog==True:
+                log.warning(batton_data['Name']+' has incorrect Gcode! Check the second state Parameters!')            
+        return Gcode
 
 
     def set_data_to_VBD_Button(self,batton_data):
@@ -206,6 +253,13 @@ class VBD_Button_set(QWidget):
                 else:                    
                     self.pushButton.adjustSize()
                     self.Fill_Tablewidget(Parameters)
+            if item=='Params_2':
+                Parameters=value
+                if len(Parameters)==0:                    
+                    self.pushButton.adjustSize()
+                else:                    
+                    self.pushButton.adjustSize()
+                    self.Fill_Tablewidget_2(Parameters)
             if item=='Icon':
                 Iconfilename=value
                 self.Set_button_icon(Iconfilename)
@@ -216,9 +270,16 @@ class VBD_Button_set(QWidget):
                 showparams=not value     
                 #print('hiding->',showparams)           
                 self.tableWidget.setHidden(showparams)
+            if item=='ShowParams_2':
+                showparams=not value     
+                #print('hiding->',showparams)           
+                self.tableWidget_2.setHidden(showparams)            
             if item=='ShowingParams':
                 showparams=value   
                 self.Fill_Tablewidget(batton_data['Params'])
+            if item=='ShowingParams_2':
+                showparams=value   
+                self.Fill_Tablewidget_2(batton_data['Params_2'])
 
             
 
@@ -265,6 +326,42 @@ class VBD_Button_set(QWidget):
                     self.setColortoRow(self.tableWidget, iii, color)                
                 iii=iii+1
         self.tableWidget.resizeColumnsToContents()
+    
+    def Fill_Tablewidget_2(self,Parameters):
+        try:
+            ReqOpParamsdict=self.batton_data['ReqOpParamsdict_2']
+        except:
+            return
+        try:
+            Showingparam=self.batton_data['ShowingParams_2']
+        except:
+            Showingparam={}
+            for par in ReqOpParamsdict:
+                Showingparam.update({par:True})
+            pass
+        Table_NumRows=0
+        for ccc in ReqOpParamsdict:  
+            if Showingparam[ccc]==True:
+                Table_NumRows=Table_NumRows+1
+        #Table_NumRows=len(ReqOpParamsdict)
+        self.tableWidget_2.setRowCount(Table_NumRows)
+        self.tableWidget_2.setHorizontalHeaderLabels(["Par", "Val","Const"])
+        self.tableWidget_2.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+        iii=0        
+        for ccc in ReqOpParamsdict:  
+            if Showingparam[ccc]==True: 
+                self.tableWidget_2.setItem(iii,0, QTableWidgetItem(ccc))
+                try:
+                    aval=str(Parameters[ccc])
+                except:
+                    aval=''
+                self.tableWidget_2.setItem(iii,1, QTableWidgetItem(aval))                    
+                self.tableWidget_2.setItem(iii,2, QTableWidgetItem(ReqOpParamsdict[ccc]))
+                if ReqOpParamsdict[ccc]=='required':
+                    color=QColor('lightblue')
+                    self.setColortoRow(self.tableWidget_2, iii, color)                
+                iii=iii+1
+        self.tableWidget_2.resizeColumnsToContents()
 
     
     def Get_Parameter_Values_from_Table(self,tableWidget,parcol=0,valcol=1):    
@@ -282,7 +379,16 @@ class VBD_Button_set(QWidget):
         return newparam
 
     def PB_clicked(self):
+        print('clicked')
         self.Signal_Data(self.batton_data)
+    
+    def PB_Pressed(self):
+        print('pressed')
+        #self.Signal_Data(self.batton_data)
+    
+    def PB_Released(self):
+        print('released')
+        #self.Signal_Data(self.batton_data)
     
     # overriding the mousePressEvent method 
     def mouseReleaseEvent(self, event): 
@@ -326,6 +432,33 @@ class VBD_Button_set(QWidget):
         else:
            self.setCursor(QCursor(QtCore.Qt.ArrowCursor))
     
+    def Copy_data(self,adict):
+        newdict={}
+        for item in adict:
+            newdict.update({item:adict[item]})
+        return newdict
+
+    def Fill_actionParameters_batton_2(self,batton_data):
+        batton_data_2={}#self.Copy_data(batton_data)
+        batton_data_2.update({'action':batton_data['action_2']})
+        batton_data_2.update({'Force_id':batton_data['Force_id_2']})
+        batton_data_2.update({'Gcode':batton_data['Gcode_2']})        
+        batton_data_2.update({'Params':batton_data['Params_2']})
+        batton_data_2.update({'Format':batton_data['Format_2']})        
+        batton_data_2.update({'ReqOpParamsdict':batton_data['ReqOpParamsdict_2']})
+        batton_data_2.update({'ShowingParams':batton_data['ShowingParams_2']})
+          
+        isok,batton_data_2=self.Fill_actionParameters_batton(batton_data_2)
+        
+        batton_data.update({'action_2':batton_data_2['action']})
+        batton_data.update({'Force_id_2':batton_data_2['Force_id']})
+        batton_data.update({'Gcode_2':batton_data_2['Gcode']})        
+        batton_data.update({'Params_2':batton_data_2['Params']})
+        batton_data.update({'Format_2':batton_data_2['Format']})        
+        batton_data.update({'ReqOpParamsdict_2':batton_data_2['ReqOpParamsdict']})
+        batton_data.update({'ShowingParams_2':batton_data_2['ShowingParams']})
+
+        return isok,batton_data
     
     
     def Fill_actionParameters_batton(self,batton_data):
@@ -370,7 +503,7 @@ class VBD_Button_set(QWidget):
                     if ccc in givenparams:        
                         pval=givenparams[ccc]                        
                     elif ReqOpParamsdict[ccc]=='required' and ccc not in givenparams:
-                        pval='Fill Me'
+                        pval='0'
                     else:                        
                         pval=''
                 except:
@@ -406,6 +539,18 @@ class VBD_Button_set(QWidget):
                 
                                             
         return isok,batton_data    
+
+    def Fill_actionParameters_Table_2(self,tableWidget,batton_data,parcol=0,showall=False):
+        batton_data_2={}#self.Copy_data(batton_data)
+        batton_data_2.update({'action':batton_data['action_2']})
+        batton_data_2.update({'Force_id':batton_data['Force_id_2']})
+        batton_data_2.update({'Gcode':batton_data['Gcode_2']})        
+        batton_data_2.update({'Params':batton_data['Params_2']})
+        batton_data_2.update({'Format':batton_data['Format_2']})        
+        batton_data_2.update({'ReqOpParamsdict':batton_data['ReqOpParamsdict_2']})
+        batton_data_2.update({'ShowingParams':batton_data['ShowingParams_2']})
+
+        self.Fill_actionParameters_Table(tableWidget,batton_data_2,parcol,showall)
 
     def Fill_actionParameters_Table(self,tableWidget,batton_data,parcol=0,showall=False):                
         tableWidget.clear()
@@ -463,9 +608,12 @@ class VBD_Button_set(QWidget):
             tableWidget.resizeColumnsToContents()                        
         
     
-    def setColortoRow(self,table, rowIndex, color):
-        for jjj in range(table.columnCount()):
-            table.item(rowIndex, jjj).setBackground(color)
+    def setColortoRow(self,tableWidget, rowIndex, color):
+        try:
+            for jjj in range(tableWidget.columnCount()):
+                tableWidget.item(rowIndex, jjj).setBackground(color)
+        except:
+            pass
         
 
 class VBD_Proxy(object):
@@ -549,9 +697,9 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.Obj=Obj
         self.CH=self.Obj.CH        
         self.aDialog=class_File_Dialogs.Dialogs()             
-        self.Is_Dialog_Open=False              
-        self.openVariableButtonDataDialog()   #comment this line to be called only when you want the dialog 
-        self.Copy_original_data()
+        self.Is_Dialog_Open=False  
+        self.Copy_original_data()            
+        self.openVariableButtonDataDialog()   #comment this line to be called only when you want the dialog         
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
     
@@ -632,16 +780,134 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         except:
             batton_data.update({'ShowingParams': {}})            
             pass  
+        try:
+            showparams=batton_data['Batton_type']
+        except:
+            batton_data.update({'Batton_type': 'Push Button'})            
+            pass    
+        try:
+            showparams=batton_data['Batton_is']
+        except:
+            batton_data.update({'Batton_is': ''})            
+            pass
+        try:
+            showparams=batton_data['Batton_is_2']
+        except:
+            batton_data.update({'Batton_is_2': ''})            
+            pass
+        try:
+            showparams=batton_data['Batton_type_2']
+        except:
+            batton_data.update({'Batton_type_2': ''})            
+            pass     
+        try:
+            scriptname=batton_data['Script_2']
+        except:
+            batton_data.update({'Script_2':None})            
+            pass
+        try:
+            icon=batton_data['Icon_2']
+        except:
+            batton_data.update({'Icon_2':None})            
+            pass
+        try:
+            fid=batton_data['Force_id_2']
+        except:
+            batton_data.update({'Force_id_2':''})            
+            pass
+        try:
+            action=batton_data['action_2']
+        except:
+            batton_data.update({'action_2':''})            
+            pass        
+        try:
+            Params=batton_data['Params_2']
+        except:
+            batton_data.update({'Params_2':{} })            
+            pass
+        try:
+            ReqParams=batton_data['ReqOpParamsdict_2']
+        except:
+            batton_data.update({'ReqOpParamsdict_2':{} })            
+            pass        
+        try:
+            Params=batton_data['Gcode_2']
+        except:
+            batton_data.update({'Gcode_2':''})            
+            pass
+        try:
+            Format=batton_data['Format_2']
+        except:
+            batton_data.update({'Format_2':''})            
+            pass
+                
+        try:
+            showparams=batton_data['ShowParams_2']
+        except:
+            batton_data.update({'ShowParams_2': False})            
+            pass 
+        try:
+            showparams=batton_data['ShowingParams_2']
+        except:
+            batton_data.update({'ShowingParams_2': {}})            
+            pass  
+        try:
+            isonestate=batton_data['Is_one_state']
+        except:
+            batton_data.update({'Is_one_state': True})            
+            pass 
+        try:
+            Linkfrom=batton_data['Link_from']
+        except:
+            batton_data.update({'Link_from': {}})            
+            pass 
+        try:
+            Linkfrom=batton_data['Link_to']
+        except:
+            batton_data.update({'Link_to': {}})            
+            pass 
         return batton_data        
 
     def Fill_Form_with_Batton_Data(self,batton_data):
-        is_script=False
-        is_Gcode=False
-        is_action=False
-        
         # Check for any missing keys and add default
         batton_data=self.Add_keys(batton_data)
         #print('after Add_key->',batton_data['action'])
+        
+        if batton_data['Batton_is']=='script':
+            is_script=True
+            is_Gcode=False
+            is_action=False
+        elif batton_data['Batton_is']=='action':
+            is_script=False
+            is_Gcode=False
+            is_action=True
+        elif batton_data['Batton_is']=='gcode':    
+            is_script=False
+            is_Gcode=True
+            is_action=False
+        else:
+            is_script=False
+            is_Gcode=False
+            is_action=False
+
+        if batton_data['Batton_is_2']=='script':
+            is_script_2=True
+            is_Gcode_2=False
+            is_action_2=False
+        elif batton_data['Batton_is_2']=='action':
+            is_script_2=False
+            is_Gcode_2=False
+            is_action_2=True
+        elif batton_data['Batton_is_2']=='gcode':    
+            is_script_2=False
+            is_Gcode_2=True
+            is_action_2=False
+        else:
+            is_script_2=False
+            is_Gcode_2=False
+            is_action_2=False
+        
+        
         # Set icon
         
         if batton_data['Icon'] is not None:
@@ -680,14 +946,15 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.lineEdit_VBDD_Name.setText(batton_data['Name'])
         # Set action
         index=0
-        if batton_data['action'] is '':
+        if batton_data['action'] == '' and batton_data['Batton_is'] != 'action':
            is_action=False
            #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString) 
            index=0
         else:
             if self.CH.Is_action_in_Config(batton_data['action'])==True:
                 index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString)
-                is_action=True
+                is_action=True     
+                batton_data['Batton_is']='action'           
             else:
                 index=0
                 #self.set_d('action','',True)
@@ -730,9 +997,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             if (batton_data['Gcode'] is None or batton_data['Gcode'] is '') and batton_data['Script'] is not None:
                 is_Gcode=False  
                 is_script=True
+                batton_data['Batton_is']='script'
             else:
                 is_Gcode=True 
-                is_script=False         
+                is_script=False 
+                batton_data['Batton_is']='gcode'        
         #print('after Set Gcode and params->',batton_data['action'])    
         # Set Script
         if is_script==True:
@@ -763,6 +1032,150 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         else:
             self.DVBDui.groupBox_VBDD_Parameters.setChecked(False)
         #print('after->',batton_data['action'])
+        #---------------------------------------------------------------------------------
+        # Second state
+        #---------------------------------------------------------------------------------
+        try:
+            index=self.DVBDui.comboBox_VBDD_batton_type.findText(batton_data['Batton_type'],QtCore.Qt.MatchFixedString)
+            self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)                      
+        except Exception as e:
+            #print(e)
+            index=0
+            self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)                                  
+            pass
+        try:            
+            index=self.DVBDui.comboBox_VBDD_batton_type_2.findText(batton_data['Batton_type_2'],QtCore.Qt.MatchFixedString)
+            self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)          
+        except Exception as e:
+            #print(e)
+            index=0            
+            self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)
+            pass
+        # Set if is one state or two
+        if batton_data['Batton_type'] == 'Push Button':
+            Is_one_state=True
+        elif batton_data['Batton_type'] == 'Two state toggle': 
+            Is_one_state=False
+        elif batton_data['Batton_type'] == 'Do while Pressed':
+            Is_one_state=True
+            if batton_data['Batton_type_2'] == 'Do once on Released':
+                Is_one_state=False
+        elif batton_data['Batton_type'] == 'Do once on Pressed':
+            Is_one_state=True
+            if batton_data['Batton_type_2'] == 'Do once on Released':
+                Is_one_state=False    
+        else:
+            Is_one_state=True                                                      
+        batton_data.update({'Is_one_state': Is_one_state})    
+        if Is_one_state==True:
+            batton_data.update({'ShowParams_2': False})    
+        #self.DVBDui.tabWidget_VBDFPage2.setEnabled(not Is_one_state)
+        self.DVBDui.groupBox_VBDD_byaction_2.setEnabled(not Is_one_state)
+        self.DVBDui.groupBox_VBDD_byGcode_2.setEnabled(not Is_one_state)
+        self.DVBDui.groupBox_VBDD_byScript_2.setEnabled(not Is_one_state)
+
+        #Set interface id combo
+        self.Is_Forcedid_2=False
+        try:            
+            if self.CH.Check_id_in_dataConfig(self.CH.Configdata,batton_data['Force_id_2'])==True:
+                self.id_2=batton_data['Force_id_2']
+                self.Is_Forcedid_2=True
+            else:
+                #self.id=self.CH.id
+                batton_data['Force_id_2']=''
+        except:
+            #self.id=self.CH.id
+            batton_data['Force_id_2']=''
+            pass
+
+        if self.Is_Forcedid_2==True:
+            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.id_2)
+            self.DVBDui.label_VBDD_CHid_2.setText('Forced to interface: '+aname)                        
+        else:
+            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+            self.DVBDui.label_VBDD_CHid_2.setText('Actual interface: '+aname)
+        index= self.DVBDui.comboBox_VBDD_CHid_2.findText(batton_data['Force_id_2'],QtCore.Qt.MatchFixedString)
+        self.DVBDui.comboBox_VBDD_CHid_2.setCurrentIndex(index) 
+        
+        # Set action
+        index=0
+        if batton_data['action_2'] == '' and batton_data['Batton_is_2']!='action':
+           is_action_2=False
+           #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString) 
+           index=0
+        else:
+            if self.CH.Is_action_in_Config(batton_data['action_2'])==True:
+                index= self.DVBDui.comboBox_VBDD_action_2.findText(batton_data['action_2'],QtCore.Qt.MatchFixedString)
+                is_action_2=True
+                batton_data['Batton_is_2']='action'
+            else:
+                index=0
+                #self.set_d('action','',True)
+                batton_data['action_2']=''
+                is_action_2=False
+        self.DVBDui.comboBox_VBDD_action_2.setCurrentIndex(index)        
+        #print('after Set action->',batton_data['action'])
+        # Set Gcode Result and Params
+        if is_action_2==True:                                                          
+            isok,newbatton_data=self.Obj.Fill_actionParameters_batton_2(batton_data)                                    
+            is_Gcode_2=False  
+            is_script_2=False
+            if isok==False:
+                is_Gcode_2=True  
+            else:
+                #print('Showing params->',batton_data['ShowingParams'])
+                self.Obj.Fill_actionParameters_Table_2(self.DVBDui.tableWidget_VBDD_parameters_2,batton_data,parcol=1,showall=True) 
+                    
+                self.Set_checkable_Parameters_2(self.DVBDui.tableWidget_VBDD_parameters_2,0,1,batton_data)
+                batton_data=self.Set_checking_Parameters_from_batton_2(self.DVBDui.tableWidget_VBDD_parameters_2,0,1,batton_data)
+                
+                self.Obj.Fill_actionParameters_Table_2(self.Obj.tableWidget_2,batton_data,parcol=0,showall=False)
+                
+                batton_data=self.Copy_data(newbatton_data)
+                #print('after newbattoncopy->',newbatton_data['action'])
+                Gcode=self.Obj.Get_Gcode_from_Batton_2(batton_data)
+                if Gcode is not '':
+                    #self.set_d('Gcode',Gcode,True)
+                    batton_data['Gcode_2']=Gcode
+                    is_Gcode_2=False                                 
+                self.DVBDui.label_VBDD_Result_2.setText(Gcode)
+        else:                        
+            # Clean params
+            #self.set_d('Params',{},True) 
+            batton_data['Params_2']={}
+            self.DVBDui.tableWidget_VBDD_parameters_2.clear()
+            self.DVBDui.tableWidget_VBDD_parameters_2.setRowCount(0)             
+            self.Obj.tableWidget_2.clear()
+            self.Obj.tableWidget_2.setRowCount(0) 
+
+            if (batton_data['Gcode_2'] is None or batton_data['Gcode_2'] is '') and batton_data['Script_2'] is not None:
+                is_Gcode_2=False  
+                is_script_2=True
+                batton_data['Batton_is_2']='script'
+            else:
+                is_Gcode_2=True 
+                is_script_2=False  
+                batton_data['Batton_is_2']='gcode'       
+        #print('after Set Gcode and params->',batton_data['action'])    
+        # Set Script
+        if is_script_2==True:
+            self.DVBDui.label_VBDD_Script_2.setText('Script:'+batton_data['Script_2'])
+        else:
+            #self.set_d('Script',None,True) 
+            batton_data['Script_2']=None
+            self.DVBDui.label_VBDD_Script_2.setText('No Script Selected')
+        # Set Gcode   
+        self.Set_Gcode_text_2(batton_data['Gcode_2'])
+        # Set parameter being viewed        
+        self.DVBDui.groupBox_VBDD_Parameters_2.setEnabled(is_action_2)
+        if is_action_2==False:
+            batton_data['ShowParams_2']=False
+        
+        if batton_data['ShowParams_2']==True:
+            self.DVBDui.groupBox_VBDD_Parameters_2.setChecked(True)
+        else:
+            self.DVBDui.groupBox_VBDD_Parameters_2.setChecked(False)
+
         return batton_data
 
 
@@ -805,12 +1218,35 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.Dialog_VBDD.show()    
         self.Is_Dialog_Open=True     
         self.Fill_interface_combobox()
-        self.Fill_action_combobox()        
+        self.Fill_action_combobox()
+        self.Fill_Batton_Type_combobox()  
+        self.Fill_interface_combobox_2()
+        self.Fill_action_combobox_2()      
         self.Connect_Data_buttons()
     
+    def ComboBox_Select_batton_type(self):
+        self.Fill_Batton_Type_2_combobox()
+        selbt=self.DVBDui.comboBox_VBDD_batton_type.currentText() 
+        self.set_d('Batton_type_2','',False)
+        self.set_d('Batton_type',selbt,True)        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+    
+    def ComboBox_Select_batton_type_2(self):
+        selid=self.DVBDui.comboBox_VBDD_batton_type_2.currentText()                                 
+        self.set_d('Batton_type_2',selid,True)        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+
     def ComboBox_Select_interfaceid(self):
         selid=self.DVBDui.comboBox_VBDD_CHid.currentText()                 
         self.set_d('Force_id',selid,True)        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+    
+    def ComboBox_Select_interfaceid_2(self):
+        selid=self.DVBDui.comboBox_VBDD_CHid_2.currentText()                 
+        self.set_d('Force_id_2',selid,True)        
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
 
@@ -825,8 +1261,22 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.set_d('Params',{},False)        
         self.set_d('Format',aFormat,True)
         self.DVBDui.label_VBDD_Format.setText(aFormat) 
-        #print('Info to be filled:',self.Obj.batton_data)
-                
+        #print('Info to be filled:',self.Obj.batton_data)                
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+
+    def ComboBox_Select_action_2(self):
+        selaction=self.DVBDui.comboBox_VBDD_action_2.currentText()                 
+        self.set_d('action_2',selaction,False)
+        if selaction is not '':
+            aFormat=self.CH.Get_action_format_from_id(self.CH.Configdata,selaction,self.id) 
+            self.set_d('Script_2','',False)            
+        else:
+            aFormat=''
+            self.set_d('Params_2',{},False)        
+        self.set_d('Format_2',aFormat,True)
+        self.DVBDui.label_VBDD_Format_2.setText(aFormat) 
+        #print('Info to be filled:',self.Obj.batton_data)                
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
 
@@ -842,7 +1292,13 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         iconfilename=self.aDialog.openFileNameDialog(1)   #1->Images (*.png *.xpm *.jpg *.bmp)
         self.set_d('Icon',iconfilename,True)    
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data) 
-        self.Obj_refresh()       
+        self.Obj_refresh()   
+
+    def PB_Select_Icon_2(self):
+        iconfilename=self.aDialog.openFileNameDialog(1)   #1->Images (*.png *.xpm *.jpg *.bmp)
+        self.set_d('Icon_2',iconfilename,True)    
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data) 
+        self.Obj_refresh()    
             
     def Name_Changed(self):        
         aName=self.DVBDui.lineEdit_VBDD_Name.text()
@@ -854,29 +1310,47 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.buttonBox.rejected.connect(self.reject)
         self.DVBDui.pushButton_VBDD_Icon.clicked.connect(self.PB_Select_Icon)
         self.DVBDui.pushButton_VBDD_Script.clicked.connect(self.PB_Select_Script)
+        self.DVBDui.pushButton_VBDD_Icon_2.clicked.connect(self.PB_Select_Icon_2)
+        self.DVBDui.pushButton_VBDD_Script_2.clicked.connect(self.PB_Select_Script_2)
         # activated-When user changes it
         # currentIndexChanged -> when user or program changes it
         self.DVBDui.comboBox_VBDD_action.activated.connect(self.ComboBox_Select_action)
         self.DVBDui.comboBox_VBDD_CHid.currentIndexChanged.connect(self.ComboBox_Select_interfaceid)
+        self.DVBDui.comboBox_VBDD_action_2.activated.connect(self.ComboBox_Select_action_2)
+        self.DVBDui.comboBox_VBDD_CHid_2.currentIndexChanged.connect(self.ComboBox_Select_interfaceid_2)
+        self.DVBDui.comboBox_VBDD_batton_type.activated.connect(self.ComboBox_Select_batton_type)
+        self.DVBDui.comboBox_VBDD_batton_type_2.activated.connect(self.ComboBox_Select_batton_type_2)
         #textEdited->only when user changes, not by the program
         #textChanged-> when user changes or the program changes text
         self.DVBDui.lineEdit_VBDD_Name.textEdited.connect(self.Name_Changed)
 
         self.DVBDui.plainTextEdit_VBDD_Gcode.textChanged.connect(self.Gcode_Change)
+        self.DVBDui.plainTextEdit_VBDD_Gcode_2.textChanged.connect(self.Gcode_Change_2)
 
         self.DVBDui.tableWidget_VBDD_parameters.itemChanged.connect(self.Parameter_Changed)
+        self.DVBDui.tableWidget_VBDD_parameters_2.itemChanged.connect(self.Parameter_Changed_2)
         
         self.DVBDui.groupBox_VBDD_byaction.toggled.connect(self.Groupboxbyaction_Checking)
         self.DVBDui.groupBox_VBDD_byGcode.toggled.connect(self.GroupboxbyGcode_Checking)
         self.DVBDui.groupBox_VBDD_byScript.toggled.connect(self.GroupboxbyScript_Checking)
 
+        self.DVBDui.groupBox_VBDD_byaction_2.toggled.connect(self.Groupboxbyaction_Checking_2)
+        self.DVBDui.groupBox_VBDD_byGcode_2.toggled.connect(self.GroupboxbyGcode_Checking_2)
+        self.DVBDui.groupBox_VBDD_byScript_2.toggled.connect(self.GroupboxbyScript_Checking_2)
+
         self.DVBDui.groupBox_VBDD_Parameters.toggled.connect(self.Groupboxparametersshow_Checking)
+        self.DVBDui.groupBox_VBDD_Parameters_2.toggled.connect(self.Groupboxparametersshow_Checking_2)
 
 
     def Parameter_Changed(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters,1,2)
-        #print('Got parameters',Parameters)        
+        print('Got parameters',Parameters)        
         self.set_d('Params',Parameters,True)        
+    
+    def Parameter_Changed_2(self):
+        Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters_2,1,2)
+        print('Got parameters 2',Parameters)        
+        self.set_d('Params_2',Parameters,True)        
 
     def Get_checked_Parameters_from_Table(self,TableWidget,Checkcol,parcol):
         Numrows=TableWidget.rowCount()        
@@ -907,7 +1381,21 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             pass
         
         return batton_data
+
+    def Set_checking_Parameters_from_batton_2(self,TableWidget,Checkcol,parcol,batton_data):          
+        try:      
+            Showingparam=batton_data['ShowingParams_2']
+            newShowingparam=self.Get_checked_Parameters_from_Table(TableWidget,Checkcol,parcol)
+            for par in newShowingparam:
+                Showingparam.update({par:newShowingparam[par]})
+            batton_data.update({'ShowingParams_2':Showingparam})            
+        except:
+            Showingparam={}
+            Showingparam=self.Get_checked_Parameters_from_Table(TableWidget,Checkcol,parcol)
+            batton_data.update({'ShowingParams_2':Showingparam})
+            pass
         
+        return batton_data    
 
 
     def Set_checkable_Parameters(self,TableWidget,Checkcol,parcol,batton_data):
@@ -929,13 +1417,13 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             '''    
             par=TableWidget.item(iii, parcol).text() 
             Showingparams=batton_data['ShowingParams']
-            print(Showingparams,par)
+            #print(Showingparams,par)
             try:
                 show=Showingparams[par]
             except:
                 show=True
                 pass
-            print('Set checkable parameters->',Showingparams,par,show)
+            #print('Set checkable parameters->',Showingparams,par,show)
             item=QTableWidgetItem('%s' % par) 
             item.setFlags(QtCore.Qt.ItemIsUserCheckable |QtCore.Qt.ItemIsEnabled)
             if show==True:
@@ -944,6 +1432,29 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 item.setCheckState(QtCore.Qt.Unchecked)        
             TableWidget.setItem(iii, Checkcol, item)    
             TableWidget.itemClicked.connect(self.handleItemClicked)
+
+    def Set_checkable_Parameters_2(self,TableWidget,Checkcol,parcol,batton_data):
+        Numrows=TableWidget.rowCount()
+        #NumCols=TableWidget.columnCount()        
+        for iii in range(Numrows):              
+            
+            par=TableWidget.item(iii, parcol).text() 
+            Showingparams=batton_data['ShowingParams_2']
+            #print(Showingparams,par)
+            try:
+                show=Showingparams[par]
+            except:
+                show=True
+                pass
+            #print('Set checkable parameters->',Showingparams,par,show)
+            item=QTableWidgetItem('%s' % par) 
+            item.setFlags(QtCore.Qt.ItemIsUserCheckable |QtCore.Qt.ItemIsEnabled)
+            if show==True:
+                item.setCheckState(QtCore.Qt.Checked)        
+            else:
+                item.setCheckState(QtCore.Qt.Unchecked)        
+            TableWidget.setItem(iii, Checkcol, item)    
+            TableWidget.itemClicked.connect(self.handleItemClicked_2)
 
     def handleItemClicked(self, item):     
         parse=item.text()   
@@ -957,8 +1468,23 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 ischecked=False
             Showingpar=self.Obj.batton_data['ShowingParams']
             Showingpar.update({parse:ischecked})
-            print('Showing --->',Showingpar)   
+            #print('Showing --->',Showingpar)   
             self.set_d('ShowingParams',Showingpar,True)
+    
+    def handleItemClicked_2(self, item):     
+        parse=item.text()   
+        if item.column()==0:
+            if item.checkState() == QtCore.Qt.Checked:
+                #print('"%s" Checked' % parse)   
+                ischecked=True                
+            else:
+                parse=item.text()
+                #print('"%s" Not Checked' % parse)
+                ischecked=False
+            Showingpar=self.Obj.batton_data['ShowingParams_2']
+            Showingpar.update({parse:ischecked})
+            #print('Showing --->',Showingpar)   
+            self.set_d('ShowingParams_2',Showingpar,True)
         
         
             
@@ -968,11 +1494,22 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.plainTextEdit_VBDD_Gcode.clear()
         self.DVBDui.plainTextEdit_VBDD_Gcode.appendPlainText(Gcode) 
     
+    def Set_Gcode_text_2(self,Gcode,append=False):
+        if append==False:
+            self.DVBDui.plainTextEdit_VBDD_Gcode_2.clear()
+        self.DVBDui.plainTextEdit_VBDD_Gcode_2.appendPlainText(Gcode)
+    
     def Get_Gcode_text(self):        
-        return self.DVBDui.plainTextEdit_VBDD_Gcode.toPlainText()        
+        return self.DVBDui.plainTextEdit_VBDD_Gcode.toPlainText()   
+
+    def Get_Gcode_text_2(self):        
+        return self.DVBDui.plainTextEdit_VBDD_Gcode_2.toPlainText()      
 
     def Groupboxparametersshow_Checking(self):
         self.set_d('ShowParams',self.DVBDui.groupBox_VBDD_Parameters.isChecked(),True)
+    
+    def Groupboxparametersshow_Checking_2(self):
+        self.set_d('ShowParams_2',self.DVBDui.groupBox_VBDD_Parameters_2.isChecked(),True)
         
 
     def Groupboxbyaction_Checking(self):
@@ -984,6 +1521,15 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.groupBox_VBDD_byScript.setChecked(False)
             self.DVBDui.groupBox_VBDD_byGcode.setChecked(True)
     
+    def Groupboxbyaction_Checking_2(self):
+        if self.DVBDui.groupBox_VBDD_byaction_2.isChecked()==True:
+            self.DVBDui.groupBox_VBDD_byGcode_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byScript_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byaction_2.setChecked(True)
+        else:                    
+            self.DVBDui.groupBox_VBDD_byScript_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byGcode_2.setChecked(True)
+
     def GroupboxbyGcode_Checking(self):        
         if self.DVBDui.groupBox_VBDD_byGcode.isChecked()==True:
             self.DVBDui.groupBox_VBDD_byaction.setChecked(False)
@@ -993,6 +1539,15 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.groupBox_VBDD_byScript.setChecked(True)
             self.DVBDui.groupBox_VBDD_byaction.setChecked(False)
 
+    def GroupboxbyGcode_Checking_2(self):        
+        if self.DVBDui.groupBox_VBDD_byGcode_2.isChecked()==True:
+            self.DVBDui.groupBox_VBDD_byaction_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byScript_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byGcode_2.setChecked(True)
+        else:            
+            self.DVBDui.groupBox_VBDD_byScript_2.setChecked(True)
+            self.DVBDui.groupBox_VBDD_byaction_2.setChecked(False)
+
     def GroupboxbyScript_Checking(self):        
         if self.DVBDui.groupBox_VBDD_byScript.isChecked()==True:
             self.DVBDui.groupBox_VBDD_byGcode.setChecked(False)
@@ -1001,6 +1556,15 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         else:            
             self.DVBDui.groupBox_VBDD_byaction.setChecked(True)
             self.DVBDui.groupBox_VBDD_byGcode.setChecked(False)
+    
+    def GroupboxbyScript_Checking_2(self):        
+        if self.DVBDui.groupBox_VBDD_byScript_2.isChecked()==True:
+            self.DVBDui.groupBox_VBDD_byGcode_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byaction_2.setChecked(False)
+            self.DVBDui.groupBox_VBDD_byScript_2.setChecked(True)
+        else:            
+            self.DVBDui.groupBox_VBDD_byaction_2.setChecked(True)
+            self.DVBDui.groupBox_VBDD_byGcode_2.setChecked(False)
 
     def Gcode_Change(self):
         Gcodetxt=self.Get_Gcode_text()
@@ -1009,6 +1573,14 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.set_d('Params',{},False)
         self.set_d('Format','',False)    
         self.set_d('Gcode',Gcodetxt,True)
+    
+    def Gcode_Change_2(self):
+        Gcodetxt=self.Get_Gcode_text_2()
+        self.set_d('Script_2','',False)            
+        self.set_d('action_2','',False)    
+        self.set_d('Params_2',{},False)
+        self.set_d('Format_2','',False)    
+        self.set_d('Gcode_2',Gcodetxt,True)
 
     def PB_Select_Script(self):
         scriptfilename=self.aDialog.openFileNameDialog(4)  #4->Gcode and Action Files (*.gcode *.acode) 
@@ -1021,22 +1593,115 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
+    
+    def PB_Select_Script_2(self):
+        scriptfilename=self.aDialog.openFileNameDialog(4)  #4->Gcode and Action Files (*.gcode *.acode) 
+        if scriptfilename is not None:
+            self.set_d('Script_2',scriptfilename,False)    
+            self.set_d('Gcode_2',None,False)    
+            self.set_d('Format_2','',False)    
+            self.set_d('action_2','',False)    
+            self.set_d('Params_2',{},True)    
         
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
         
 
     def quit(self):            
         self.Dialog_VBDD.close()
         self.Is_Dialog_Open=False
-           
+
+    def Fill_Batton_Type_combobox(self):        
+        self.DVBDui.comboBox_VBDD_batton_type.clear()
+        self.DVBDui.comboBox_VBDD_batton_type.addItem('Push Button') 
+        self.DVBDui.comboBox_VBDD_batton_type.addItem('Two state toggle')                          
+        self.DVBDui.comboBox_VBDD_batton_type.addItem('Do while Pressed')                          
+        self.DVBDui.comboBox_VBDD_batton_type.addItem('Do once on Pressed')                          
+        #self.DVBDui.comboBox_VBDD_batton_type.addItem('Link from Batton') 
+        self.DVBDui.comboBox_VBDD_batton_type_2.clear()         
+                                           
+        try:            
+            index= self.DVBDui.comboBox_VBDD_batton_type.findText(self.Obj.batton_data['Batton_type'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0     
+        except:                     
+            index= 0 
+            pass   
+        self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)    
+        self.Fill_Batton_Type_2_combobox()          
+    
+    def Fill_Batton_Type_2_combobox(self):  
+          
+        sel_bt=self.DVBDui.comboBox_VBDD_batton_type.currentText()          
+        #print('Fill batton 2 call...',sel_bt)  
+        #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFixedString)
+        self.DVBDui.comboBox_VBDD_batton_type_2.clear()         
+        if sel_bt == 'Push Button':            
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('')              
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Batton')
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Loop')
+        elif sel_bt == 'Two state toggle':  
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Two state toggle') 
+        elif sel_bt == 'Do while Pressed':  
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('')     
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Do once on Released')         
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Batton')
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Loop')
+        elif sel_bt == 'Do once on Pressed':  
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('')     
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Do once on Released')         
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Batton')
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Loop')
+        elif sel_bt == 'Link from Batton':  
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('')     
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Do once on Released')         
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Batton')
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('Link to Loop')
+        else:
+            print('in else')
+            self.DVBDui.comboBox_VBDD_batton_type_2.addItem('') 
+        try:            
+            index= self.DVBDui.comboBox_VBDD_batton_type_2.findText(self.Obj.batton_data['Batton_type_2'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0     
+        except:                     
+            index= 0 
+            pass                      
+        index= 0 #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFixedString)
+        self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)          
+
     def Fill_interface_combobox(self):        
         self.DVBDui.comboBox_VBDD_CHid.clear()
         self.DVBDui.comboBox_VBDD_CHid.addItem('')                          
         for iii in self.CH.Configdata['interfaceId']:           
-            self.DVBDui.comboBox_VBDD_CHid.addItem(iii)                          
-        index= 0 #self.DVBui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFixedString)
+            self.DVBDui.comboBox_VBDD_CHid.addItem(iii)     
+        try:            
+            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0
+        except:                     
+            index= 0 
+            pass
+
         self.DVBDui.comboBox_VBDD_CHid.setCurrentIndex(index)    
         aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DVBDui.label_VBDD_CHid.setText('Actual interface '+aname)  
+
+    def Fill_interface_combobox_2(self):        
+        self.DVBDui.comboBox_VBDD_CHid_2.clear()
+        self.DVBDui.comboBox_VBDD_CHid_2.addItem('')                          
+        for iii in self.CH.Configdata['interfaceId']:           
+            self.DVBDui.comboBox_VBDD_CHid_2.addItem(iii)                          
+        try:            
+            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id_2'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0
+        except:                     
+            index= 0 
+            pass
+        self.DVBDui.comboBox_VBDD_CHid_2.setCurrentIndex(index)    
+        aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+        self.DVBDui.label_VBDD_CHid_2.setText('Actual interface '+aname)  
 
     def Fill_action_combobox(self):
         self.DVBDui.comboBox_VBDD_action.clear()
@@ -1044,12 +1709,33 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.comboBox_VBDD_action.addItem('')
         for iii in allactions:           
             self.DVBDui.comboBox_VBDD_action.addItem(iii)          
-        #index= self.DVBDui.comboBox_VBDD_action.findText('interfaceName',QtCore.Qt.MatchFixedString)
-        index=0
+        try:            
+            index= self.DVBDui.comboBox_VBDD_action.findText(self.Obj.batton_data['action'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0
+        except:                     
+            index= 0 
+            pass
         self.DVBDui.comboBox_VBDD_action.setCurrentIndex(index)    
         self.CH.Selected_action=self.DVBDui.comboBox_VBDD_action.currentText()
         #self.Obj.batton_data['key_id']
-        
+    
+    def Fill_action_combobox_2(self):
+        self.DVBDui.comboBox_VBDD_action_2.clear()
+        allactions=self.CH.getListofActions(['interfaceId','interfaceName','interfaceId_type','interfaceId_info'])
+        self.DVBDui.comboBox_VBDD_action_2.addItem('')
+        for iii in allactions:           
+            self.DVBDui.comboBox_VBDD_action_2.addItem(iii)          
+        try:            
+            index= self.DVBDui.comboBox_VBDD_action_2.findText(self.Obj.batton_data['action_2'],QtCore.Qt.MatchFixedString)
+            if index==-1:
+                index= 0
+        except:                     
+            index= 0 
+            pass
+        self.DVBDui.comboBox_VBDD_action_2.setCurrentIndex(index)    
+        self.CH.Selected_action=self.DVBDui.comboBox_VBDD_action_2.currentText()
+        #self.Obj.batton_data['key_id']
 
 class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     set_clicked=QtCore.pyqtSignal(list)
@@ -1231,8 +1917,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             if iiiid is anid:
                 self.VBD_H.Del_Obj(Obj)  
                 log.info('Batton Object Deleted ID:'+str(anid))
-                break              
-        
+                break                      
                         
     def PB_Edit_Button(self):
         anid=self.Selected_Item                
@@ -1245,861 +1930,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         fff=self.shorten_filename(self.extract_filename(self.CH.filename,False))
         self.DVBui.groupBox_CCD_actionFiles.setTitle("Actual Config File:"+fff)  
     
-    
-    '''    
-    def Test_text_Changed(self):
-        self.Do_Test_Read()
-    
-    def Test_format_Changed(self):
-        self.Do_Test_format()
-
-   
-            
-    def Refresh_after_config_File_change(self):
-        #print('refresh called')
-        self.Refresh_Tab_index()
-        self.Fill_action_combobox()
-        self.Fill_read_combobox()
-        self.Fill_GenConfigInt_comboboxes()
-        self.Refresh_viewed_filenames()
-        self.Set_Config_info_To_TableWidget()
-
-        #self.Fill_interface_combobox()        
-    def Refresh_Tab_index(self):
-        self.Actual_Page=self.DVBui.tabWidget_CCD_configs.currentIndex()
-            
-
-    def Delete_action_in_ConfigFile(self,afilename,anaction,data):        
-        isok=self.CH.delete_action_in_file(afilename,anaction,data)
-        #print('deleted ',isok)
-        if isok==True:
-            self.file_has_updated(afilename)
-            self.Refresh_after_config_File_change()
-
-    def Create_action_in_ConfigFile(self,afilename,anaction,dorefresh=False):        
-        isok=self.CH.create_empty_action_in_file(afilename,anaction)
-        if dorefresh==True:
-            self.Refresh_after_config_File_change()  
-        return isok    
- 
-    def Add_New_action_in_ConfigFile(self,afilename,anaction,aFormat,anid,data):
-        isok=self.Create_action_in_ConfigFile(afilename,anaction,False)
-        #print('created ',isok)
-        if isok==True:            
-            self.Replace_Format_in_ConfigFile(afilename,anaction,aFormat,anid,data)    #Refresh inside
-
-        
-    
-    def Replace_Format_in_ConfigFile(self,afilename,anaction,aFormat,anid,data):
-        #print('replaced before')
-        isok=self.CH.replace_action_format_in_file(afilename,anaction,aFormat,anid,data)
-        #print('replaced ',isok)
-        if isok==True:
-            self.file_has_updated(afilename)
-            self.Refresh_after_config_File_change()
-        return isok
-
-    def PB_CCD_Refresh_Commands_File(self):
-        self.Refresh_after_config_File_change()
-
-    def PB_CCD_Save_Commands(self):            
-        filename=self.aDialog.saveFileDialog(3)       
-        if filename == '' or filename is None:
-            return            
-        issame1,issn1,issp1=self.compare_filenames_paths(filename,self.CH.filename)         
-        issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
-        issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename)         
-        if issame1 or issame2 or issame3:            
-            log.error("Can't overwrite files in use!")
-        if issame3==False and issame2==False and issame1==False:
-            desfn=self.extract_filename(filename,False)            
-            desfn1=desfn+'.cccfg'
-            desfn2=desfn+'.rccfg'
-            desfn3=desfn+'.iccfg'
-            desp=self.extract_path(filename)
-            src_file1=self.CH.filename 
-            src_file2=self.CH.Readfilename  
-            src_file3=self.CH.Interfacefilename         
-            temppath=self.get_appPath()+os.sep+'temp'+os.sep
-            try:
-                os.mkdir(temppath)
-            except:
-                pass  
-            #print(desfn1)    
-            shutil.copy(src_file1,temppath+'tempfile1.temp') #copy the file to destination dir
-            os.rename(temppath+'tempfile1.temp', temppath+desfn1)#rename
-            shutil.move(temppath+desfn1,desp+desfn1) #moves the file to destination dir                
-            #print(desfn2)    
-            shutil.copy(src_file2,temppath+'tempfile2.temp') #copy the file to destination dir
-            os.rename(temppath+'tempfile2.temp', temppath+desfn2)#rename
-            shutil.move(temppath+desfn2,desp+desfn2) #moves the file to destination dir            
-            #print(desfn3)    
-            shutil.copy(src_file3,temppath+'tempfile3.temp') #copy the file to destination dir
-            os.rename(temppath+'tempfile3.temp', temppath+desfn3)#rename
-            shutil.move(temppath+desfn3,desp+desfn3) #moves the file to destination dir            
-        #print(filename,self.CH.filename,issame)
-
-    def PB_CCD_Load_Commands(self):
-        filename=self.aDialog.openFileNameDialog(3)   
-        if filename == '' or filename is None:
-            return     
-        issame1,issn1,issp1=self.compare_filenames_paths(filename,self.CH.filename) 
-        issame2,issn2,issp2=self.compare_filenames_paths(filename,self.CH.Readfilename) 
-        issame3,issn3,issp3=self.compare_filenames_paths(filename,self.CH.Interfacefilename) 
-        if issame1 or issame2 or issame3:            
-            log.info('Files already loaded!')
-        if issame3==False and issame2==False and issame1==False:
-            desconfig=self.extract_filename(filename,False)
-            desp=self.extract_path(filename)
-            ccname=desp+desconfig+'.cccfg'
-            rcname=desp+desconfig+'.rccfg'
-            icname=desp+desconfig+'.iccfg'
-            isfilecc=os.path.exists(ccname)
-            isfilerc=os.path.exists(rcname)
-            isfileic=os.path.exists(icname)            
-            if isfilecc==True and isfilerc==True and isfileic==True:                
-                actualcc=self.CH.filename 
-                actualrc=self.CH.Readfilename
-                actualic=self.CH.Interfacefilename                
-                self.CH.filename = ccname                
-                self.CH.Setup_Command_Handler(log_check=True)                
-                #print('Loaded')            
-                if self.CH.Num_interfaces==0:
-                    log.error('Errors in File,'+ccname+'\nReverting to actual Configuration file!')
-                    self.CH.filename = actualcc
-                    self.CH.Setup_Command_Handler(log_check=True)    
-                else:    
-                    self.CH.Set_Readfilename(rcname)
-                    self.CH.Set_Interfacefilename(icname) 
-                    isokrc,isokic=self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},True)                  
-                    if isokrc==False:
-                        log.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')
-                    if isokic==False:
-                        log.error('Errors in File,'+rcname+'\nReverting to actual Configuration file!')    
-                    if isokrc==False or isokic==False:
-                        self.CH.Set_Readfilename(actualrc)
-                        self.CH.Set_Interfacefilename(actualic) 
-                        isokrc,isokic=self.CH.Init_Read_Interface_Configurations({'interfaceId'},{'interfaceId'},True)                  
-
-
-
-                #self.Fill_interface_combobox()
-                self.Refresh_after_config_File_change()
-                
-            else:
-                log.info('Not all Files present! .cccfg .rccfg and .iccfg shall be in the same path!')    
-
-            
-
-    def shorten_filename(self,filename,maxsize=20):
-        apppath=self.get_appPath()
-        shortfn=filename
-        if apppath in filename:
-            shortfn=filename.replace(apppath,'')
-        if len(shortfn)>maxsize:
-            shortfn=self.extract_filename(filename)
-        return shortfn
-
-
-    def get_appPath(self):
-        # determine if application is a script file or frozen exe
-        if getattr(sys, 'frozen', False):
-            application_path = os.path.dirname(sys.executable)
-        elif __file__:
-            application_path = os.path.dirname(__file__)
-        return application_path    
-        
-    def get_selfPath(self,config_name):
-        application_path=self.get_appPath()
-        config_path = os.path.join(application_path, config_name)
-        return config_path
-
-    def compare_filenames_paths(self,filename1,filename2):
-        fname1 = os.path.basename(filename1)  # returns just the name
-        fname2 = os.path.basename(filename2)  # returns just the name
-        issamepath=False
-        issamename=False
-        issame=False
-        if fname1==fname2:
-            #print(' same names')
-            issamename=True
-        try:
-            fpath1 = os.path.abspath(filename1)  # returns complete path
-            fpath2 = os.path.abspath(filename2)  
-            if fpath1==fpath2:
-                #print(' same paths')
-                issamepath=True
-        except:
-            issamepath=False
-            pass
-        if issamename==True and issamepath==True:
-            issame=True        
-        return issame,issamename,issamepath
-
-    def extract_filename(self,filename,withextension=True):
-        fn= os.path.basename(filename)  # returns just the name
-        fnnoext, fext = os.path.splitext(fn)
-        fnnoext=fnnoext.replace(fext,'')
-        fn=fnnoext+fext        
-        if withextension==True:
-            return fn
-        else:                
-            return  fnnoext #fn.rsplit('.', 1)[0]
-    def extract_path(self,filename):
-        fn= os.path.basename(filename)  # returns just the name
-        fpath = os.path.abspath(filename)
-        fpath = fpath.replace(fn,'')
-        return fpath
-
-
-    def Set_Config_info_To_TableWidget(self):
-        self.DVBui.tableWidget_CCD.clear()
-        #Table_NumCols=self.Num_interfaces+1
-        Table_NumCols=4
-        self.DVBui.tableWidget_CCD.setColumnCount(Table_NumCols)        
-        self.DVBui.tableWidget_CCD.setHorizontalHeaderLabels(["Action", "Format","Info","Type"])
-        self.DVBui.tableWidget_CCD.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
-        iii=0
-        tabindex=self.Actual_Page
-        if tabindex==0:
-            Configset=self.CH.Actual_Interface_Formats
-            Configsetinfo=self.CH.Configdata_info
-            Configsettype=self.CH.Configdata_type
-            Table_NumRows=self.CH.Get_Number_of_Actual_Interface_Formats(0)
-            Reqset=self.CH.Required_actions
-        if tabindex==1:
-            Configset=self.CH.Read_Config
-            Configsetinfo=self.CH.ReadConfigallids_info
-            Configsettype=self.CH.ReadConfigallids_type
-            Table_NumRows=self.CH.Get_Number_of_Actual_Interface_Formats(1)
-            Reqset=self.CH.Required_read    
-        if tabindex==2:
-            Configset=self.CH.Int_Config
-            Configsetinfo=self.CH.InterfaceConfigallids_info
-            Configsettype=self.CH.InterfaceConfigallids_type
-            Table_NumRows=self.CH.Get_Number_of_Actual_Interface_Formats(2)
-            Reqset=self.CH.Required_interface    
-
-        self.DVBui.tableWidget_CCD.setRowCount(Table_NumRows)
-        #print(Configsetinfo)
-        for ccc in Configset:   
-            self.DVBui.tableWidget_CCD.setItem(iii,0, QTableWidgetItem(ccc))
-            self.DVBui.tableWidget_CCD.setItem(iii,1, QTableWidgetItem(Configset[ccc]))
-            try:
-                ainfo=self.CH.get_info_type_from_id(Configsetinfo,ccc,self.CH.id)                 
-                #print(ccc,'-->',ainfo)
-                self.DVBui.tableWidget_CCD.setItem(iii,2, QTableWidgetItem(ainfo))
-            except: # Exception as e:
-                #log.error(e) 
-                self.DVBui.tableWidget_CCD.setItem(iii,2, QTableWidgetItem(''))
-                pass    
-            try:
-                atype=self.CH.get_info_type_from_id(Configsettype,ccc,self.CH.id)
-                self.DVBui.tableWidget_CCD.setItem(iii,3, QTableWidgetItem(atype))
-            except:
-                self.DVBui.tableWidget_CCD.setItem(iii,3, QTableWidgetItem(''))
-                pass    
-            if ccc in Reqset:
-                color=QColor('yellow')
-                self.setColortoRow(self.DVBui.tableWidget_CCD, iii, color)                
-            iii=iii+1
-        self.DVBui.tableWidget_CCD.resizeColumnsToContents()            
-    
-    def setColortoRow(self,table, rowIndex, color):
-        for jjj in range(table.columnCount()):
-            table.item(rowIndex, jjj).setBackground(color)
-
-    def Fill_interface_combobox(self):        
-        self.DVBui.comboBox_CCD_interface.clear()
-        for iii in self.CH.Configdata['interfaceId']:           
-            self.DVBui.comboBox_CCD_interface.addItem(iii)                          
-        index= self.DVBui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFixedString)
-        self.DVBui.comboBox_CCD_interface.setCurrentIndex(index)    
-        aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
-        self.DVBui.label_CCD_interfaceName.setText(aname)    
-    
-    def Fill_action_combobox(self):
-        self.DVBui.comboBox_CCD_action.clear()
-        allactions=self.CH.getListofActions(['interfaceId','interfaceId_type','interfaceId_info'])
-        self.DVBui.comboBox_CCD_action.addItem('')
-        for iii in allactions:           
-            self.DVBui.comboBox_CCD_action.addItem(iii)          
-        #index= self.DVBui.comboBox_CCD_action.findText('interfaceName',QtCore.Qt.MatchFixedString)
-        index=0
-        self.DVBui.comboBox_CCD_action.setCurrentIndex(index)    
-        self.CH.Selected_action=self.DVBui.comboBox_CCD_action.currentText()
-
-    def Fill_read_combobox(self):
-        self.DVBui.comboBox_CCD_readaction.clear()
-        allactions=self.CH.getListofReadactions(['interfaceId','interfaceId_type','interfaceId_info'])
-        self.DVBui.comboBox_CCD_readaction.addItem('')
-        for iii in allactions:           
-            self.DVBui.comboBox_CCD_readaction.addItem(iii)          
-        #index= self.DVBui.comboBox_CCD_readaction.findText('interfaceName',QtCore.Qt.MatchFixedString)
-        index=0
-        self.DVBui.comboBox_CCD_readaction.setCurrentIndex(index)    
-        self.Selected_read_dict.update({'action':self.DVBui.comboBox_CCD_readaction.currentText()})
-
-    def Fill_GenConfigInt_comboboxes(self):
-        self.Fill_GenConfigInt_combobox()
-        self.Fill_GenConfigInttype_combobox()
-
-    def Fill_GenConfigInt_combobox(self):
-        self.DVBui.comboBox_CCD_Intaction.clear()
-        allactions=self.CH.getListofInterfaceactions(['interfaceId','interfaceId_type','interfaceId_info'])
-        self.DVBui.comboBox_CCD_Intaction.addItem('')
-        for iii in allactions:           
-            self.DVBui.comboBox_CCD_Intaction.addItem(iii)                  
-        index=0
-        self.DVBui.comboBox_CCD_Intaction.setCurrentIndex(index)    
-        self.Selected_Int_dict.update({'action':self.DVBui.comboBox_CCD_Intaction.currentText()})    
-    
-    def Fill_GenConfigInttype_combobox(self):
-        self.typelist=['','str','float','int','bool','char','list','dict','regex','byte','char','action']
-        self.DVBui.comboBox_CCD_Inttype.clear()
-        for iii in self.typelist:           
-            self.DVBui.comboBox_CCD_Inttype.addItem(iii)                  
-        index=0
-        self.DVBui.comboBox_CCD_Inttype.setCurrentIndex(index)  
-        #self.Selected_Int_dict.update({'type':self.DVBui.comboBox_CCD_Inttype.currentText()})  
-        
-
-
-    def ComboBox_Select_action(self):
-        self.Selected_action=self.DVBui.comboBox_CCD_action.currentText()         
-        self.DVBui.lineEdit_CCD_action.setText(self.Selected_action)     
-        aFormat=self.CH.getGformatforActionid(self.Selected_action,self.id)
-        #self.DVBui.lineEdit_CCD_action.setText(self.Selected_action)     
-        self.DVBui.lineEdit_CCD_Format.setText(aFormat) 
-        self.fill_actionParameters_Table(aFormat)
-    
-    def ComboBox_Select_Readaction(self):
-        self.Selected_Readaction=self.DVBui.comboBox_CCD_readaction.currentText()         
-        self.DVBui.lineEdit_CCD_readaction.setText(self.Selected_Readaction)     
-        aFormat=self.CH.getGformatforReadactionid(self.Selected_Readaction,self.id)
-        #self.DVBui.lineEdit_CCD_readaction.setText(self.Selected_Readaction)     
-        self.DVBui.lineEdit_CCD_readFormat.setText(aFormat) 
-        self.fill_ReadactionParameters_Table(aFormat)
-
-    def ComboBox_Select_Intaction(self):
-        self.Selected_Intaction=self.DVBui.comboBox_CCD_Intaction.currentText()         
-        self.DVBui.lineEdit_CCD_Intaction.setText(self.Selected_Intaction)     
-        aFormat=self.CH.getGformatforIntactionid(self.Selected_Intaction,self.id)
-        atype=self.CH.getGformatforActiondataid(self.CH.InterfaceConfigallids_type,self.Selected_Intaction,self.id)
-        #self.DVBui.lineEdit_CCD_readaction.setText(self.Selected_Readaction)     
-        self.DVBui.lineEdit_CCD_IntFormat.setText(aFormat) 
-        self.set_combobox_Genint_type(atype)
-        
-
-    def ComboBox_Select_Inttype(self):
-        self.Selected_Intaction=self.DVBui.comboBox_CCD_Intaction.currentText() 
-        combotype=self.DVBui.comboBox_CCD_Inttype.currentText()
-        #atype=self.CH.getGformatforActiondataid(self.CH.InterfaceConfigallids_type,self.Selected_Intaction,self.id)
-        reqtypelist,isreq=self.get_list_Genint_required_types(self.Selected_Intaction)
-        numitems= len(reqtypelist)
-        if numitems>0:
-            isok=False
-            #check is one of the required types
-            for reqtype in reqtypelist:
-                if combotype==reqtype:
-                    isok=True
-                    break
-        else:
-            isok=True
-        
-        if isok == True:
-            atype=combotype
-        #elif isok == False and isreq==False:
-        #    atype=atype
-        else:
-            atype=reqtypelist[0]    
-        self.set_combobox_Genint_type(atype)   
-         
-
-    def get_list_Genint_required_types(self,action):
-        iactionslist=self.CH.getListofInterfaceactions()
-        basesia=action
-        basesia=basesia.replace('_type','')
-        isreq=False
-        reqtypelist=[]
-        if basesia in iactionslist:
-            for reqia in self.CH.Required_interface:
-                if basesia==reqia :
-                    isreq=True 
-                    try:
-                        reqtypelist=self.CH.Required_interface[requia]
-                    except:
-                        pass
-                    break
-        return reqtypelist,isreq
-
-    def set_combobox_Genint_type(self,atype):        
-        index=0
-        index=self.DVBui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFixedString)    
-        if index==-1:
-            self.DVBui.comboBox_CCD_Inttype.addItem(atype)
-            index=self.DVBui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFixedString)    
-        self.DVBui.comboBox_CCD_Inttype.setCurrentIndex(index) 
-        self.Selected_Int_dict.update({'Type':atype})
-        #print('Type to ',atype)
-    
-    def Do_Test_Int(self):
-        aFormat=self.DVBui.lineEdit_CCD_IntFormat.text()   
-        action=self.DVBui.lineEdit_CCD_Intaction.text()
-        isok=False
-        if action!=self.Selected_Int_dict['action']:
-            self.Selected_Int_dict['action']=action
-        reqtypelist,isreq=self.get_list_Genint_required_types(action)   
-        
-        atype=self.DVBui.comboBox_CCD_Inttype.currentText()       
-        if atype not in reqtypelist and len(reqtypelist)>0 and isreq==True:
-            atype=reqtypelist[0]
-        isok,val=self.check_Genint_format_type(aFormat,atype)    
-        if atype != self.Selected_Int_dict['Type']:                  
-            self.Selected_Int_dict.update({'Type':atype})      
-        if val is None:
-            return isok      
-        if aFormat != self.Selected_Int_dict['Format']:             
-            if isok==True:
-                self.Selected_Int_dict.update({'Format':aFormat})            
-        return isok  
-
-    def check_Genint_format_type(self,aFormat,atype,showlog=True):
-        isok=False
-        if atype=='':
-            val=aFormat
-            isok=True
-        elif atype=='bool':
-            try:
-                aFormat=str(aFormat)
-                if aFormat.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly']:                
-                    val=True
-                    isok=True
-                elif aFormat.lower() in ['false', '0', 'f', 'n', 'no', 'naah', 'not', 'maybe']:
-                    val=False
-                    isok=True
-                else:
-                    val=None                       
-                    isok=False
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None   
-                isok=False                
-                pass        
-        elif atype=='list':   
-            try:         
-                aFormat=str(aFormat)                                
-                txtlist,Num=self.CH.Split_text(',',aFormat)
-                if Num>0:
-                    val=txtlist
-                    isok=True
-                elif Num==0 and aFormat!='':
-                    val=[aFormat]
-                    isok=True
-                else:
-                    val=[]
-                    isok=False
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None 
-                isok=False                   
-                pass  
-        elif atype=='dict':   
-            try:         
-                aFormat=str(aFormat)                                
-                txtlist,Num=self.CH.Split_text(',',aFormat)                
-                val={}
-                if Num>0:
-                    for item in txtlist:
-                        varpar,Numvp=self.CH.Split_text(':',item)                
-                        if Numvp==0 or Numvp==1:
-                            val.update({item:''})
-                        if Numvp==2:
-                            val.update({varpar(0):varpar(1)})    
-                        else:
-                            isok=False                            
-                            break
-                if Num==0:                    
-                    varpar,Numvp=self.CH.Split_text(':',aFormat)                
-                    if Numvp==0 or Numvp==1:
-                        val.update({aFormat:''})
-                    if Numvp==2:
-                        val.update({varpar(0):varpar(1)})    
-                    else:
-                        isok=False                                                    
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None 
-                isok=False                   
-                pass                                              
-        elif atype=='str' or atype=='string':
-            try:
-                val=str(aFormat)
-                isok=True
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None 
-                isok=False                   
-                pass                    
-        elif atype=='int':
-            try:
-                val=int(aFormat)
-                isok=True    
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None
-                isok=False    
-                pass
-        elif atype=='float':
-            try:
-                val=float(aFormat)
-                isok=True    
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None
-                isok=False    
-                pass    
-        elif atype=='byte':
-            try:
-                val=bytes(aFormat.encode())
-                isok=True    
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None
-                isok=False    
-                pass    
-        elif atype=='char':
-            try:
-                val=chr(int(aFormat))
-                isok=True    
-            except Exception as e:
-                if showlog==True:
-                    log.error(e)     
-                val=None
-                isok=False    
-                pass     
-        elif atype=='action':
-            isok,val=self.Test_a_format(aFormat)
-            if isok==True:
-                val=self.CH.Format_replace_actions(aFormat)
-        elif atype=='read' or atype=='regex':
-            isok,val=self.Test_a_read(aFormat)    
-        else:
-            isok=True
-            val=aFormat    
-        if showlog==True:
-            if isok == False:
-                msgtxt="Bad format of type "+atype
-                log.error(msgtxt)
-                self.DVBui.label_CCD_testIntResultFormat.setText(msgtxt)
-            else:
-                try:
-                    msgtxt="Format of type "+atype+" accepted: " + str(val)
-                except:
-                    msgtxt="Format of type "+atype+" accepted"
-                    pass
-                log.info(msgtxt)
-                self.DVBui.label_CCD_testIntResultFormat.setText(msgtxt)    
-        return isok,val    
-    
-    def Test_a_read(self,aFormat):
-        befaFormat=self.DVBui.lineEdit_CCD_readFormat.text()   
-        befaction=self.DVBui.lineEdit_CCD_readaction.text()
-        self.DVBui.lineEdit_CCD_readFormat.setText(aFormat)   
-        self.DVBui.DVBui.lineEdit_CCD_readaction.setText('__Test__')
-        isok=self.Do_Test_Read()
-        if isok==False:
-            val=None  
-        else:
-            val= self.Selected_read_dict['Format']    
-        self.DVBui.lineEdit_CCD_readFormat.setText(befaFormat)   
-        self.DVBui.DVBui.lineEdit_CCD_readaction.setText(befaction)
-
-    def Test_a_format(self,aFormat):
-        befaFormat=self.DVBui.lineEdit_CCD_Format.text()   
-        befaction=self.DVBui.lineEdit_CCD_action.text()
-        self.DVBui.lineEdit_CCD_Format.setText(aFormat)   
-        self.DVBui.lineEdit_CCD_action.setText('__Test__')
-        isok=self.Do_Test_format()
-        if isok==False:
-            val=None  
-        else:
-            val= self.Selected_action_dict['Format']    
-        self.DVBui.lineEdit_CCD_Format.setText(befaFormat)   
-        self.DVBui.lineEdit_CCD_action.setText(befaction)
-        return isok,val
-
-    def Do_Test_Read(self): 
-        #print("entered Read")       
-        aFormat=self.DVBui.lineEdit_CCD_readFormat.text()   
-        action=self.DVBui.lineEdit_CCD_readaction.text()
-        isok=False
-        if action!=self.Selected_read_dict['action']:
-            self.Selected_read_dict['action']=action
-        isok=self.fill_ReadactionParameters_Table(aFormat)    
-        if aFormat != self.Selected_read_dict['Format']:             
-            if isok==True:
-                self.Selected_read_dict.update({'Format':aFormat})                
-        return isok  
-
-    def Do_Test_format(self):
-        aFormat=self.DVBui.lineEdit_CCD_Format.text()   
-        action=self.DVBui.lineEdit_CCD_action.text()
-        if action!=self.Selected_action_dict['action']:
-            self.Selected_action_dict['action']=action
-        if aFormat != self.Selected_action_dict['Format']:      
-            isok=self.fill_actionParameters_Table(aFormat) 
-            if isok==True:
-                self.Selected_action_dict.update({'Format':aFormat})        
-        else:
-            numrowTable=self.DVBui.tableWidget_CCD_actionParam.rowCount()
-            ReqOpParamsdict=self.Selected_action_dict['ReqOpParamsdict']
-            numReqopparams=len(ReqOpParamsdict)
-            if numrowTable!=numReqopparams:
-                isok=self.fill_actionParameters_Table(aFormat)
-                return isok
-            newParameters=self.Replace_Parameter_Values_from_Table(self.Selected_action_dict['Parameters'])  
-            isok=self.CH.Check_Format(aFormat,newParameters)  
-            if isok==True:
-                Gcode=self.CH.Get_code(aFormat,newParameters)
-            #if aFormat is not '' and Gcode is '':
-            else:
-                Gcode='Missing Required Parameters or bad Format'
-            self.DVBui.label_CCD_testResult.setText("Evaluated Gcode: "+str(Gcode))
-            self.Selected_action_dict.update({'Format':aFormat})
-            self.Selected_action_dict.update({'action':action})
-        return isok    
-    
-    def Replace_Parameter_Values_from_Table(self,Parameters):    
-        newparam={}    
-        try:
-            for row in range(len(Parameters)):                                   
-                Tpar=self.DVBui.tableWidget_CCD_actionParam.item(row, 0).text()             
-                Tvalue=self.DVBui.tableWidget_CCD_actionParam.item(row, 1).text()            
-                for param in Parameters:
-                    if param == Tpar and Tvalue is not '':
-                        newparam.update({param:Tvalue})
-                        break
-        except:
-            newparam={}
-            pass            
-        return newparam        
-
-    def fill_actionParameters_Table(self,aFormat):
-        isok=False
-        self.DVBui.tableWidget_CCD_actionParam.clear()
-        Table_NumCols=3
-        self.DVBui.tableWidget_CCD_actionParam.setColumnCount(Table_NumCols)
-        Table_NumRows=0
-        self.DVBui.tableWidget_CCD_actionParam.setRowCount(Table_NumRows)
-        self.DVBui.label_CCD_testResult.setText("Evaluated Gcode: ")
-        self.DVBui.label_CCD_testResultFormat.setText("Processed Format: ")  
-        #Table_NumCols=self.Num_interfaces+1
-        if self.CH.Check_Format(aFormat)==False:
-            self.DVBui.label_CCD_testResult.setText("Wrong Parenthesis")
-            return isok
-        try:    
-            P_Allinfo=self.CH.get_all_info_from_Format(aFormat)
-        except:
-            P_Allinfo={}
-            self.DVBui.label_CCD_testResult.setText("Format contains Errors")
-            pass
-        if P_Allinfo is not {}:            
-            if P_Allinfo['IsRegex']==True:
-                self.DVBui.label_CCD_testResult.setText("Format contains regex read Code")
-                return isok
-            isok=True    
-            ReqOpParamsdict=P_Allinfo['ReqOpParamsdict']
-            paramlist=P_Allinfo['Parameterlist']
-            optionlist=P_Allinfo['Optionlist']
-            optiontxtlist=P_Allinfo['Optiontxtlist']
-            minop=P_Allinfo['minRequiredOptions']
-            self.DVBui.label_CCD_testResultFormat.setText("Processed Format: "+str(P_Allinfo['processedFormat']))                            
-            Table_NumRows=len(ReqOpParamsdict)
-            self.DVBui.tableWidget_CCD_actionParam.setRowCount(Table_NumRows)
-            self.DVBui.tableWidget_CCD_actionParam.setHorizontalHeaderLabels(["Parameter", "Value","Constraint"])
-            self.DVBui.tableWidget_CCD_actionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
-            iii=0
-            befaconstraint=''
-            if P_Allinfo['IsOred']==True:
-                befaconstraint=befaconstraint+'OR '
-            
-            aconstraint=befaconstraint  
-            Parameters={}  
-            for ccc in ReqOpParamsdict:   
-                self.DVBui.tableWidget_CCD_actionParam.setItem(iii,0, QTableWidgetItem(ccc))
-                self.DVBui.tableWidget_CCD_actionParam.setItem(iii,1, QTableWidgetItem(str(iii)))
-                Parameters.update({ccc:iii})
-            
-                self.DVBui.tableWidget_CCD_actionParam.setItem(iii,2, QTableWidgetItem(befaconstraint+ReqOpParamsdict[ccc]))
-                if ReqOpParamsdict[ccc]=='required':
-                    color=QColor('lightblue')
-                    self.setColortoRow(self.DVBui.tableWidget_CCD_actionParam, iii, color)                
-                iii=iii+1
-            self.DVBui.tableWidget_CCD_actionParam.resizeColumnsToContents()
-            Gcode=self.CH.Get_code(aFormat,Parameters)
-            self.DVBui.label_CCD_testResult.setText("Evaluated Gcode: "+str(Gcode))
-            self.Selected_action_dict={'action':self.DVBui.lineEdit_CCD_action.text(),'Format':aFormat,'Parameters':Parameters,'ReqOpParamsdict':ReqOpParamsdict}
-
-        return isok    
-    
-    def fill_ReadactionParameters_Table(self,aFormat):
-        isok=False
-        self.DVBui.tableWidget_CCD_readactionParam.clear()
-        Table_NumCols=4
-        self.DVBui.tableWidget_CCD_readactionParam.setColumnCount(Table_NumCols)
-        Table_NumRows=0
-        self.DVBui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
-        self.DVBui.label_CCD_testreadResult.setText("Evaluated all Read: ")
-        self.DVBui.label_CCD_testreadResultFormat.setText("Evaluated Format read: ")  
-        #Table_NumCols=self.Num_interfaces+1
-        if self.CH.Check_Format(aFormat)==False:
-            self.DVBui.label_CCD_testreadResult.setText("Wrong Parenthesis")
-            return isok
-        #print('pass check format')    
-        try:    
-            P_Allinfo=self.CH.get_all_info_from_Format(aFormat)
-            #print('pass get all info from format')   
-            #print(P_Allinfo) 
-        except:
-            P_Allinfo={}
-            self.DVBui.label_CCD_testreadResult.setText("Format contains Errors")
-            pass
-        if P_Allinfo is not {}:                        
-            if P_Allinfo['IsRegex']==False or P_Allinfo['IsOred']==True:
-                self.DVBui.label_CCD_testreadResult.setText("Format contains action Code")
-                return isok
-            #print('pass check or and regex')    
-            isok=True    
-            ReqOpParamsdict=P_Allinfo['ReqOpParamsdict']
-            paramlist=P_Allinfo['Parameterlist']
-            optionlist=P_Allinfo['Optionlist']
-            optiontxtlist=P_Allinfo['Optiontxtlist']
-            minop=P_Allinfo['minRequiredOptions']
-            regexcmd=P_Allinfo['RegexCommand']
-            self.DVBui.label_CCD_testreadResultFormat.setText("Search pattern: "+regexcmd)                            
-            
-            iii=0                        
-            Parameters={}  
-            texteval=self.DVBui.lineEdit_CCD_testRead_text.text()
-            #print(texteval)
-            
-            try:
-                rm=re.search(regexcmd,texteval)
-                nummatch=len(rm.groups())
-                #print(nummatch)
-                if nummatch==0:
-                    self.DVBui.label_CCD_testreadResult.setText("No matches found!")
-                if nummatch>0:
-                    #log.info('Test found '+str(nummatch)+' match(es)')
-                    self.DVBui.label_CCD_testreadResult.setText('Test found '+str(nummatch)+' match(es)!')
-                    Table_NumRows=nummatch
-                    self.DVBui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
-                    self.DVBui.tableWidget_CCD_readactionParam.setHorizontalHeaderLabels(["Match", "Parameter","Value","Option"])
-                    self.DVBui.tableWidget_CCD_readactionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
-                    #print(optiontxtlist)
-                    #print(optionlist)
-                    #print(paramlist)
-                    for iii in range(nummatch):   
-                        optxt=''
-                        oppos=0
-                        op=''
-                        ptxt=''
-                        for ccc in optiontxtlist:                            
-                            if str(ccc)==str(iii+1):
-                                optxt=str(ccc)
-                                op=optionlist[oppos]
-                                ptxt=paramlist[oppos]
-                                break
-                            oppos=oppos+1
-                        readvalue=rm.group(iii+1)    
-                        self.DVBui.tableWidget_CCD_readactionParam.setItem(iii,0, QTableWidgetItem(optxt))
-                        self.DVBui.tableWidget_CCD_readactionParam.setItem(iii,1, QTableWidgetItem(ptxt))
-                        self.DVBui.tableWidget_CCD_readactionParam.setItem(iii,2, QTableWidgetItem(str(readvalue)))
-                        self.DVBui.tableWidget_CCD_readactionParam.setItem(iii,3, QTableWidgetItem(op))
-                        Parameters.update({op:readvalue})                    
-                        
-                    self.DVBui.tableWidget_CCD_readactionParam.resizeColumnsToContents()
-            except Exception as e:
-                #log.error(e) 
-                #log.info('Test found no matches!')
-                self.DVBui.label_CCD_testreadResult.setText("No matches found!")
-                pass
-
-            self.Selected_read_dict.update({'action':self.DVBui.lineEdit_CCD_readaction.text()})
-            self.Selected_read_dict.update({'Format':aFormat})
-            self.Selected_read_dict.update({'Parameters':Parameters})
-            self.Selected_read_dict.update({'testRead':self.DVBui.label_CCD_testreadResult.text()})
-        return isok    
-
-
-    def ComboBox_Select_interface(self):
-        anid=self.DVBui.comboBox_CCD_interface.currentText()
-        if str(anid)!=str(self.CH.id):            
-            self.CH.Set_id(str(anid))
-            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
-            self.DVBui.label_CCD_interfaceName.setText(aname)  
-            self.Force_CH_refresh_info_From_file(False)            
-            self.id=self.CH.id  
-            self.Refresh_after_config_File_change()
-    
-    def Force_CH_refresh_info_From_file(self,log):
-        self.CH.Setup_Command_Handler(log)   #Refresh info in CH 
-        self.CH.Init_Read_Interface_Configurations(self.CH.Required_read,self.CH.Required_interface,log) 
-    
-    def PB_CCD_Set_Preview(self):            
-        #print('clicked')
-        self.aList=[]
-        self.set_clicked.emit(self.aList)
-    
-    
-
-    def getGformatforActionfromTable(self,action):
-        ActionFormat=None
-        try:       
-            Table_NumRows=self.Get_Number_of_Actual_Interface_Formats()
-            for row in range(Table_NumRows):                        
-                hhh=self.DVBui.tableWidget_CCD.item(row, 0).text()
-                hhhval=self.DVBui.tableWidget_CCD.item(row, 1).text()     
-                if hhh==action:            
-                    ActionFormat=hhhval
-        except:
-            pass
-        #print('get from table '+ActionFormat)
-        return ActionFormat
-
-    def accept(self):
-        #print('accepted')        
-        return self.CH.id   
-    '''
-    def PB_debugtests(self):
-        
+    def PB_debugtests(self):        
         print('--------------------------------------------------')
-        #Gcodeline='G0 X0.5 Y0.8 Z3'
-        #print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G1 X0.5 Z3 Y0.8 F100'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        #Gcodeline='G0 X0.5 Z0.8 Y3'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G0 Z8'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G92 X0.5'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G1 X0.5 E0.8 Z3 F200'
-        #print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G1 G0 X0.5 Y0.8 Z3 F200'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G28 Z'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        #Gcodeline='G54 G0 X0.5 Y0.8 Z3'
-        #print(self.CH.get_action_from_gcode(Gcodeline,1))
+        
     '''
     def left_click_P(self, nb):
         if nb == 1: print('Single left click')
