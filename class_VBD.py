@@ -28,6 +28,7 @@ from types import *
 import os
 import shutil
 import sys
+import json
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -45,6 +46,17 @@ class Dnd_CustomGroupbox(QGroupBox):
 
     def dragEnterEvent(self, e):    
         e.accept()    
+
+    def Set_Obj_Position(self, target):
+        #x,y,W,H=target.get_size_position()
+        position = target.frame.rect().topLeft() 
+        #print('inside set_obj_pos',position.x(),position.y())
+        (x,y)=target.batton_data['Pos'] 
+        target.move(position + QPoint(int(x), int(y)))
+        anid=target.batton_data['key_id']                
+        newpos=(position + QPoint(int(x), int(y)), anid)
+        self.new_position.emit(newpos)
+        
 
     def dropEvent(self, e):      
                   
@@ -68,8 +80,10 @@ class VBD_Button_set(QWidget):
     mouseHover = QtCore.pyqtSignal(int)
     data_change=QtCore.pyqtSignal(dict)
     focused_id=QtCore.pyqtSignal(int)
+    set_position=QtCore.pyqtSignal(int)
     def __init__(self,CH, batton_data, name, parent):
         QtWidgets.QWidget.__init__(self,parent)
+        self.parent=parent
         self.setMouseTracking(True)
         self.key_id=None
         self.CH=CH
@@ -78,6 +92,7 @@ class VBD_Button_set(QWidget):
         self.Create_VBD_Button()        
         QtCore.QMetaObject.connectSlotsByName(self)
         self.offset = 0    
+        
     
     def enterEvent(self, event):
         self.mouseHover.emit(self.batton_data['key_id'])
@@ -91,6 +106,18 @@ class VBD_Button_set(QWidget):
         self.resize(int(W),int(H))
         PBsize=self.pushButton.size()
         self.pushButton.setIconSize(PBsize)
+    
+    def Frame_Reposition(self):        
+        self.set_position.emit(self.batton_data['key_id'])
+        #x,y=self.batton_data['Pos']  
+        #position=self.parent.rect().topLeft()              
+        #print("before move->",position.x(),position.y())     
+        #self.frame.rect().setX(x)         
+        #self.frame.rect().setY(y)         
+        #self.frame.rect().moveTo(QPoint(int(x), int(y)))        
+        #position=self.frame.rect().topLeft()              
+        #print("after move->",position.x(),position.y())
+        
     
     def Signal_Data(self,datadict):
         self.data_change.emit(datadict)
@@ -643,9 +670,9 @@ class VBD_Handler(object):
         self.Object_List=[]
         self.Selected_key=None
     
-    def Add_Obj(self,Obj,anid=0):
+    def Add_Obj(self,Obj,anid=-1):
         #New=VBD_Proxy(Obj)
-        if anid==0:
+        if anid==-1:
             anid=self.Get_a_new_id()
         #New.__setattr__("Key_id",anid)
         Obj.key_id=anid
@@ -680,11 +707,14 @@ class VBD_Handler(object):
         try:                        
             #anid=Obj. __getattr__("Key_id")
             anid=Obj.key_id
-            if Obj in self.Object_List:                
+            if Obj in self.Object_List: 
+                Obj.batton_data={}               
+                Obj.frame.destroy()
                 self.Object_List.remove(Obj)
                 self.Object_Key_List.remove(anid)
                 self.Selected_key=None
                 Obj.deleteLater() 
+                QApplication.processEvents()
         except:
             pass 
     
@@ -1832,13 +1862,22 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         return filter.clicked 
 
     def PB_Add_Button(self):
+        abtn=self.create_batton()
+        self.Edit_Batton_Data(abtn)
+    
+    def create_batton(self,b_data=None):
+        
         batton_data={'Pos':(0,0),'Size':(200,200),'Name':'New','Icon':None,'action':'','Gcode':'','Params':{}}
+        if b_data==None:
+            anid=-1
+        else:            
+            anid=int(b_data['key_id'])
         abtn = VBD_Button_set(self.CH,batton_data,"Drag Me", self.DVBui.groupBox_VBD_VarButtons)
         #print('Size-->',abtn.size(),abtn.pos())
         abtn.batton_data.update({'Size':(100,50)})
         abtn.Frame_Resize()
         #print('Size after -->',abtn.size(),abtn.pos())
-        anid=self.VBD_H.Add_Obj(abtn)        
+        anid=self.VBD_H.Add_Obj(abtn,anid)        
         abtn.batton_data.update({'key_id':anid})        
         abtn.show()
         log.info('Batton Object Added ID:'+str(anid))
@@ -1846,18 +1885,23 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.DVBui.groupBox_VBD_VarButtons.setAcceptDrops(True)
         abtn.data_change[dict].connect(self.VBD_Button_Clicked)
         abtn.mouseHover[int].connect(self.VBD_Hovered)
-        abtn.focused_id[int].connect(self.VBD_Selected)
-        self.Edit_Batton_Data(abtn)
+        abtn.focused_id[int].connect(self.VBD_Selected)  
+        abtn.set_position[int].connect(self.VBD_Reposition)  
+              
+        return abtn
+
 
     def Edit_Batton_Data(self,Obj):
         self.VBDD_Dialog=VariableButtonDataDialog(Obj)
+
+
 
     def VBD_Set_Position(self,newpos):
         apos,anid=newpos
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
             if iiiid is anid:
                 Obj.batton_data.update({'Pos':(apos.x(),apos.y())})            
-                print('New pos',Obj.batton_data['Pos'])
+                #print('New pos',Obj.batton_data['Pos'])
                 
 
     def VBD_Hovered(self,anid):
@@ -1872,6 +1916,13 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def VBD_Deselect(self):
         #print('Pressed GB')
         self.VBD_Selected(-1)
+
+    def VBD_Reposition(self,anid):
+         #print('reposition',anid)
+         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            if iiiid is anid:
+                #Obj.batton_data.update({'Pos':(apos.x(),apos.y())})
+                self.DVBui.groupBox_VBD_VarButtons.Set_Obj_Position(Obj)
 
     def VBD_Selected(self,anid):        
         self.VBD_H.Select_Object(anid)
@@ -1906,8 +1957,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_debugtests)
         self.DVBui.pushButton_VBD_ButtonAdd.clicked.connect(self.PB_Add_Button)        
         self.DVBui.pushButton_VBD_ButtonRemove.clicked.connect(self.PB_Remove_Button)
-        #self.DVBui.pushButton_VBD_Save.clicked.connect(self.PB_Save_Button_Layout)
-        #self.DVBui.pushButton_VBD_Load.clicked.connect(self.PB_Load_Button_Layout)
+        self.DVBui.pushButton_VBD_Save.clicked.connect(self.PB_Save_Button_Layout)
+        self.DVBui.pushButton_VBD_Load.clicked.connect(self.PB_Load_Button_Layout)
         self.DVBui.buttonBox.accepted.connect(self.accept)
         self.DVBui.buttonBox.rejected.connect(self.reject)
 
@@ -1918,7 +1969,29 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
                 self.VBD_H.Del_Obj(Obj)  
                 log.info('Batton Object Deleted ID:'+str(anid))
                 break                      
-                        
+    
+    def Remove_all_Obj(self):
+        self.Selected_Item=None
+        #print('List before ',self.VBD_H.Object_Key_List)        
+        #print('size',len(self.VBD_H.Object_List))
+        while self.VBD_H.Object_Key_List!=[]:
+            #anid=self.VBD_H.Object_Key_List[0]
+            Obj=self.VBD_H.Object_List[0]
+            anid=Obj.key_id
+            self.VBD_H.Del_Obj(Obj)        
+            #print('Deleted ',anid)
+                
+
+        self.VBD_H.Object_Key_List=[]
+        self.VBD_H.Object_List=[]
+        log.info('Removed all batton objects!')
+
+    def Copy_data(self,adict):
+        newdict={}
+        for item in adict:
+            newdict.update({item:adict[item]})
+        return newdict
+
     def PB_Edit_Button(self):
         anid=self.Selected_Item                
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
@@ -1941,8 +2014,85 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def right_click_P(self, nb):
         if nb == 1: print('Single right click')
         else: print('Double right click')
-    '''    
+    ''' 
+    def PB_Save_Button_Layout(self):
+        self.Save_Button_Layout(None)
 
+    def Save_Button_Layout(self,afilename=None):  
+        if afilename is None:
+            filename=self.aDialog.saveFileDialog(5)       #batton *.btncfg
+        else:
+            filename=afilename
+        print(afilename)
+        
+        if filename == '' or filename is None:
+            return      
+        if filename is not None:                   
+            try:
+                mfile=re.search('(\.btncfg$)',filename)
+                if mfile.group(1)!='.btncfg': 
+                    filename=filename+'.btncfg'
+            except:
+                filename=filename+'.btncfg'        
+            log.info('Saving:'+filename) 
+            try:
+                b_dict=self.get_batton_dict()
+                with open(filename, 'w') as yourFile:                                                  
+                    json.dump(b_dict, yourFile,indent=2)                    
+                yourFile.close()                
+            except Exception as e:
+                log.error(e)
+                log.info("Batton configuration File was not Written!")    
+        
+    def get_batton_dict(self):
+        b_dict={}
+        b_dict.update({'Batton_Key_List':self.VBD_H.Object_Key_List})
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):             
+            b_dict.update({iiiid:Obj.batton_data})
+        return b_dict
+    
+    def set_batton_dict(self,b_dict,flushall=True):
+        if flushall==True:
+            self.Remove_all_Obj()
+        objlist=b_dict['Batton_Key_List']
+        #print(objlist)
+        for iiiid in objlist:                         
+            #print(b_dict[str(iiiid)])
+            self.create_batton(b_dict[str(iiiid)])
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):             
+            Obj.batton_data=self.Copy_data(b_dict[str(iiiid)])
+            Obj.set_data_to_VBD_Button(Obj.batton_data)   
+            Obj.Frame_Resize()            
+            Obj.Frame_Reposition()
+            #x,y,W,H=Obj.get_size_position()
+            #Obj.set_position.emit(iiiid)
+            #print(x,y,W,H)
+            
+            #Obj.frame.setGeometry(QtCore.QRect(int(x), int(y),int(W), int(H) ))                     
+        
+    def PB_Load_Button_Layout(self):
+        self.Load_Button_Layout(None)
+
+    def Load_Button_Layout(self,fn=None):            
+        if fn==None:
+            filename=self.aDialog.openFileNameDialog(5)       #batton *.btncfg
+        else:
+            filename=fn
+        if filename == '' or filename is None:
+            return      
+        if filename is not None:                           
+            log.info('Loading:'+filename) 
+            try:                                
+                with open(filename, 'r') as yourFile:          
+                    b_dict=json.load(yourFile)
+                    #print(b_dict)
+                    self.set_batton_dict(b_dict,True)
+                yourFile.close()                
+            except Exception as e:
+                log.error(e)
+                log.info("Batton configuration File was not Read!")    
+
+        
 
 def main():
     anid='0'

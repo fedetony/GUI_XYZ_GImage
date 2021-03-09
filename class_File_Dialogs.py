@@ -22,6 +22,9 @@ class Dialogs(QWidget):
         elif filter==4:
             self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Action Files (*.acode)"
             self.selected_filter = "Gcode Files (*.gcode)"   
+        elif filter==5:
+            self.filters="All Files (*);;Batton Configuration Files (*.btncfg)"
+            self.selected_filter = "Batton Configuration Files (*.btncfg)"
         else:
             self.filters="All Files (*)"
             self.selected_filter = "All Files (*)"    
@@ -29,11 +32,12 @@ class Dialogs(QWidget):
     def openFileNameDialog(self,filter=0):
         '''
         filters:
-        0->Gcode Files (*.gcode)
+        0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.config)
-        4->Gcode and Action Files (*.gcode *.acode) 
+        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
+        5->Batton Configuration files (*.btncfg)
         else all Files
         '''        
         #dir = self.sourceDir
@@ -49,10 +53,12 @@ class Dialogs(QWidget):
     def openFileNamesDialog(self,filter=0):
         '''
         filters:
-        0->Gcode Files (*.gcode)
+        0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.config)
+        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
+        5->Batton Configuration files (*.btncfg)
         else all Files
         '''
         self.get_filter(filter) 
@@ -65,10 +71,12 @@ class Dialogs(QWidget):
     def saveFileDialog(self,filter=0): 
         '''
         filters:
-        0->Gcode Files (*.gcode)
+        0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.config)
+        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
+        5->Batton Configuration files (*.btncfg)
         else all Files
         '''    
         self.get_filter(filter)         
