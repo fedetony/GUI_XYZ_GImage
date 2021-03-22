@@ -1834,7 +1834,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.Dialog_VBD = QtWidgets.QDialog()
         self.DVBui = GuiXYZ_VBD.Ui_Dialog_VBD()
         self.DVBui.setupUi(self.Dialog_VBD)        
-        self.Dialog_VBD.show()    
+        self.Dialog_VBD.show()           
         self.Is_Dialog_Open=True    
         self.Connect_Main_Button()
         
@@ -1894,6 +1894,19 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def Edit_Batton_Data(self,Obj):
         self.VBDD_Dialog=VariableButtonDataDialog(Obj)
 
+    def Clone_Batton_Data(self,Obj):
+        newbatton_data=self.Copy_data(Obj.batton_data)
+        anid=self.VBD_H.Get_a_new_id()
+        newbatton_data.update({'key_id':anid})
+        newbatton_data.update({'Name':newbatton_data['Name']+'_'+str(anid)})
+        newbatton_data.update({'Pos':(0,0)})
+        #print(newbatton_data)
+        abtn=self.create_batton(newbatton_data)
+        abtn.batton_data=self.Copy_data(newbatton_data)
+        abtn.set_data_to_VBD_Button(abtn.batton_data)   
+        abtn.Frame_Resize()            
+        abtn.Frame_Reposition()
+        
 
 
     def VBD_Set_Position(self,newpos):
@@ -1952,9 +1965,11 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def Connect_Main_Button(self):    
         #Connect buttons
         if self.Activate_test_button==False:
-            self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_Edit_Button)
+            self.DVBui.pushButton_VBD_ButtonClone.clicked.connect(self.PB_Clone_Button)
         else:
             self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_debugtests)
+            self.DVBui.pushButton_VBD_ButtonEdit.setText('Debug!')
+        self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_Edit_Button)
         self.DVBui.pushButton_VBD_ButtonAdd.clicked.connect(self.PB_Add_Button)        
         self.DVBui.pushButton_VBD_ButtonRemove.clicked.connect(self.PB_Remove_Button)
         self.DVBui.pushButton_VBD_Save.clicked.connect(self.PB_Save_Button_Layout)
@@ -1998,6 +2013,12 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             if iiiid is anid:
                 self.Edit_Batton_Data(Obj)
                 #print('Edit button pressed')
+    def PB_Clone_Button(self):
+        anid=self.Selected_Item                
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            if iiiid is anid:
+                self.Clone_Batton_Data(Obj)
+                #print('Edit button pressed')
     
     def Refresh_viewed_filenames(self):        
         fff=self.shorten_filename(self.extract_filename(self.CH.filename,False))
@@ -2017,6 +2038,16 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     ''' 
     def PB_Save_Button_Layout(self):
         self.Save_Button_Layout(None)
+    
+    def extract_filename(self,filename,withextension=True):
+        fn= os.path.basename(filename)  # returns just the name
+        fnnoext, fext = os.path.splitext(fn)
+        fnnoext=fnnoext.replace(fext,'')
+        fn=fnnoext+fext        
+        if withextension==True:
+            return fn
+        else:                
+            return  fnnoext #fn.rsplit('.', 1)[0]
 
     def Save_Button_Layout(self,afilename=None):  
         if afilename is None:
@@ -2035,6 +2066,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             except:
                 filename=filename+'.btncfg'        
             log.info('Saving:'+filename) 
+            self.Dialog_VBD.setWindowTitle('VBD_'+self.extract_filename(filename,withextension=False))
             try:
                 b_dict=self.get_batton_dict()
                 with open(filename, 'w') as yourFile:                                                  
@@ -2047,13 +2079,47 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def get_batton_dict(self):
         b_dict={}
         b_dict.update({'Batton_Key_List':self.VBD_H.Object_Key_List})
+        b_dict.update({'Window_Settings':self.get_window_settings()})
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):             
             b_dict.update({iiiid:Obj.batton_data})
         return b_dict
     
+    def get_window_settings(self):
+        windowsettigs={}
+        #self.Dialog_VBD.settings = QtCore.QSettings('VBDCompany', 'VBDtool')
+        #geometry=self.Dialog_VBD.settings.value('geometry', '')        
+        #geometry = self.Dialog_VBD.saveGeometry()     
+        #W = self.Dialog_VBD.geometry.Width()   
+        #H = self.Dialog_VBD.geometry.Height()   
+        #geometry=(W,H)
+        #self.Dialog_VBD.settings.setValue('geometry', geometry)
+        windowsettigs.update({'windowTitle':self.Dialog_VBD.windowTitle() })
+        #windowsettigs.update({'geometry':geometry})
+        #windowsettigs.update({'W_Size':(1000,1000)})
+        #windowsettigs.update({'Slide_pos':(1000,1000)})
+        return windowsettigs
+    
+    def set_window_settings(self,windowsettigs):
+         #Obj.frame.setGeometry(QtCore.QRect(int(x), int(y),int(W), int(H) ))          
+        self.Dialog_VBD.setWindowTitle(windowsettigs['windowTitle'])
+        geometry=windowsettigs['geometry']
+        #(W,H)=geometry
+        #x=0
+        #y=0
+        #self.restoreGeometry(geometry)
+        #geometry = self.Dialog_VBD.saveGeometry()        
+        #self.Dialog_VBD.settings.setValue('geometry', geometry)
+        #self.Dialog_VBD.setGeometry(QtCore.QRect(int(x), int(y),int(W), int(H) )) 
+        print('Window settings',windowsettigs)                
+    
     def set_batton_dict(self,b_dict,flushall=True):
         if flushall==True:
             self.Remove_all_Obj()
+        try:
+            self.set_window_settings(b_dict['Window_Settings'])    
+        except:
+            log.error('No Window settings in Load File!')
+            pass
         objlist=b_dict['Batton_Key_List']
         #print(objlist)
         for iiiid in objlist:                         

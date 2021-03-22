@@ -101,8 +101,12 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         if logPosition is None:
             logPosition=True
         self.logPosition=logPosition
-        logpositionoutallinfo=self.get_config_value('logpositionoutputFormat',self.CH.id)
-        #type action regex or read receives all info
+        QuitReadOnMatch=self.get_config_value('QuitReadOnMatch',self.CH.id)
+        if QuitReadOnMatch is None:
+            QuitReadOnMatch=True
+        self.QuitReadOnMatch=QuitReadOnMatch
+        logpositionoutallinfo=self.get_config_value('logpositionoutputFormat',self.CH.id)        
+        #type action regex or read receives all info        
         logpositionoutputFormat=logpositionoutallinfo['Format']
         if logpositionoutputFormat == '':
             logpositionoutputFormat=None
@@ -192,7 +196,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         if Reqcc is None or Reqcc is {}:
             Reqcc={'interfaceId','interfaceName','Home'}
         if Reqic is None or Reqic is {}:
-            Reqic={'logNoread','logpositionoutputFormat','logPosition','logAllReadData','logStateChange','timeforMachineStartup','showOK','timetowaitafterresume','interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}         
+            Reqic={'QuitReadOnMatch','logNoread','logpositionoutputFormat','logPosition','logAllReadData','logStateChange','timeforMachineStartup','showOK','timetowaitafterresume','interfaceidentifyer','interfaceId','cycletime','defaultInterface','beforestartupSequence','afterstartupSequence','hasautoReport'}         
         if Reqrc is None or Reqrc is {}:
             Reqrc={'interfaceId','acknowledgecommandreceivedRead','acknowledgecommandexecutedRead','errorRead','alarmRead','infoRead','configRead','stateRead','positionResponseRead'}
         self.CH.Required_read=Reqrc           
@@ -847,7 +851,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             
             if self.logAllReadData==True:
                 log.info(grbl_out)
-            PRdata,foundmatch=self.Read_all_data(grbl_out)
+            PRdata,foundmatch=self.Read_all_data(grbl_out,self.QuitReadOnMatch)
             if foundmatch==False:                
                 if self.logNoread==True:
                     log.info("No read: "+ grbl_out)

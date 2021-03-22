@@ -77,6 +77,13 @@
              </widget>
             </item>
             <item>
+             <widget class="QPushButton" name="pushButton_VBD_ButtonClone">
+              <property name="text">
+               <string>Clone</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QPushButton" name="pushButton_VBD_ButtonRemove">
               <property name="text">
                <string>Remove</string>

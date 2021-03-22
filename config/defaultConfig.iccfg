@@ -58,7 +58,7 @@
 <logPosition>_<True>_<True>_<True>_<>
 <logPosition_info>_<*(1)>_<if you want to report in the log the position change. Log true logs only when position change.>_<*(1)>_<*(1)>
 <logAllReadData_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<logAllReadData>_<False>_<False>_<False>_<>
+<logAllReadData>_<False>_<True>_<False>_<>
 <logAllReadData_info>_<*(1)>_<if True will show in the log every response from the machine.>_<*(1)>_<*(1)>
 <logStateChange_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
 <logStateChange>_<True>_<True>_<True>_<>
@@ -89,3 +89,6 @@
 <immediateactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
 <immediateactionlist>_<movingstatusReport>_<>_<>_<>
 <immediateactionlist_info>_<list of actions to be sent immediately and not to the queue.>_<*(0)>_<*(0)>_<*(0)>
+<QuitReadOnMatch_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
+<QuitReadOnMatch>_<True>_<False>_<True>_<>
+<QuitReadOnMatch_info>_<*(1)>_<When True if reading finds a match will get the data and return (Fast read). Else will try to match the remaining read regex functions (Slower read).>_<*(1)>_<*(1)>
