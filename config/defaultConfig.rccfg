@@ -18,58 +18,58 @@
 # Information and Type use format *(id) to use the same information of id, instead of storing same info/type for each interface.
 # for interfaceId file without _info and _type will prompt errors, but will run.
 # ------------------------------------
-<interfaceId>_<0>_<1>_<2>_<3>
+<interfaceId>_<0>_<1>_<2>_<3>_<4>
 
-<acknowledgecommandexecutedRead>_<>_<r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]>_<r'([oO][kK])'[1{ACK}]>_<>
-<acknowledgecommandreceivedRead>_<r'([oO][kK])'[1{ACKCMD}]>_<r'([oO][kK])'[1{ACKCMD}]>_<>_<>
-<errorRead>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[:](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<>
-<alarmRead>_<r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>
-<infoRead>_<r'^\[(.*)\]'[1{INFO}]>_<>_<r'echo:(.*)'[1{INFO}]>_<>
-<actionRead>_<>_<>_<r'action(.*)'[1{ACTION}]>_<>
-<configRead>_<r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<r'\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}][4{ConfUnit}]>_<r'Cap:\s?\s?([^:]*):(\d+)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
+<acknowledgecommandexecutedRead>_<>_<r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]>_<r'([oO][kK])'[1{ACK}]>_<>_<>
+<acknowledgecommandreceivedRead>_<r'([oO][kK])'[1{ACKCMD}]>_<r'([oO][kK])'[1{ACKCMD}]>_<>_<>_<r'([oO][kK])'[1{ACKCMD}]>
+<errorRead>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[:](.*)'[1{ERROR}]>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>_<>_<r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]>
+<alarmRead>_<r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>_<>_<r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]>
+<infoRead>_<r'^\[(.*)\]'[1{INFO}]>_<>_<r'echo:(.*)'[1{INFO}]>_<>_<r'^\[(.*)\]'[1{INFO}]>
+<actionRead>_<>_<>_<r'action(.*)'[1{ACTION}]>_<>_<>
+<configRead>_<r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<r'\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}][4{ConfUnit}]>_<r'Cap:\s?\s?([^:]*):(\d+)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>
 # state is numerical value equivalent to status
-<stateRead>_<>_<r'stat:([0-9])'[1{STATE_XYZ}]>_<r'S_XYZ:([0-9]+)'[1{STATE_XYZ}]>_<>
-<temperaturesRead>_<>_<>_<>_<>
-<positionResponseRead>_<r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]>_<>_<r'X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)'[1{XPOS}][2{YPOS}][3{ZPOS}][4{EPOS}][5{MXPOS}][6{MYPOS}][7{MZPOS}]>_<>
-<positionResponseRead_posz>_<>_<r'posz:([+-]?[0-9]*[.][0-9]+)'[1{ZPOS}]>_<>_<>
-<positionResponseRead_posx>_<>_<r'posx:([+-]?[0-9]*[.][0-9]+)'[1{XPOS}]>_<>_<>
-<positionResponseRead_posy>_<>_<r'posy:([+-]?[0-9]*[.][0-9]+)'[1{YPOS}]>_<>_<>
-<acknowledgecommandotherRead>_<>_<r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]>_<>_<>
-<infoRead_Velocity>_<>_<r'Velocity:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{VEL}][2{VELUNIT}]>_<>_<>
-<infoRead_Xpos>_<>_<r'X position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{XPOS}][2{XPOSUNIT}]>_<>_<>
-<infoRead_Ypos>_<>_<r'Y position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{YPOS}][2{YPOSUNIT}]>_<>_<>
-<infoRead_Zpos>_<>_<r'Z position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{ZPOS}][2{ZPOSUNIT}]>_<>_<>
-<infoRead_Feedrate>_<>_<r'Feed\srate:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{FEEDRATE}][2{FEEDRATEUNIT}]>_<>_<>
-<infoRead_Apos>_<>_<r'A position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{APOS}][2{APOSUNIT}]>_<>_<>
-<infoRead_Units>_<>_<r'Units:\s*(\S*)(.*)'[1{UNITS}][2{UNITSINFO}]>_<>_<>
-<infoRead_CoordSystem>_<>_<r'Coordinate\ssystem:\s*(\S*)(.*)'[1{COORDSYS}][2{COORDSYSINFO}]>_<>_<>
-<infoRead_DistanceMode>_<>_<r'Distance\smode:\s*(\S*)(.*)'[1{DISTANCEMODE}][2{DISTANCEMODEINFO}]>_<>_<>
-<infoRead_FeedRateMode>_<>_<r'Feed\srate\smode:\s*(\S*)(.*)'[1{FEEDRATEMODE}][2{FEEDRATEMODEINFO}]>_<>_<>
-<infoRead_MachineState>_<>_<r'Machine\sstate:\s*(\S*)'[1{MSTATE}]>_<>_<>
-<configRead_Units>_<>_<>_<r'echo:\s?\s?(G2)(\d+)\s[^;]*(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_TempUnits>_<>_<>_<r'echo:\s?\s?(M149)\s([^;]*)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_Filament>_<>_<>_<r'echo:\s?\s?(M200)\s([D].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_Steps_per_Unit>_<>_<>_<r'echo:\s?\s?(M92)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaximumFeedrates>_<>_<>_<r'echo:\s?\s?(M203)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaximumAcceleration>_<>_<>_<r'echo:\s?\s?(M201)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_AccelerationPrintRetractTravel>_<>_<>_<r'echo:\s?\s?(M204)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_Advanced>_<>_<>_<r'echo:\s?\s?(M205)\s([B].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_HomeOffset>_<>_<>_<r'echo:\s?\s?(M206)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaterialHeatupS0>_<>_<>_<r'echo:\s?\s?(M145 S0)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaterialHeatupS1>_<>_<>_<r'echo:\s?\s?(M145 S1)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_PIDsettings>_<>_<>_<r'echo:\s?\s?(M301)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_StepperDriverCurrentXYZ>_<>_<>_<r'echo:\s?\s?(M906)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_StepperDriverCurrentE>_<>_<>_<r'echo:\s?\s?(M906\sT0)\s([E].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_DriverStepMode>_<>_<>_<r'echo:\s?\s?(M569\sS\d)\s([T].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_DriverStepModeX>_<>_<>_<r'echo:\s?\s?(M569)\s([S]\d\s[X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_FilamentTxt>_<>_<>_<r'echo:\s?\s?(Filament settings)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_Steps_per_Unittxt>_<>_<>_<r'echo:\s?\s?(Steps per unit)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaximumFeedratestxt>_<>_<>_<r'echo:\s?\s?(Maximum\sfeedrates)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaximumAccelerationtxt>_<>_<>_<r'echo:\s?\s?(Maximum\sAcceleration)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_AccelerationPRTtxt>_<>_<>_<r'echo:\s?\s?(Acceleration)\s(.*):(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}]>_<>
-<configRead_Advancedtxt>_<>_<>_<r'echo:\s?\s?(Advanced):(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_HomeOffsettxt>_<>_<>_<r'echo:\s?\s?(Home\soffset)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_MaterialHeatuptxt>_<>_<>_<r'echo:\s?\s?(Material\sheatup\sparameters)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_PIDsettingstxt>_<>_<>_<r'echo:\s?\s?(PID\ssettings)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_StepperDriverCurrenttxt>_<>_<>_<r'echo:\s?\s?(Stepper\sdriver\scurrent)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
-<configRead_DriverStepModetxt>_<>_<>_<r'echo:\s?\s?(Driver\sstepping\smode)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>
+<stateRead>_<>_<r'stat:([0-9])'[1{STATE_XYZ}]>_<r'S_XYZ:([0-9]+)'[1{STATE_XYZ}]>_<>_<>
+<temperaturesRead>_<>_<>_<>_<>_<>
+<positionResponseRead>_<r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]>_<>_<r'X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)'[1{XPOS}][2{YPOS}][3{ZPOS}][4{EPOS}][5{MXPOS}][6{MYPOS}][7{MZPOS}]>_<>_<r'[<](\w*)[|]MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+)[|]FS:([0-9]+),([0-9]+)[|>]*'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{FeedRateX}][6{FeedRateY}]>
+<positionResponseRead_posz>_<>_<r'posz:([+-]?[0-9]*[.][0-9]+)'[1{ZPOS}]>_<>_<>_<r'[<](\w*)[|]WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+)[|]FS:([0-9]+),([0-9]+)[|>]*'[1{STATUS}][2{XPOS}][3{YPOS}][4{ZPOS}][5{FeedRateX}][6{FeedRateY}]>
+<positionResponseRead_posx>_<>_<r'posx:([+-]?[0-9]*[.][0-9]+)'[1{XPOS}]>_<>_<>_<>
+<positionResponseRead_posy>_<>_<r'posy:([+-]?[0-9]*[.][0-9]+)'[1{YPOS}]>_<>_<>_<>
+<acknowledgecommandotherRead>_<>_<r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]>_<>_<>_<>
+<infoRead_Velocity>_<>_<r'Velocity:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{VEL}][2{VELUNIT}]>_<>_<>_<>
+<infoRead_Xpos>_<>_<r'X position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{XPOS}][2{XPOSUNIT}]>_<>_<>_<>
+<infoRead_Ypos>_<>_<r'Y position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{YPOS}][2{YPOSUNIT}]>_<>_<>_<>
+<infoRead_Zpos>_<>_<r'Z position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{ZPOS}][2{ZPOSUNIT}]>_<>_<>_<>
+<infoRead_Feedrate>_<>_<r'Feed\srate:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{FEEDRATE}][2{FEEDRATEUNIT}]>_<>_<>_<>
+<infoRead_Apos>_<>_<r'A position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{APOS}][2{APOSUNIT}]>_<>_<>_<>
+<infoRead_Units>_<>_<r'Units:\s*(\S*)(.*)'[1{UNITS}][2{UNITSINFO}]>_<>_<>_<>
+<infoRead_CoordSystem>_<>_<r'Coordinate\ssystem:\s*(\S*)(.*)'[1{COORDSYS}][2{COORDSYSINFO}]>_<>_<>_<>
+<infoRead_DistanceMode>_<>_<r'Distance\smode:\s*(\S*)(.*)'[1{DISTANCEMODE}][2{DISTANCEMODEINFO}]>_<>_<>_<>
+<infoRead_FeedRateMode>_<>_<r'Feed\srate\smode:\s*(\S*)(.*)'[1{FEEDRATEMODE}][2{FEEDRATEMODEINFO}]>_<>_<>_<>
+<infoRead_MachineState>_<>_<r'Machine\sstate:\s*(\S*)'[1{MSTATE}]>_<>_<>_<>
+<configRead_Units>_<>_<>_<r'echo:\s?\s?(G2)(\d+)\s[^;]*(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_TempUnits>_<>_<>_<r'echo:\s?\s?(M149)\s([^;]*)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_Filament>_<>_<>_<r'echo:\s?\s?(M200)\s([D].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_Steps_per_Unit>_<>_<>_<r'echo:\s?\s?(M92)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaximumFeedrates>_<>_<>_<r'echo:\s?\s?(M203)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaximumAcceleration>_<>_<>_<r'echo:\s?\s?(M201)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_AccelerationPrintRetractTravel>_<>_<>_<r'echo:\s?\s?(M204)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_Advanced>_<>_<>_<r'echo:\s?\s?(M205)\s([B].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_HomeOffset>_<>_<>_<r'echo:\s?\s?(M206)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaterialHeatupS0>_<>_<>_<r'echo:\s?\s?(M145 S0)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaterialHeatupS1>_<>_<>_<r'echo:\s?\s?(M145 S1)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_PIDsettings>_<>_<>_<r'echo:\s?\s?(M301)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_StepperDriverCurrentXYZ>_<>_<>_<r'echo:\s?\s?(M906)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_StepperDriverCurrentE>_<>_<>_<r'echo:\s?\s?(M906\sT0)\s([E].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_DriverStepMode>_<>_<>_<r'echo:\s?\s?(M569\sS\d)\s([T].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_DriverStepModeX>_<>_<>_<r'echo:\s?\s?(M569)\s([S]\d\s[X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_FilamentTxt>_<>_<>_<r'echo:\s?\s?(Filament settings)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_Steps_per_Unittxt>_<>_<>_<r'echo:\s?\s?(Steps per unit)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaximumFeedratestxt>_<>_<>_<r'echo:\s?\s?(Maximum\sfeedrates)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaximumAccelerationtxt>_<>_<>_<r'echo:\s?\s?(Maximum\sAcceleration)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_AccelerationPRTtxt>_<>_<>_<r'echo:\s?\s?(Acceleration)\s(.*):(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}]>_<>_<>
+<configRead_Advancedtxt>_<>_<>_<r'echo:\s?\s?(Advanced):(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_HomeOffsettxt>_<>_<>_<r'echo:\s?\s?(Home\soffset)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_MaterialHeatuptxt>_<>_<>_<r'echo:\s?\s?(Material\sheatup\sparameters)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_PIDsettingstxt>_<>_<>_<r'echo:\s?\s?(PID\ssettings)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_StepperDriverCurrenttxt>_<>_<>_<r'echo:\s?\s?(Stepper\sdriver\scurrent)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>
+<configRead_DriverStepModetxt>_<>_<>_<r'echo:\s?\s?(Driver\sstepping\smode)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]>_<>_<>

@@ -329,7 +329,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             if len(grbl_out)>0:
                 if loginfo==True:
                     log.info("Machine response detected: "+grbl_out)
-                wake.set()
+                if teaseini<exitcount and 'ok' in grbl_out:
+                    self.tease_serial(count)
+                else:
+                    wake.set()
             if count>exitcount:
                grbl_out=None 
                wake.set()     

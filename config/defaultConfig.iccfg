@@ -21,74 +21,74 @@
 # Information and Type use format *(id) to use the same information of id, instead of storing same info/type for each interface.
 # for interfaceId file without _info and _type will prompt errors, but will run.
 # ------------------------------------
-<interfaceId>_<0>_<1>_<2>_<3>
+<interfaceId>_<0>_<1>_<2>_<3>_<4>
 
-<cycletime>_<0.1>_<0.1>_<0.2>_<0.2>
-<cycletime_info>_<Cycle time in seconds send read/Write requesats to the machine>_<*(0)>_<*(0)>_<*(0)>
+<cycletime>_<0.1>_<0.1>_<0.2>_<0.2>_<0.1>
+<cycletime_info>_<Cycle time in seconds send read/Write requesats to the machine>_<*(0)>_<*(0)>_<*(0)>_<Cycle time in seconds send read/Write requesats to the machine>
 <hasautoReport_type>_<float>_<*(0)>_<*(0)>_<*(0)>
-<defaultInterface>_<0>_<0>_<0>_<0>
-<defaultInterface_info>_<Default Interface Id>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
+<defaultInterface>_<0>_<0>_<0>_<0>_<0>
+<defaultInterface_info>_<Default Interface Id>_<*(0)>_<*(0)>_<*(0)>_<Default Interface Id>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>_<bool>
 # No parameters commands
-<beforestartupSequence>_<>_<>_<>_<>
-<beforestartupSequence_info>_<Commands to be sent after serial connection is stablished.>_<*(0)>_<*(0)>_<*(0)>
-<afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>
-<afterstartupSequence_info>_<Commands to be sent after startup sequence.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport>_<False>_<True>_<False>_<>
-<hasautoReport_info>_<If interface autoreports will not ask for position reports every cycle.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
-<interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<echo:Unknown command:>_<reprap>
-<interfaceidentifyer_info>_<This allows to identify the interface by the response of the machine in startup sequence.>_<*(0)>_<*(0)>_<*(0)>
-<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
-<beforestartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
-<defaultInterface_type>_<int>_<*(0)>_<*(0)>_<*(0)>
-<cycletime_type>_<float>_<*(0)>_<*(0)>_<*(0)>
-<afterstartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>
-<interfaceidentifyer_type>_<str>_<*(0)>_<*(0)>_<*(0)>
-<timetowaitafterresume_type>_<float>_<*(0)>_<*(0)>_<*(0)>
-<timetowaitafterresume>_<0.2>_<0.2>_<0.2>_<0.2>
-<timetowaitafterresume_info>_<Time in seconds required for interface to wait after resume command.After wait enables hold command.>_<*(0)>_<*(0)>_<*(0)>
-<showOK_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
-<showOK>_<False>_<False>_<False>_<False>
-<showOK_info>_<logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead is received.>_<*(0)>_<*(0)>_<*(0)>
-<logpositionoutputFormat_type>_<*(1)>_<action>_<*(1)>_<*(1)>
-<logpositionoutputFormat>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<>_<>
-<logpositionoutputFormat_info>_<*(1)>_<Output format for logging position, logs machine output if empty>_<*(1)>_<*(1)>
-<logPosition_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<logPosition>_<True>_<True>_<True>_<>
-<logPosition_info>_<*(1)>_<if you want to report in the log the position change. Log true logs only when position change.>_<*(1)>_<*(1)>
-<logAllReadData_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<logAllReadData>_<False>_<True>_<False>_<>
-<logAllReadData_info>_<*(1)>_<if True will show in the log every response from the machine.>_<*(1)>_<*(1)>
-<logStateChange_type>_<bool>_<*(0)>_<*(0)>_<*(0)>
-<logStateChange>_<True>_<True>_<True>_<>
-<logStateChange_info>_<Logs when state STATE_XYZ or STATUS changes value.>_<*(0)>_<*(0)>_<*(0)>
-<timeforMachineStartup_type>_<float>_<*(0)>_<*(0)>_<*(0)>
-<timeforMachineStartup>_<0>_<>_<>_<>
-<timeforMachineStartup_info>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>_<*(0)>_<*(0)>_<*(0)>
-<logNoread_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<logNoread>_<True>_<True>_<True>_<>
-<movementactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<movementactionlist>_<rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<>_<>_<>
-<probingactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<probingactionlist>_<Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<>_<>_<>
-<modecontinueactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<modecontinueactionlist>_<coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<>_<>_<>
-<modecancelactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<modecancelactionlist>_<checkgcodeMode_Off,cancelModalmode>_<>_<>_<>
-<modeinitactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<modeinitactionlist>_<jogMode>_<>_<>_<>
-<timeblockactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<timeblockactionlist>_<dwell,userPause,programPause,timedPause,quickPause>_<>_<>_<>
-<modeinitactionlist_info>_<Initialize mode commandlist: Leave Blank for Default: jogMode>_<*(0)>_<*(0)>_<*(0)>
-<timeblockactionlist_info>_<Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause>_<*(0)>_<*(0)>_<*(0)>
-<modecancelactionlist_info>_<Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode>_<*(0)>_<*(0)>_<*(0)>
-<probingactionlist_info>_<Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<*(0)>_<*(0)>_<*(0)>
-<movementactionlist_info>_<Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<*(0)>_<*(0)>_<*(0)>
-<modecontinueactionlist_info>_<Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<*(0)>_<*(0)>_<*(0)>
-<immediateactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>
-<immediateactionlist>_<movingstatusReport>_<>_<>_<>
-<immediateactionlist_info>_<list of actions to be sent immediately and not to the queue.>_<*(0)>_<*(0)>_<*(0)>
-<QuitReadOnMatch_type>_<*(1)>_<bool>_<*(1)>_<*(1)>
-<QuitReadOnMatch>_<True>_<False>_<True>_<>
-<QuitReadOnMatch_info>_<*(1)>_<When True if reading finds a match will get the data and return (Fast read). Else will try to match the remaining read regex functions (Slower read).>_<*(1)>_<*(1)>
+<beforestartupSequence>_<>_<>_<>_<>_<>
+<beforestartupSequence_info>_<Commands to be sent after serial connection is stablished.>_<*(0)>_<*(0)>_<*(0)>_<Commands to be sent after serial connection is stablished.>
+<afterstartupSequence>_<{unlockAlarm}>_<>_<>_<>_<{unlockAlarm}>
+<afterstartupSequence_info>_<Commands to be sent after startup sequence.>_<*(0)>_<*(0)>_<*(0)>_<Commands to be sent after startup sequence.>
+<hasautoReport>_<False>_<True>_<False>_<>_<False>
+<hasautoReport_info>_<If interface autoreports will not ask for position reports every cycle.>_<*(0)>_<*(0)>_<*(0)>_<If interface autoreports will not ask for position reports every cycle.>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>_<bool>
+<interfaceidentifyer>_<Grbl 0.9k>_<tinyg>_<echo:Unknown command:>_<reprap>_<ok>
+<interfaceidentifyer_info>_<This allows to identify the interface by the response of the machine in startup sequence.>_<*(0)>_<*(0)>_<*(0)>_<This allows to identify the interface by the response of the machine in startup sequence.>
+<hasautoReport_type>_<bool>_<*(0)>_<*(0)>_<*(0)>_<bool>
+<beforestartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>_<action>
+<defaultInterface_type>_<int>_<*(0)>_<*(0)>_<*(0)>_<int>
+<cycletime_type>_<float>_<*(0)>_<*(0)>_<*(0)>_<float>
+<afterstartupSequence_type>_<action>_<*(0)>_<*(0)>_<*(0)>_<action>
+<interfaceidentifyer_type>_<str>_<*(0)>_<*(0)>_<*(0)>_<str>
+<timetowaitafterresume_type>_<float>_<*(0)>_<*(0)>_<*(0)>_<float>
+<timetowaitafterresume>_<0.2>_<0.2>_<0.2>_<0.2>_<0.2>
+<timetowaitafterresume_info>_<Time in seconds required for interface to wait after resume command.After wait enables hold command.>_<*(0)>_<*(0)>_<*(0)>_<Time in seconds required for interface to wait after resume command.After wait enables hold command.>
+<showOK_type>_<bool>_<*(0)>_<*(0)>_<*(0)>_<bool>
+<showOK>_<False>_<False>_<False>_<False>_<False>
+<showOK_info>_<logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead is received.>_<*(0)>_<*(0)>_<*(0)>_<logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead is received.>
+<logpositionoutputFormat_type>_<*(1)>_<action>_<*(1)>_<*(1)>_<*(1)>
+<logpositionoutputFormat>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>_<>_<>_<{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}>
+<logpositionoutputFormat_info>_<*(1)>_<Output format for logging position, logs machine output if empty>_<*(1)>_<*(1)>_<*(1)>
+<logPosition_type>_<*(1)>_<bool>_<*(1)>_<*(1)>_<*(1)>
+<logPosition>_<True>_<True>_<True>_<>_<True>
+<logPosition_info>_<*(1)>_<if you want to report in the log the position change. Log true logs only when position change.>_<*(1)>_<*(1)>_<*(1)>
+<logAllReadData_type>_<*(1)>_<bool>_<*(1)>_<*(1)>_<*(1)>
+<logAllReadData>_<False>_<True>_<False>_<>_<False>
+<logAllReadData_info>_<*(1)>_<if True will show in the log every response from the machine.>_<*(1)>_<*(1)>_<*(1)>
+<logStateChange_type>_<bool>_<*(0)>_<*(0)>_<*(0)>_<bool>
+<logStateChange>_<True>_<True>_<True>_<>_<True>
+<logStateChange_info>_<Logs when state STATE_XYZ or STATUS changes value.>_<*(0)>_<*(0)>_<*(0)>_<Logs when state STATE_XYZ or STATUS changes value.>
+<timeforMachineStartup_type>_<float>_<*(0)>_<*(0)>_<*(0)>_<float>
+<timeforMachineStartup>_<0>_<>_<>_<>_<0>
+<timeforMachineStartup_info>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>_<*(0)>_<*(0)>_<*(0)>_<Time given to the Machine before the startup sequence. Machine needs some time to react.>
+<logNoread_type>_<*(1)>_<bool>_<*(1)>_<*(1)>_<*(1)>
+<logNoread>_<True>_<True>_<True>_<>_<True>
+<movementactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<movementactionlist>_<rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<>_<>_<>_<rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>
+<probingactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<probingactionlist>_<Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<>_<>_<>_<Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>
+<modecontinueactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<modecontinueactionlist>_<coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<>_<>_<>_<coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>
+<modecancelactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<modecancelactionlist>_<checkgcodeMode_Off,cancelModalmode>_<>_<>_<>_<checkgcodeMode_Off,cancelModalmode>
+<modeinitactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<modeinitactionlist>_<jogMode>_<>_<>_<>_<jogMode>
+<timeblockactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<timeblockactionlist>_<dwell,userPause,programPause,timedPause,quickPause>_<>_<>_<>_<dwell,userPause,programPause,timedPause,quickPause>
+<modeinitactionlist_info>_<Initialize mode commandlist: Leave Blank for Default: jogMode>_<*(0)>_<*(0)>_<*(0)>_<Initialize mode commandlist: Leave Blank for Default: jogMode>
+<timeblockactionlist_info>_<Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause>_<*(0)>_<*(0)>_<*(0)>_<Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause>
+<modecancelactionlist_info>_<Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode>_<*(0)>_<*(0)>_<*(0)>_<Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode>
+<probingactionlist_info>_<Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>_<*(0)>_<*(0)>_<*(0)>_<Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform>
+<movementactionlist_info>_<Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>_<*(0)>_<*(0)>_<*(0)>_<Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint>
+<modecontinueactionlist_info>_<Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>_<*(0)>_<*(0)>_<*(0)>_<Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet>
+<immediateactionlist_type>_<list>_<*(0)>_<*(0)>_<*(0)>_<list>
+<immediateactionlist>_<movingstatusReport>_<>_<>_<>_<movingstatusReport>
+<immediateactionlist_info>_<list of actions to be sent immediately and not to the queue.>_<*(0)>_<*(0)>_<*(0)>_<list of actions to be sent immediately and not to the queue.>
+<QuitReadOnMatch_type>_<*(1)>_<bool>_<*(1)>_<*(1)>_<*(1)>
+<QuitReadOnMatch>_<True>_<False>_<True>_<>_<True>
+<QuitReadOnMatch_info>_<*(1)>_<When True if reading finds a match will get the data and return (Fast read). Else will try to match the remaining read regex functions (Slower read).>_<*(1)>_<*(1)>_<*(1)>

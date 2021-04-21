@@ -1242,9 +1242,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             if self.Feedrate==None:
                 self.xyz_thread.goto_xyz(self.end_pos[0],self.end_pos[1],self.end_pos[2])
             else:
-                self.xyz_thread.goto_xyzf(self.end_pos[0],self.end_pos[1],self.end_pos[2],self.Feedrate)
-            #usefixedtime=0
-            #self.wait_response_xyz(usefixedtime,5)
+                self.xyz_thread.goto_xyzf(self.end_pos[0],self.end_pos[1],self.end_pos[2],self.Feedrate)                        
         else:
             log.info("XYZ Robot Not Found for Moving") 
     def PB_Gcodesend(self):
@@ -1941,7 +1939,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
             
             #usefixedtime=0
-            #self.wait_response_xyz(usefixedtime,5)
+            
         else:
             log.info("XYZ Robot Not Found for Going")        
             
@@ -2026,48 +2024,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.Status=self.xyz_update_thread.Status
         except:    
             self.x_pos=self.x_pos
+            self.y_pos=self.y_pos
+            self.z_pos=self.z_pos
+            log.warning("Position unknown!")
+            self.state_xyz=-11
             pass
         
-
-    def wait_response_xyz(self,usefixedtime,Fix_time_spec):
-        if usefixedtime==1:
-            time.sleep(0.1)
-            xy_data=self.xyz_thread.read()
-            xystate=int(xy_data['STAT_XZpos'])
-            #print("state---->>>>" +str(xystate))  
-            if xystate == 11:            
-                #self.xyz_thread.clear_state()
-                #time.sleep(10)                  
-                self.PB_Reset_Signal()
-                        
-            if xystate == 3 or xystate==0:
-                time.sleep(0.5)                  
-                xystate=88    
-            nnn=1
-            while xystate != 3:   #5 is moving 3 is stopped                     
-                xy_data=self.xyz_thread.read()
-                xystate=int(xy_data['STAT_XZpos'])
-                #print("state end---->>>>" +str(xystate))
-                time.sleep(0.1)
-                nnn=nnn+1
-                if nnn>200 or xystate==0:
-                    log.info("No Response! More than 2 min waiting response")
-                    break
-            #if xystate==0:
-            #    print("XYZ robot not responding.")
-            nnn=1
-            while xystate == 3 or xystate==0:
-                time.sleep(0.1)
-                xy_data=self.xyz_thread.read()
-                xystate=int(xy_data['STAT_XZpos'])
-                nnn=nnn+1
-                if nnn>5 :
-                    #print("Waiting: 0.5 sec or state response: "+str(xystate)  )
-                    break
-            return 1
-        else:
-            time.sleep(Fix_time_spec)
-            return 1
 
 class ProgressBar_Update(QtCore.QThread):
     tick = QtCore.pyqtSignal(int, name="valchanged") #New style signal
