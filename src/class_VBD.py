@@ -1,22 +1,29 @@
 #!/usr/bin/env python
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QColor
-from PyQt5.QtCore import QPoint
-from PyQt5.QtGui import QDragEnterEvent
-from PyQt5.QtGui import QDropEvent
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtGui import QDrag
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtGui import QCursor
-#from PyQt5.QtGui import QTableWidget
-#from PyQt5.QtGui import *
-#from PyQt5.QtGui import QFrame
-from PyQt5.QtCore import QSize
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QMimeData
-from PyQt5.QtCore import QObject
+#from PyQt5 import QtCore, QtGui, QtWidgets
+#from PyQt5.QtWidgets import *
+#from PyQt5.QtGui import QColor
+#from PyQt5.QtCore import QPoint
+#from PyQt5.QtGui import QDragEnterEvent
+#from PyQt5.QtGui import QDropEvent
+#from PyQt5.QtGui import QMouseEvent
+#from PyQt5.QtGui import QDrag
+#from PyQt5.QtGui import QPixmap
+#from PyQt5.QtGui import QCursor
 
+##from PyQt5.QtGui import QListWidget
+##from PyQt5.QtGui import QTableWidget
+##from PyQt5.QtGui import *
+##from PyQt5.QtGui import QFrame
+
+#from PyQt5.QtCore import QSize
+#from PyQt5.QtCore import Qt
+#from PyQt5.QtCore import QMimeData
+
+from PyQt5.QtCore import QObject
+from PyQt5.QtWidgets import * 
+from PyQt5 import QtCore, QtGui, QtWidgets 
+from PyQt5.QtGui import * 
+from PyQt5.QtCore import * 
 
 import re
 import logging
@@ -689,6 +696,13 @@ class VBD_Handler(object):
             anid=anid+1
         return anid             
     
+    def Get_Objects_List_Info(self):        
+        # Gives a dict of id:Name of battons
+        Info_List={}
+        for iiiid,Obj in zip(self.Object_Key_List,self.Object_List):
+            Info_List.update({iiiid:Obj.batton_data['Name']})
+        return Info_List
+
     def Get_Selected_Object(self):        
         if self.Selected_key in self.Object_Key_List:
             for iiiid,Obj in zip(self.Object_Key_List,self.Object_List):
@@ -720,11 +734,12 @@ class VBD_Handler(object):
     
 class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
 
-    def __init__(self,Obj, *args, **kwargs):  
+    def __init__(self,Obj,Objs_Info, *args, **kwargs):  
         #QtWidgets.QWidget.__init__(self,parent)              
         super(VariableButtonDataDialog, self).__init__(*args, **kwargs)  
         self.__name__="VBDD"
         self.Obj=Obj
+        self.Objs_Info=Objs_Info
         self.CH=self.Obj.CH        
         self.aDialog=class_File_Dialogs.Dialogs()             
         self.Is_Dialog_Open=False  
@@ -1205,6 +1220,23 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.groupBox_VBDD_Parameters_2.setChecked(True)
         else:
             self.DVBDui.groupBox_VBDD_Parameters_2.setChecked(False)
+        # Linking Connections
+        if batton_data['Link_from'] is not {}:
+            for LFids in batton_data['Link_from']:
+                for index in range(self.DVBDui.listWidget_VBDD_Linkfrom.count()):                    
+                    name=self.DVBDui.listWidget_VBDD_Linkfrom.item(index).text()
+                    idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
+                    if LFids == idstr[0] and Num > 0:
+                        self.DVBDui.listWidget_VBDD_Linkfrom.item(index).setCheckState(QtCore.Qt.Checked)                        
+                        break        
+        if batton_data['Link_to'] is not {}:
+            for LTids in batton_data['Link_to']:
+                for index in range(self.DVBDui.listWidget_VBDD_Linkto.count()):                    
+                    name=self.DVBDui.listWidget_VBDD_Linkto.item(index).text()
+                    idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
+                    if LTids == idstr[0] and Num > 0:
+                        self.DVBDui.listWidget_VBDD_Linkfrto.item(index).setCheckState(QtCore.Qt.Checked)                        
+                        break        
 
         return batton_data
 
@@ -1251,7 +1283,8 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.Fill_action_combobox()
         self.Fill_Batton_Type_combobox()  
         self.Fill_interface_combobox_2()
-        self.Fill_action_combobox_2()      
+        self.Fill_action_combobox_2() 
+        self.Fill_Linking_Lists()     
         self.Connect_Data_buttons()
     
     def ComboBox_Select_batton_type(self):
@@ -1371,15 +1404,49 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.groupBox_VBDD_Parameters.toggled.connect(self.Groupboxparametersshow_Checking)
         self.DVBDui.groupBox_VBDD_Parameters_2.toggled.connect(self.Groupboxparametersshow_Checking_2)
 
+        self.DVBDui.listWidget_VBDD_Linkfrom.itemClicked.connect(self.List_widget_Item_Changed_from)
+        self.DVBDui.listWidget_VBDD_Linkto.itemClicked.connect(self.List_widget_Item_Changed_to)
+
+    def List_widget_Item_Changed_from(self,anitem):
+        #print("item from ",anitem)
+        Link_from={}
+        for index in range(self.DVBDui.listWidget_VBDD_Linkfrom.count()):                                              
+            #print("index ->",index)
+            #print(self.DVBDui.listWidget_VBDD_Linkfrom.item(index).checkState(),'==?',QtCore.Qt.Checked)
+            if self.DVBDui.listWidget_VBDD_Linkfrom.item(index).checkState() == QtCore.Qt.Checked:
+                name=self.DVBDui.listWidget_VBDD_Linkfrom.item(index).text()
+                idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
+                if Num==1:
+                    Link_from.update({idstr[0]:name})
+                print("checked from ->",idstr)
+        
+        print(Link_from)
+        self.set_d('Link_from',Link_from,True)
+            
+
+    def List_widget_Item_Changed_to(self,item_index):
+        Link_to={}
+        for index in range(self.DVBDui.listWidget_VBDD_Linkto.count()):                                              
+            #print("index ->",index)
+            #print(self.DVBDui.listWidget_VBDD_Linkto.item(index).checkState(),'==?',QtCore.Qt.Checked)
+            if self.DVBDui.listWidget_VBDD_Linkto.item(index).checkState() == QtCore.Qt.Checked:
+                name=self.DVBDui.listWidget_VBDD_Linkto.item(index).text()
+                idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
+                if Num==1:
+                    Link_to.update({idstr[0]:name})
+                print("checked to ->",idstr)
+        
+        print(Link_to)
+        self.set_d('Link_to',Link_to,True)
 
     def Parameter_Changed(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters,1,2)
-        print('Got parameters',Parameters)        
+        #print('Got parameters',Parameters)        
         self.set_d('Params',Parameters,True)        
     
     def Parameter_Changed_2(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters_2,1,2)
-        print('Got parameters 2',Parameters)        
+        #print('Got parameters 2',Parameters)        
         self.set_d('Params_2',Parameters,True)        
 
     def Get_checked_Parameters_from_Table(self,TableWidget,Checkcol,parcol):
@@ -1660,6 +1727,23 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)    
         self.Fill_Batton_Type_2_combobox()          
     
+    def Fill_Linking_Lists(self):
+        self.DVBDui.listWidget_VBDD_Linkfrom.clear()
+        self.DVBDui.listWidget_VBDD_Linkto.clear()
+        for xObj in self.Objs_Info:
+            xxxid=str(xObj)
+            xxxname='('+xxxid+') '+str(self.Objs_Info[xObj])
+            item = QtWidgets.QListWidgetItem()
+            item.setText(xxxname)
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Unchecked)
+            self.DVBDui.listWidget_VBDD_Linkfrom.addItem(item)
+            item2 = QtWidgets.QListWidgetItem()
+            item2.setText(xxxname)
+            item2.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item2.setCheckState(QtCore.Qt.Unchecked)
+            self.DVBDui.listWidget_VBDD_Linkto.addItem(item2)
+        
     def Fill_Batton_Type_2_combobox(self):  
           
         sel_bt=self.DVBDui.comboBox_VBDD_batton_type.currentText()          
@@ -1892,7 +1976,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
 
 
     def Edit_Batton_Data(self,Obj):
-        self.VBDD_Dialog=VariableButtonDataDialog(Obj)
+        Objs_Info=self.VBD_H.Get_Objects_List_Info()
+        self.VBDD_Dialog=VariableButtonDataDialog(Obj,Objs_Info)
 
     def Clone_Batton_Data(self,Obj):
         newbatton_data=self.Copy_data(Obj.batton_data)

@@ -19,7 +19,7 @@
      <property name="currentIndex">
       <number>0</number>
      </property>
-     <widget class="QWidget" name="tabWidget_VBDFPage1" native="true">
+     <widget class="QWidget" name="tabWidget_VBDFPage1">
       <attribute name="title">
        <string>First State</string>
       </attribute>
@@ -405,7 +405,7 @@
          </property>
          <layout class="QGridLayout" name="gridLayout">
           <item row="0" column="0">
-           <widget class="QListWidget" name="listWidget"/>
+           <widget class="QListWidget" name="listWidget_VBDD_Linkfrom"/>
           </item>
          </layout>
         </widget>
@@ -417,7 +417,7 @@
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
           <item row="0" column="0">
-           <widget class="QListWidget" name="listWidget_2"/>
+           <widget class="QListWidget" name="listWidget_VBDD_Linkto"/>
           </item>
          </layout>
         </widget>
