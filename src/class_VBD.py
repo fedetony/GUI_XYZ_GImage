@@ -88,6 +88,7 @@ class VBD_Button_set(QWidget):
     data_change=QtCore.pyqtSignal(dict)
     focused_id=QtCore.pyqtSignal(int)
     set_position=QtCore.pyqtSignal(int)
+    linking_request=QtCore.pyqtSignal(int)
     def __init__(self,CH, batton_data, name, parent):
         QtWidgets.QWidget.__init__(self,parent)
         self.parent=parent
@@ -314,6 +315,10 @@ class VBD_Button_set(QWidget):
             if item=='ShowingParams_2':
                 showparams=value   
                 self.Fill_Tablewidget_2(batton_data['Params_2'])
+            if item=='Link_from':
+                self.linking_request.emit(batton_data['key_id'])
+            if item=='Link_to':
+                self.linking_request.emit(batton_data['key_id'])
 
             
 
@@ -648,6 +653,9 @@ class VBD_Button_set(QWidget):
                 tableWidget.item(rowIndex, jjj).setBackground(color)
         except:
             pass
+
+    
+
         
 
 class VBD_Proxy(object):
@@ -733,6 +741,7 @@ class VBD_Handler(object):
             pass 
     
 class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
+    
 
     def __init__(self,Obj,Objs_Info, *args, **kwargs):  
         #QtWidgets.QWidget.__init__(self,parent)              
@@ -1235,7 +1244,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                     name=self.DVBDui.listWidget_VBDD_Linkto.item(index).text()
                     idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
                     if LTids == idstr[0] and Num > 0:
-                        self.DVBDui.listWidget_VBDD_Linkfrto.item(index).setCheckState(QtCore.Qt.Checked)                        
+                        self.DVBDui.listWidget_VBDD_Linkto.item(index).setCheckState(QtCore.Qt.Checked)                        
                         break        
 
         return batton_data
@@ -1243,7 +1252,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
 
 
     def accept(self):
-        log.info("Edit accepted!")
+        log.info("Edit accepted!")        
         pass
     
     def Are_battons_the_same(self,battonA,battonB):
@@ -1262,7 +1271,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         if self.Are_battons_the_same(self.Original_batton,self.Obj.batton_data)==False:
             self.Obj.batton_data=self.Copy_data(self.Original_batton)  
             self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)     
-            self.Obj_refresh() 
+            self.Obj_refresh()         
 
     def Copy_data(self,adict):
         newdict={}
@@ -1418,10 +1427,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
                 if Num==1:
                     Link_from.update({idstr[0]:name})
-                print("checked from ->",idstr)
+                #print("checked from ->",idstr)
         
-        print(Link_from)
+        #print(Link_from)
         self.set_d('Link_from',Link_from,True)
+        
             
 
     def List_widget_Item_Changed_to(self,item_index):
@@ -1434,10 +1444,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 idstr,Num=self.CH.Format_which_Inside_Parenthesees(name,IniP=r'\(',EndP=r'\)')
                 if Num==1:
                     Link_to.update({idstr[0]:name})
-                print("checked to ->",idstr)
+                #print("checked to ->",idstr)
         
-        print(Link_to)
+        #print(Link_to)
         self.set_d('Link_to',Link_to,True)
+        
 
     def Parameter_Changed(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters,1,2)
@@ -1730,18 +1741,26 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
     def Fill_Linking_Lists(self):
         self.DVBDui.listWidget_VBDD_Linkfrom.clear()
         self.DVBDui.listWidget_VBDD_Linkto.clear()
+        color=QColor('lightgreen')
+        my_id=str(self.Obj.batton_data['key_id'])
         for xObj in self.Objs_Info:
             xxxid=str(xObj)
             xxxname='('+xxxid+') '+str(self.Objs_Info[xObj])
             item = QtWidgets.QListWidgetItem()
             item.setText(xxxname)
             item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            item.setCheckState(QtCore.Qt.Unchecked)   
+            #bckgnd=item.background()         
+            if xxxid==my_id:                                
+                item.setBackground(color)
             self.DVBDui.listWidget_VBDD_Linkfrom.addItem(item)
             item2 = QtWidgets.QListWidgetItem()
             item2.setText(xxxname)
             item2.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
             item2.setCheckState(QtCore.Qt.Unchecked)
+            #bckgnd=item2.background()         
+            if xxxid==my_id:                                 
+                item2.setBackground(color)
             self.DVBDui.listWidget_VBDD_Linkto.addItem(item2)
         
     def Fill_Batton_Type_2_combobox(self):  
@@ -1962,7 +1981,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         abtn.Frame_Resize()
         #print('Size after -->',abtn.size(),abtn.pos())
         anid=self.VBD_H.Add_Obj(abtn,anid)        
-        abtn.batton_data.update({'key_id':anid})        
+        abtn.batton_data.update({'key_id':anid})   
+        abtn.batton_data.update({'Name':"New_"+str(anid)})     
         abtn.show()
         log.info('Batton Object Added ID:'+str(anid))
         #self.btn.pushButton.clicked.connect(self.btn_click)
@@ -1971,6 +1991,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         abtn.mouseHover[int].connect(self.VBD_Hovered)
         abtn.focused_id[int].connect(self.VBD_Selected)  
         abtn.set_position[int].connect(self.VBD_Reposition)  
+        abtn.linking_request[int].connect(self.VBD_Linking_Request)
               
         return abtn
 
@@ -2041,6 +2062,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
                 Objiii.frame.setStyleSheet("")
         '''        
 
+    def VBD_Linking_Request(self,batton_id):
+        self.Link_battons(batton_id)
+
     def VBD_Button_Clicked(self,batton_data):
         print(batton_data)
 
@@ -2068,7 +2092,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             if iiiid is anid:
                 self.VBD_H.Del_Obj(Obj)  
                 log.info('Batton Object Deleted ID:'+str(anid))
-                break                      
+                break           
+        log.info('Re-linking battons')
+        self.Link_All_battons()           
     
     def Remove_all_Obj(self):
         self.Selected_Item=None
@@ -2079,9 +2105,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             Obj=self.VBD_H.Object_List[0]
             anid=Obj.key_id
             self.VBD_H.Del_Obj(Obj)        
-            #print('Deleted ',anid)
-                
-
+            #print('Deleted ',anid)           
         self.VBD_H.Object_Key_List=[]
         self.VBD_H.Object_List=[]
         log.info('Removed all batton objects!')
@@ -2098,6 +2122,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             if iiiid is anid:
                 self.Edit_Batton_Data(Obj)
                 #print('Edit button pressed')
+    
     def PB_Clone_Button(self):
         anid=self.Selected_Item                
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
@@ -2197,6 +2222,112 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         #self.Dialog_VBD.setGeometry(QtCore.QRect(int(x), int(y),int(W), int(H) )) 
         print('Window settings',windowsettigs)                
     
+    def Link_All_battons(self):
+        for linkchangedid in self.VBD_H.Object_Key_List:
+            self.Link_battons(linkchangedid)
+    
+    def is_ID_in_VBD_H(self,an_id):
+        keydict={}
+        for iiiid in self.VBD_H.Object_Key_List:
+            keydict.update({str(iiiid):str(iiiid)}) 
+        is_it=self.is_key_in_Dict(an_id,keydict)
+        #print("The dictionary ",keydict," looking for ->",an_id,is_it)       
+        return is_it
+    
+    def is_key_in_Dict(self,akey,adict):
+        try:
+            var=adict[str(akey)]
+            return True
+        except:
+            pass
+        return False
+    
+    def del_unexisting_obj_links(self):
+        for ObjC in self.VBD_H.Object_List:                         
+            LF=ObjC.batton_data['Link_from']    
+            LFc=self.Copy_data(LF)        
+            LT=ObjC.batton_data['Link_to']
+            LTc=self.Copy_data(LT)        
+            for an_id in LF:
+                if self.is_ID_in_VBD_H(an_id)==False:
+                    log.info("Delete Link from "+str(LF[str(an_id)]))
+                    LFc.pop(an_id)
+            for an_id in LT:
+                if self.is_ID_in_VBD_H(an_id)==False:
+                    log.info("Delete Link to "+str(LT[str(an_id)]))
+                    LTc.pop(an_id)
+            ObjC.batton_data.update({'Link_from':LFc})
+            ObjC.batton_data.update({'Link_to':LTc})
+    
+    def link_same_obj(self):
+        for ObjC in self.VBD_H.Object_List:      
+            k_id=str(ObjC.batton_data['key_id'])                   
+            LF=ObjC.batton_data['Link_from']    
+            LFc=self.Copy_data(LF)        
+            LT=ObjC.batton_data['Link_to']
+            LTc=self.Copy_data(LT)        
+            if self.is_key_in_Dict(k_id,LF)==True:                
+                LTc.update({k_id:LF[k_id]})
+            if self.is_key_in_Dict(k_id,LT)==True:
+                LFc.update({k_id:LT[k_id]})
+            ObjC.batton_data.update({'Link_from':LFc})
+            ObjC.batton_data.update({'Link_to':LTc})
+
+    def Link_battons(self,linkchangedid):
+        #print("entered Link_battons")
+        LC_id=str(linkchangedid)
+        #Get linking info
+        for iiiid,ObjC in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):             
+            if iiiid==linkchangedid:
+                LF=ObjC.batton_data['Link_from']
+                LT=ObjC.batton_data['Link_to']
+                xxxname='('+LC_id+') '+str(ObjC.batton_data['Name'] )
+                break
+        #Get rid of non existing links
+        #print("LT,LF->",LT,LF)
+        self.del_unexisting_obj_links()
+        
+            
+        for Obj in self.VBD_H.Object_List:             
+            k_id=str(Obj.batton_data['key_id'])
+            #print (k_id,LF,self.is_key_in_Dict(k_id,LF))            
+            #print (k_id,LT,self.is_key_in_Dict(k_id,LT))
+            if self.is_key_in_Dict(k_id,LF)==True:      
+                # if id found in Link from then add it to the object Link to                      
+                L_to=Obj.batton_data['Link_to']                
+                
+                L_to.update({LC_id:xxxname})
+                Obj.batton_data.update({'Link_to':L_to})
+            else:
+                #print(k_id," not in LF:",LF)
+                # if id not found in Link from then add all Linked to except id
+                L_to={}
+                OL_To=Obj.batton_data['Link_to']
+                for OLt in OL_To:
+                    if str(OLt) != k_id:
+                        #print(OLt," LT updated")
+                        L_to.update({OLt:OL_To[OLt]})
+                Obj.batton_data.update({'Link_to':L_to})
+            if self.is_key_in_Dict(k_id,LT)==True:      
+                # if id found in Link from then add it to the object Link to      
+                L_from=Obj.batton_data['Link_from']
+                L_from.update({LC_id:xxxname})
+                Obj.batton_data.update({'Link_from':L_from})
+            else:
+                # if id not found in Link from then add all Linked to except id
+                #print(k_id," not in LT:",LT)
+                L_from={}
+                OL_From=Obj.batton_data['Link_to']
+                for OLf in OL_From:
+                    if str(OLf) != k_id :
+                        #print(OLf," LF updated")
+                        L_from.update({OLf:OL_From[OLf]})
+                Obj.batton_data.update({'Link_to':L_from})
+        # link itself if needed
+        self.link_same_obj()
+                
+
+
     def set_batton_dict(self,b_dict,flushall=True):
         if flushall==True:
             self.Remove_all_Obj()
