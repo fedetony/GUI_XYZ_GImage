@@ -19,11 +19,31 @@
 #from PyQt5.QtCore import Qt
 #from PyQt5.QtCore import QMimeData
 
-from PyQt5.QtCore import QObject
-from PyQt5.QtWidgets import * 
 from PyQt5 import QtCore, QtGui, QtWidgets 
+from PyQt5.QtCore import QObject
+from PyQt5.QtWidgets import QApplication
+
+from PyQt5.QtWidgets import * 
+from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import * 
 from PyQt5.QtCore import * 
+#from PyQt5.QtWidgets import QTableWidget
+from PyQt5.QtWidgets import QTableWidgetItem
+from PyQt5.QtWidgets import QGroupBox
+from PyQt5.QtCore import QPoint
+from PyQt5.QtWidgets import QSizePolicy
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QCursor
+from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QMouseEvent
+from PyQt5.QtCore import QMimeData
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDrag
+from PyQt5.QtGui import QDragEnterEvent
+from PyQt5.QtWidgets import QFrame
+
+
 
 import re
 import logging
@@ -83,7 +103,7 @@ class Dnd_CustomGroupbox(QGroupBox):
         self.new_position.emit(newpos)
         e.accept()
 
-class VBD_Button_set(QWidget):
+class VBD_Button_set(QtWidgets.QWidget):
     mouseHover = QtCore.pyqtSignal(int)
     data_change=QtCore.pyqtSignal(dict)
     focused_id=QtCore.pyqtSignal(int)
@@ -192,13 +212,40 @@ class VBD_Button_set(QWidget):
         self.verticalLayout.addWidget(self.tableWidget)
         #self.tableWidget = QtWidgets.QTableWidget(self.splitter)
         Parameters=self.batton_data['Params']
+        '''
+        try:
+            Showingparam=self.batton_data['ShowingParams']
+            ReqOpParamsdict=self.batton_data['ReqOpParamsdict']
+            samelengths,sameelements=self.check_if_paramet_dict_congruent(Parameters,ReqOpParamsdict,Showingparam)
+        except:
+            Showingparam=Parameters
+            ReqOpParamsdict=Parameters
+            samelengths=False
+            sameelements=False
+        if samelengths==False or sameelements==False:
+            for apar in Parameters:
+                Showingparam.update({apar:True})
+                ReqOpParamsdict.update({apar:'required'})
         #print('Parameters->',Parameters)
-        if len(Parameters)==0:            
-            self.batton_data['ShowParams']=False
-            self.tableWidget.setHidden(True)
-        else:
+        '''
+        if type(Parameters) is dict and len(Parameters)>0:
             self.batton_data['ShowParams']=True
-        
+        else:
+            self.batton_data['ShowParams']=False
+            '''
+            for apar in Parameters:
+                Showingparam.update({apar:False})
+            '''
+            self.tableWidget.setHidden(True)   
+        try:    
+            if self.batton_data['Batton_is']=='source':
+                self.batton_data['ShowParams']=True      
+        except:
+            pass
+        '''
+        self.batton_data.update({'ShowingParams':Showingparam})    
+        self.batton_data.update({'ReqOpParamsdict':ReqOpParamsdict})
+        '''
         self.tableWidget_2 = QtWidgets.QTableWidget(self.frame)
         self.tableWidget_2.setObjectName("tableWidget_2")
         self.tableWidget_2.setColumnCount(3)
@@ -211,12 +258,35 @@ class VBD_Button_set(QWidget):
             Parameters_2={}
             pass
         #print('Parameters->',Parameters)
-        if len(Parameters_2)==0:            
-            self.batton_data['ShowParams_2']=False
-            self.tableWidget_2.setHidden(True)
-        else:
+        '''
+        try:
+            Showingparam_2=self.batton_data['ShowingParams_2']
+            ReqOpParamsdict_2=self.batton_data['ReqOpParamsdict_2']
+            samelengths_2,sameelements_2=self.check_if_paramet_dict_congruent(Parameters_2,ReqOpParamsdict_2,Showingparam_2)
+        except:
+            Showingparam_2=Parameters_2
+            ReqOpParamsdict_2=Parameters_2
+            samelengths_2=False
+            sameelements_2=False
+        if samelengths_2==False or sameelements_2==False:
+            for apar in Parameters_2:
+                Showingparam_2.update({apar:True})
+                ReqOpParamsdict_2.update({apar:'required'})
+        '''
+        if type(Parameters_2) is dict and len(Parameters_2)>0:
             self.batton_data['ShowParams_2']=True
-
+        else:
+            self.batton_data['ShowParams_2']=False
+            '''
+            for apar in Parameters_2:
+                Showingparam_2.update({apar:False})
+            '''
+            self.tableWidget_2.setHidden(True)         
+        '''
+        self.batton_data.update({'Params_2':Parameters_2})         
+        self.batton_data.update({'ShowingParams_2':Showingparam_2})    
+        self.batton_data.update({'ReqOpParamsdict_2':ReqOpParamsdict_2})
+        '''        
         self.pushButton.adjustSize()        
         self.Do_connections()
     
@@ -227,8 +297,9 @@ class VBD_Button_set(QWidget):
         self.tableWidget.itemChanged.connect(self.Parameter_Changed)
         self.tableWidget_2.itemChanged.connect(self.Parameter_Changed_2)
     
-    def Parameter_Changed(self):
+    def Parameter_Changed(self):        
         Parameters=self.Get_Parameter_Values_from_Table(self.tableWidget)
+        print('Parameter_Changed,Got this parameters->',Parameters)
         bparams=self.batton_data['Params']
         for par in Parameters:
             bparams.update({par:Parameters[par]})
@@ -257,7 +328,14 @@ class VBD_Button_set(QWidget):
             anid=self.CH.id
             pass
         if self.CH.Is_action_in_Config(batton_data['action'])==True:
-            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action'],anid,Parameters=batton_data['Params'],Parammustok=True)            
+            Parameters={}
+            #only send parameters marked as shown
+            params=batton_data['Params']
+            Showingparams=batton_data['ShowingParams']
+            for apar in params:
+                if Showingparams[apar]==True:
+                    Parameters.update({apar:params[apar]})
+            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action'],anid,Parameters,Parammustok=True)            
             if isok==False and warlog==True:
                 log.warning(batton_data['Name']+' has incorrect Gcode! Check the Parameters!')            
         return Gcode
@@ -272,7 +350,14 @@ class VBD_Button_set(QWidget):
             anid=self.CH.id
             pass
         if self.CH.Is_action_in_Config(batton_data['action_2'])==True:
-            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action_2'],anid,Parameters=batton_data['Params_2'],Parammustok=True)            
+            Parameters={}
+            #only send parameters marked as shown
+            params=batton_data['Params_2']
+            Showingparams=batton_data['ShowingParams_2']
+            for apar in params:
+                if Showingparams[apar]==True:
+                    Parameters.update({apar:params[apar]})
+            Gcode,isok=self.CH.Get_Gcode_for_Action_id(batton_data['action_2'],anid,Parameters,Parammustok=True)            
             if isok==False and warlog==True:
                 log.warning(batton_data['Name']+' has incorrect Gcode! Check the second state Parameters!')            
         return Gcode
@@ -283,18 +368,15 @@ class VBD_Button_set(QWidget):
             value=batton_data[item]
             if item=='Params':
                 Parameters=value
-                if len(Parameters)==0:                    
-                    self.pushButton.adjustSize()
-                else:                    
-                    self.pushButton.adjustSize()
+                #print(type(Parameters),Parameters,len(Parameters))
+                if type(Parameters) is dict and len(Parameters)>0:                    
                     self.Fill_Tablewidget(Parameters)
+                self.pushButton.adjustSize()
             if item=='Params_2':
-                Parameters=value
-                if len(Parameters)==0:                    
-                    self.pushButton.adjustSize()
-                else:                    
-                    self.pushButton.adjustSize()
+                Parameters=value                
+                if type(Parameters) is dict and len(Parameters)>0:                    
                     self.Fill_Tablewidget_2(Parameters)
+                self.pushButton.adjustSize()                                                                            
             if item=='Icon':
                 Iconfilename=value
                 self.Set_button_icon(Iconfilename)
@@ -329,7 +411,25 @@ class VBD_Button_set(QWidget):
         self.pushButton.setIcon(icon)
         PBsize=self.pushButton.size()
         self.pushButton.setIconSize(PBsize)
-            
+
+    def check_if_paramet_dict_congruent(self,Parameters,ReqOpParamsdict,Showingparam):
+        samelengths=False
+        sameelements=False
+        if len(Parameters)==len(ReqOpParamsdict) and len(Parameters)==len(Showingparam):
+            samelengths=True
+        else:
+            return samelengths,sameelements
+        sameelements=True
+        for anele in Parameters:
+            if anele not in ReqOpParamsdict:
+                sameelements=False
+                break
+            if anele not in Showingparam:
+                sameelements=False
+                break
+
+        return samelengths,sameelements
+        
     def Fill_Tablewidget(self,Parameters):
         try:
             ReqOpParamsdict=self.batton_data['ReqOpParamsdict']
@@ -346,7 +446,14 @@ class VBD_Button_set(QWidget):
         for ccc in ReqOpParamsdict:  
             if Showingparam[ccc]==True:
                 Table_NumRows=Table_NumRows+1
-        #Table_NumRows=len(ReqOpParamsdict)
+            else:
+                Showingparam.update({ccc:False})
+        
+        #samelengths,sameelements=self.check_if_paramet_dict_congruent(Parameters,ReqOpParamsdict,Showingparam)
+        #if (samelengths and sameelements)==False:
+        #    #print('Incongruent info lengths',samelengths,' elements ',sameelements)
+        #    return
+
         self.tableWidget.setRowCount(Table_NumRows)
         self.tableWidget.setHorizontalHeaderLabels(["Par", "Val","Const"])
         self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
@@ -356,9 +463,12 @@ class VBD_Button_set(QWidget):
                 self.tableWidget.setItem(iii,0, QTableWidgetItem(ccc))
                 try:
                     aval=str(Parameters[ccc])
+                    #only set it if there is a value
+                    self.tableWidget.setItem(iii,1, QTableWidgetItem(aval)) 
                 except:
                     aval=''
-                self.tableWidget.setItem(iii,1, QTableWidgetItem(aval))                    
+                    pass
+                #self.tableWidget.setItem(iii,1, QTableWidgetItem(aval))                    
                 self.tableWidget.setItem(iii,2, QTableWidgetItem(ReqOpParamsdict[ccc]))
                 if ReqOpParamsdict[ccc]=='required':
                     color=QColor('lightblue')
@@ -382,7 +492,9 @@ class VBD_Button_set(QWidget):
         for ccc in ReqOpParamsdict:  
             if Showingparam[ccc]==True:
                 Table_NumRows=Table_NumRows+1
-        #Table_NumRows=len(ReqOpParamsdict)
+            else:
+                Showingparam.update({ccc:False})
+        
         self.tableWidget_2.setRowCount(Table_NumRows)
         self.tableWidget_2.setHorizontalHeaderLabels(["Par", "Val","Const"])
         self.tableWidget_2.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
@@ -392,9 +504,12 @@ class VBD_Button_set(QWidget):
                 self.tableWidget_2.setItem(iii,0, QTableWidgetItem(ccc))
                 try:
                     aval=str(Parameters[ccc])
+                    #only set it if there is a value
+                    self.tableWidget_2.setItem(iii,1, QTableWidgetItem(aval))                    
                 except:
                     aval=''
-                self.tableWidget_2.setItem(iii,1, QTableWidgetItem(aval))                    
+                    pass
+                #self.tableWidget_2.setItem(iii,1, QTableWidgetItem(aval))                    
                 self.tableWidget_2.setItem(iii,2, QTableWidgetItem(ReqOpParamsdict[ccc]))
                 if ReqOpParamsdict[ccc]=='required':
                     color=QColor('lightblue')
@@ -604,7 +719,7 @@ class VBD_Button_set(QWidget):
         except:
             reqsize=0
             pass
-        if batton_data['action'] is '':
+        if batton_data['action'] == '' and batton_data['Batton_kind']!='Parameter-Source':
             return
         if reqsize>0:            
             #print('Entered FAT ',reqsize)
@@ -630,7 +745,7 @@ class VBD_Button_set(QWidget):
             iii=0              
             Parameters=batton_data['Params']  
             Showingparam=batton_data['ShowingParams']  
-            print('batton in Table-->',batton_data)
+            #print('batton in Table-->',batton_data)
             for ccc in ReqOpParamsdict:   
                 if Showingparam[ccc]==True or showall==True:
                     tableWidget.setItem(iii,parcol+0, QTableWidgetItem(ccc))
@@ -740,7 +855,7 @@ class VBD_Handler(object):
         except:
             pass 
     
-class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
+class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
     
 
     def __init__(self,Obj,Objs_Info, *args, **kwargs):  
@@ -840,6 +955,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             batton_data.update({'Batton_type': 'Push Button'})            
             pass    
         try:
+            showparams=batton_data['Batton_kind']
+        except:
+            batton_data.update({'Batton_kind': 'Batton'})            
+            pass    
+        try:
             showparams=batton_data['Batton_is']
         except:
             batton_data.update({'Batton_is': ''})            
@@ -926,7 +1046,33 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         # Check for any missing keys and add default
         batton_data=self.Add_keys(batton_data)
         #print('after Add_key->',batton_data['action'])
-        
+        if batton_data['Batton_kind']=='batton':
+            is_batton=True
+            is_source=False
+            is_sink=False
+            is_transform=False
+        elif  batton_data['Batton_kind']=='Parameter-Source':            
+            is_batton=False
+            is_source=True
+            is_sink=False
+            is_transform=False
+            batton_data['Batton_is']='source'
+        elif  batton_data['Batton_kind']=='Transform':
+            is_batton=False
+            is_source=False
+            is_sink=False
+            is_transform=True            
+        elif  batton_data['Batton_kind']=='Visualize-Sinks':
+            is_batton=False
+            is_source=False
+            is_sink=True
+            is_transform=False
+        else:
+            is_batton=True
+            is_source=False
+            is_sink=False
+            is_transform=False
+
         if batton_data['Batton_is']=='script':
             is_script=True
             is_Gcode=False
@@ -960,10 +1106,9 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             is_script_2=False
             is_Gcode_2=False
             is_action_2=False
-        
-        
-        # Set icon
-        
+        # Enable/Disable Tabs
+        self.Enable_VBDD_Objects_for_Kind(batton_data['Batton_kind'])
+        # Set icon        
         if batton_data['Icon'] is not None:
             try:
                 icon = QtGui.QIcon()
@@ -991,9 +1136,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         if self.Is_Forcedid==True:
             aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.id)
             self.DVBDui.label_VBDD_CHid.setText('Forced to interface: '+aname)                        
+            self.DVBDui.label_VBPD_CHid.setText('Forced to interface: '+aname)                        
         else:
             aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DVBDui.label_VBDD_CHid.setText('Actual interface: '+aname)
+            self.DVBDui.label_VBPD_CHid.setText('Actual interface: '+aname)
         index= self.DVBDui.comboBox_VBDD_CHid.findText(batton_data['Force_id'],QtCore.Qt.MatchFixedString)
         self.DVBDui.comboBox_VBDD_CHid.setCurrentIndex(index) 
         # Set Name
@@ -1039,23 +1186,42 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                     batton_data['Gcode']=Gcode
                     is_Gcode=False                                 
                 self.DVBDui.label_VBDD_Result.setText(Gcode)
-        else:                        
-            # Clean params
-            #self.set_d('Params',{},True) 
-            batton_data['Params']={}
-            self.DVBDui.tableWidget_VBDD_parameters.clear()
-            self.DVBDui.tableWidget_VBDD_parameters.setRowCount(0) 
-            self.Obj.tableWidget.clear()
-            self.Obj.tableWidget.setRowCount(0) 
-
-            if (batton_data['Gcode'] is None or batton_data['Gcode'] is '') and batton_data['Script'] is not None:
-                is_Gcode=False  
-                is_script=True
-                batton_data['Batton_is']='script'
+        else:                                                
+            if is_source==True:
+                #here do parameter source
+                #print('Showing params->',batton_data['ShowingParams'])
+                #print("are Params here?",batton_data['Params'])
+                #print("are they here?",batton_data['ReqOpParamsdict'])
+                params=batton_data['Params']
+                # if the values are empty the parameters are deleted
+                params=self.add_values_to_parameters(params)
+                self.Obj.batton_data.update({'Params':params})
+                self.Obj.Fill_actionParameters_Table(self.DVBDui.tableWidget_VBPD_parameters,batton_data,parcol=1,showall=True)                 
+                #print('1',self.Obj.batton_data['Params'])                    
+                self.Set_checkable_Parameters(self.DVBDui.tableWidget_VBPD_parameters,0,1,batton_data)                
+                #print('2',self.Obj.batton_data['Params'])                    
+                batton_data=self.Set_checking_Parameters_from_batton(self.DVBDui.tableWidget_VBPD_parameters,0,1,batton_data)
+                #print('3',self.Obj.batton_data['Params'])                    
+                self.Obj.Fill_actionParameters_Table(self.Obj.tableWidget,batton_data,parcol=0,showall=False)
+                #print('4',self.Obj.batton_data['Params'])                    
             else:
-                is_Gcode=True 
-                is_script=False 
-                batton_data['Batton_is']='gcode'        
+                # Clean params
+                batton_data['Params']={}
+                print("Params cleaned")
+                self.DVBDui.tableWidget_VBDD_parameters.clear()
+                self.DVBDui.tableWidget_VBDD_parameters.setRowCount(0)                                                 
+                self.DVBDui.tableWidget_VBPD_parameters.clear()
+                self.DVBDui.tableWidget_VBPD_parameters.setRowCount(0) 
+                self.Obj.tableWidget.clear()
+                self.Obj.tableWidget.setRowCount(0)  
+                if (batton_data['Gcode'] is None or batton_data['Gcode'] is '') and batton_data['Script'] is not None:
+                    is_Gcode=False  
+                    is_script=True
+                    batton_data['Batton_is']='script'
+                else:
+                    is_Gcode=True 
+                    is_script=False 
+                    batton_data['Batton_is']='gcode'        
         #print('after Set Gcode and params->',batton_data['action'])    
         # Set Script
         if is_script==True:
@@ -1067,8 +1233,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         # Set Gcode   
         self.Set_Gcode_text(batton_data['Gcode'])
         # Set parameter being viewed        
-        self.DVBDui.groupBox_VBDD_Parameters.setEnabled(is_action)
-        if is_action==False:
+        self.DVBDui.groupBox_VBDD_Parameters.setEnabled(is_action)        
+        self.DVBDui.groupBox_VBPD_Parameters.setEnabled(is_source)
+        
+        # Don't show unless is a source or a batton showing parameters
+        if is_action==False and is_source==False:
             batton_data['ShowParams']=False
         '''    
         else:
@@ -1083,8 +1252,10 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         '''
         if batton_data['ShowParams']==True:
             self.DVBDui.groupBox_VBDD_Parameters.setChecked(True)
+            self.DVBDui.groupBox_VBPD_Parameters.setChecked(True)
         else:
             self.DVBDui.groupBox_VBDD_Parameters.setChecked(False)
+            self.DVBDui.groupBox_VBPD_Parameters.setChecked(False)
         #print('after->',batton_data['action'])
         #---------------------------------------------------------------------------------
         # Second state
@@ -1249,7 +1420,11 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
 
         return batton_data
 
-
+    def add_values_to_parameters(self,paramdict):
+        for apar in paramdict:
+            if paramdict[apar]=='' or paramdict[apar]==None:
+                paramdict.update({apar:'0'})
+        return paramdict
 
     def accept(self):
         log.info("Edit accepted!")        
@@ -1287,15 +1462,76 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui = GuiXYZ_VBDD.Ui_Dialog_VBDD()
         self.DVBDui.setupUi(self.Dialog_VBDD)        
         self.Dialog_VBDD.show()    
-        self.Is_Dialog_Open=True     
+        self.Is_Dialog_Open=True
+        self.Fill_General()     
+        self.Fill_kind_combobox()
         self.Fill_interface_combobox()
         self.Fill_action_combobox()
         self.Fill_Batton_Type_combobox()  
         self.Fill_interface_combobox_2()
         self.Fill_action_combobox_2() 
+        self.Fill_Parameters_combobox()
+        self.Fill_parameters_options_combobox()
         self.Fill_Linking_Lists()     
         self.Connect_Data_buttons()
-    
+
+    def ComboBox_Select_kind(self):        
+        selbt=self.DVBDui.comboBox_VBDD_batton_kind.currentText() 
+        #self.set_d('Batton_type_2','',False)
+        #self.set_d('Batton_type','',False)        
+        self.set_d('Batton_kind',selbt,True)        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+        self.Enable_VBDD_Objects_for_Kind(selbt)
+
+    def Enable_VBDD_Objects_for_Kind(self,akind):
+        #print("Enter Enable_VBDD_Objects_for_Kind",akind)
+        self.DVBDui.tabWidget_VBDF_General.setEnabled(True)
+        self.DVBDui.tabWidget_VBDF_Linking.setEnabled(True)
+        #FSindex=self.DVBDui.tabWidget_VBDF.indexOf(self.DVBDui.tabWidget_VBDF_First_State)
+
+        if akind == 'Batton':            
+            self.DVBDui.tabWidget_VBDF_First_State.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Second_State.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Visualize.setEnabled(False)            
+            #see https://doc.qt.io/archives/qt-4.8/stylesheet-examples.html#customizing-qtabwidget-and-qtabbar
+            #self.DVBDui.tabWidget_VBDF_Visualize.setStyleSheet("QTabBar::tab::disabled {width: 0; height: 0; margin: 0; padding: 0; border: none;} ")
+            #self.DVBDui.tabWidget_VBDF_Visualize.setStyleSheet("QTabBar::tab:!selected {width: 1000px; color: transparent; background: transparent;}")
+            
+            #This works to color the tab inside
+            #self.DVBDui.tabWidget_VBDF_Visualize.setStyleSheet("color: blue; background-color: yellow")
+            #self.DVBDui.tabWidget_VBDF.setStyleSheet("QTabBar::tab:Visualize {color: blue; background-color: yellow;}")
+            #self.DVBDui.tabWidget_VBDF.setStyleSheet("QTabBar::tab:enabled {color: blue; background-color: yellow;}")
+            
+            #self.DVBDui.tabWidget_VBDF.setStyleSheet(str(self.stylesheets))
+            #self.DVBDui.tabWidget_VBDF_Visualize.hide() 
+            self.DVBDui.tabWidget_VBDF_Parameter.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Transform.setEnabled(False)
+        elif akind == 'Parameter-Source':            
+            self.DVBDui.tabWidget_VBDF_First_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Second_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Visualize.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Parameter.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Transform.setEnabled(False)
+        elif akind == 'Transform':
+            self.DVBDui.tabWidget_VBDF_First_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Second_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Visualize.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Parameter.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Transform.setEnabled(True)
+        elif akind == 'Visualize-Sinks':
+            self.DVBDui.tabWidget_VBDF_First_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Second_State.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Visualize.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Parameter.setEnabled(False)
+            self.DVBDui.tabWidget_VBDF_Transform.setEnabled(False)
+        else:
+            self.DVBDui.tabWidget_VBDF_First_State.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Second_State.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Visualize.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Parameter.setEnabled(True)
+            self.DVBDui.tabWidget_VBDF_Transform.setEnabled(True)
+
     def ComboBox_Select_batton_type(self):
         self.Fill_Batton_Type_2_combobox()
         selbt=self.DVBDui.comboBox_VBDD_batton_type.currentText() 
@@ -1315,6 +1551,31 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.set_d('Force_id',selid,True)        
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
+        self.Fill_Parameters_combobox()  
+    
+    def ComboBox_Select_Add_Param(self):
+        selpar=self.DVBDui.comboBox_VBPD_Add_Param_DB.currentText()                 
+        opttxt=self.DVBDui.comboBox_VBPD_Add_Param_Op.currentText()
+        if opttxt=='optional':
+            selpar="[{"+selpar+"}]" 
+        elif opttxt=='required':
+            selpar="{"+selpar+"}"
+        elif opttxt=='optional_al_1':
+            selpar="[&&(1)][{"+selpar+"}]"
+        else:    
+            selpar='{'+selpar+'}'            
+        self.DVBDui.lineEdit_VBPD_Add_Param.setText(selpar)
+        #self.set_d('Force_id',selid,True)        
+        #self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        #self.Obj_refresh()
+               
+
+    def ComboBox_Select_interfaceid_Par(self):
+        selid=self.DVBDui.comboBox_VBPD_CHid.currentText()                 
+        self.set_d('Force_id',selid,True)        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+        self.Fill_Parameters_combobox()        
     
     def ComboBox_Select_interfaceid_2(self):
         selid=self.DVBDui.comboBox_VBDD_CHid_2.currentText()                 
@@ -1384,21 +1645,34 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.pushButton_VBDD_Script.clicked.connect(self.PB_Select_Script)
         self.DVBDui.pushButton_VBDD_Icon_2.clicked.connect(self.PB_Select_Icon_2)
         self.DVBDui.pushButton_VBDD_Script_2.clicked.connect(self.PB_Select_Script_2)
+        self.DVBDui.pushButton_VBPD_Populate.clicked.connect(self.PB_Populate_Parameters)
+        self.DVBDui.pushButton_VBPD_Add_Param.clicked.connect(self.PB_Add_Parameters)
+        self.DVBDui.pushButton_VBPD_clear.clicked.connect(self.PB_Clear_Parameters)
+        self.DVBDui.pushButton_VBPD_clear_selected.clicked.connect(self.PB_Del_Selected_Parameters)
+        self.DVBDui.pushButton_VBPD_clear_unchecked.clicked.connect(self.PB_Del_Unchecked)
+        self.DVBDui.pushButton_VBPD_check_all.clicked.connect(self.PB_check_all)
+        self.DVBDui.pushButton_VBPD_uncheck_all.clicked.connect(self.PB_uncheck_all)
+
         # activated-When user changes it
         # currentIndexChanged -> when user or program changes it
         self.DVBDui.comboBox_VBDD_action.activated.connect(self.ComboBox_Select_action)
         self.DVBDui.comboBox_VBDD_CHid.currentIndexChanged.connect(self.ComboBox_Select_interfaceid)
+        self.DVBDui.comboBox_VBPD_CHid.currentIndexChanged.connect(self.ComboBox_Select_interfaceid_Par)
         self.DVBDui.comboBox_VBDD_action_2.activated.connect(self.ComboBox_Select_action_2)
         self.DVBDui.comboBox_VBDD_CHid_2.currentIndexChanged.connect(self.ComboBox_Select_interfaceid_2)
         self.DVBDui.comboBox_VBDD_batton_type.activated.connect(self.ComboBox_Select_batton_type)
         self.DVBDui.comboBox_VBDD_batton_type_2.activated.connect(self.ComboBox_Select_batton_type_2)
+        self.DVBDui.comboBox_VBDD_batton_kind.currentIndexChanged.connect(self.ComboBox_Select_kind)
+        self.DVBDui.comboBox_VBPD_Add_Param_DB.activated.connect(self.ComboBox_Select_Add_Param)
+        self.DVBDui.comboBox_VBPD_Add_Param_Op.currentIndexChanged.connect(self.ComboBox_Select_Add_Param)
         #textEdited->only when user changes, not by the program
         #textChanged-> when user changes or the program changes text
         self.DVBDui.lineEdit_VBDD_Name.textEdited.connect(self.Name_Changed)
-
+        #self.DVBDui.lineEdit_VBPD_Add_Param.textEdited.connect(self.Parameter_Line_Changed)
         self.DVBDui.plainTextEdit_VBDD_Gcode.textChanged.connect(self.Gcode_Change)
         self.DVBDui.plainTextEdit_VBDD_Gcode_2.textChanged.connect(self.Gcode_Change_2)
-
+        
+        self.DVBDui.tableWidget_VBPD_parameters.itemChanged.connect(self.Source_Parameter_Changed)
         self.DVBDui.tableWidget_VBDD_parameters.itemChanged.connect(self.Parameter_Changed)
         self.DVBDui.tableWidget_VBDD_parameters_2.itemChanged.connect(self.Parameter_Changed_2)
         
@@ -1411,6 +1685,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.groupBox_VBDD_byScript_2.toggled.connect(self.GroupboxbyScript_Checking_2)
 
         self.DVBDui.groupBox_VBDD_Parameters.toggled.connect(self.Groupboxparametersshow_Checking)
+        self.DVBDui.groupBox_VBPD_Parameters.toggled.connect(self.Groupboxparametersshow_Checking_Par)
         self.DVBDui.groupBox_VBDD_Parameters_2.toggled.connect(self.Groupboxparametersshow_Checking_2)
 
         self.DVBDui.listWidget_VBDD_Linkfrom.itemClicked.connect(self.List_widget_Item_Changed_from)
@@ -1453,7 +1728,12 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
     def Parameter_Changed(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters,1,2)
         #print('Got parameters',Parameters)        
-        self.set_d('Params',Parameters,True)        
+        self.set_d('Params',Parameters,True)  
+
+    def Source_Parameter_Changed(self):      
+        Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBPD_parameters,1,2)
+        print('Got source parameters',Parameters)        
+        self.set_d('Params',Parameters,True)         
     
     def Parameter_Changed_2(self):
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBDD_parameters_2,1,2)
@@ -1489,7 +1769,7 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             pass
         
         return batton_data
-
+        
     def Set_checking_Parameters_from_batton_2(self,TableWidget,Checkcol,parcol,batton_data):          
         try:      
             Showingparam=batton_data['ShowingParams_2']
@@ -1537,7 +1817,8 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             if show==True:
                 item.setCheckState(QtCore.Qt.Checked)        
             else:
-                item.setCheckState(QtCore.Qt.Unchecked)        
+                item.setCheckState(QtCore.Qt.Unchecked)     
+            #print(item)                               
             TableWidget.setItem(iii, Checkcol, item)    
             TableWidget.itemClicked.connect(self.handleItemClicked)
 
@@ -1616,6 +1897,10 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
     def Groupboxparametersshow_Checking(self):
         self.set_d('ShowParams',self.DVBDui.groupBox_VBDD_Parameters.isChecked(),True)
     
+    def Groupboxparametersshow_Checking_Par(self):
+        #self.set_d('ShowParams',self.DVBDui.groupBox_VBPD_Parameters.isChecked(),True)
+        self.set_d('ShowParams',True,True)
+
     def Groupboxparametersshow_Checking_2(self):
         self.set_d('ShowParams_2',self.DVBDui.groupBox_VBDD_Parameters_2.isChecked(),True)
         
@@ -1702,6 +1987,170 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
     
+    def get_action_parameters_from_action(self,selaction,Forced_interface=''):
+        b_d={}
+        batton_data=self.Copy_data(self.Obj.batton_data)
+        #print('The action selected -> ',selaction)
+        #print(batton_data) 
+        if Forced_interface=='':
+            batton_data.update({'action':selaction})
+        else:
+            batton_data.update({'action':selaction+'('+Forced_interface+')'})
+        isok,nb_d=self.Obj.Fill_actionParameters_batton(batton_data)               
+        if isok==True:
+            b_d.update({'action':nb_d['action']})
+            b_d.update({'Params':nb_d['Params']})
+            b_d.update({'ReqOpParamsdict':nb_d['ReqOpParamsdict']})
+            b_d.update({'ShowingParams':nb_d['ShowingParams']})
+        else:
+            b_d.update({'action':''})
+            b_d.update({'Params':{}})
+            b_d.update({'ReqOpParamsdict':{}})
+            b_d.update({'ShowingParams':{}})
+        return b_d
+
+    def PB_Populate_Parameters(self):
+        #print('populate parameters')      
+        selaction=self.DVBDui.comboBox_VBPD_action.currentText()          
+        if selaction is not '':             
+            Fid=self.DVBDui.comboBox_VBPD_CHid.currentText() 
+            b_d=self.get_action_parameters_from_action(selaction,Fid)                
+            params=self.Obj.batton_data['Params']
+            ReqOpPar=self.Obj.batton_data['ReqOpParamsdict']  
+            ShowingP=self.Obj.batton_data['ShowingParams']           
+            self.set_d('action','',False)
+            self.set_d('Gcode','',False)
+            self.set_d('Format','',False)
+            self.set_d('Script','',False)            
+            newparams=b_d['Params']
+            newreq=b_d['ReqOpParamsdict']
+            newshow=b_d['ShowingParams']
+            for apar,nreq,nshow in zip(newparams,newreq,newshow):
+                params.update({apar:newparams[apar]})
+                ReqOpPar.update({nreq:newreq[nreq]})
+                ShowingP.update({nshow:newshow[nshow]})
+            #print('populated parameters',params,ReqOpPar)      
+            self.set_d('Force_id',Fid,False)
+            self.set_d('Params',params,False)
+            #print ('in here send params->',params)
+            self.set_d('ReqOpParamsdict',ReqOpPar,False)
+            self.set_d('ShowingParams',ShowingP,True)   
+                   
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+    
+    def delete_a_parameter(self,aparam):                
+        print(self.Obj.batton_data['Params'])
+        params=self.Obj.batton_data['Params']
+        ReqOpPar=self.Obj.batton_data['ReqOpParamsdict']  
+        ShowingP=self.Obj.batton_data['ShowingParams'] 
+        try:
+            print('params before',params)
+            params.pop(aparam)
+            print('params after',params)
+            self.set_d('Params',params,False)
+            ReqOpPar.pop(aparam)
+            self.set_d('ReqOpParamsdict',ReqOpPar,False)
+            ShowingP.pop(aparam)
+            self.set_d('ShowingParams',ShowingP,True)
+            return True
+        except Exception as e:
+            #print('issue in delete_a_parameter',e)
+            pass
+        return False
+            
+    def PB_Add_Parameters(self):        
+        print('Add param')
+        atxt=self.DVBDui.lineEdit_VBPD_Add_Param.text()
+        reqopparams=self.CH.Get_Parameters_Needed_for_Format(atxt)
+        print('in add parameters->',atxt,reqopparams)
+        b_d=self.Copy_data(self.Obj.batton_data)
+        params=b_d['Params']
+        ReqOpPar=b_d['ReqOpParamsdict']  
+        ShowingP=b_d['ShowingParams'] 
+        for npar in reqopparams:
+            params.update({npar:'0'})
+            ReqOpPar.update({npar:reqopparams[npar]})
+            ShowingP.update({npar:True})
+        print(params,ReqOpPar,ShowingP)
+        self.set_d('action','',False)
+        self.set_d('Gcode','',False)
+        self.set_d('Format','',False)
+        self.set_d('Script','',False)            
+        self.set_d('Params',params,False)
+        self.set_d('ReqOpParamsdict',ReqOpPar,False)
+        self.set_d('ShowingParams',ShowingP,True)  
+        
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+
+    def PB_Del_Unchecked(self):
+        #Tcheckedparam=self.Get_checked_Parameters_from_Table(self.DVBDui.tableWidget_VBPD_parameters,Checkcol=0,parcol=1)
+        #Table updates the 'ShowingParams' on clicking        
+        Tcheckedparam=self.Copy_data(self.Obj.batton_data['ShowingParams'])
+        #print('inside Del_unchecked',Tcheckedparam)
+        for apar in Tcheckedparam:
+            if bool(Tcheckedparam[apar])==False:
+                #print('Deleting ',apar)
+                self.delete_a_parameter(apar)
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+
+    def PB_Del_Selected_Parameters(self):         
+        items = self.DVBDui.tableWidget_VBPD_parameters.selectedItems()
+        parlisttodel=[]
+        indexlisttodel=[]
+        for item in items:
+            rowindex=item.row()                        
+            if rowindex not in indexlisttodel:
+                indexlisttodel.append(rowindex)
+                parlisttodel.append(str(self.DVBDui.tableWidget_VBPD_parameters.item(rowindex, 1).text()))
+        #print('inside Del selected->',parlisttodel)
+        for aparam in parlisttodel:
+            self.delete_a_parameter(aparam)
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+    
+    def PB_check_all(self):
+        self.Uncheck_all(False) #checks all ->False
+
+    def PB_uncheck_all(self):
+        self.Uncheck_all(True) #unchecks all ->True
+        
+    def Uncheck_all(self,uncheckall): 
+        #checks all ->False           
+        #unchecks all ->True
+        #Tcheckedparam=self.Get_checked_Parameters_from_Table(self.DVBDui.tableWidget_VBPD_parameters,Checkcol=0,parcol=1)
+        Tcheckedparam=self.Copy_data(self.Obj.batton_data['ShowingParams'])
+        #print('inside Del_unchecked',Tcheckedparam)
+        for apar in Tcheckedparam:
+            if Tcheckedparam[apar]==uncheckall:
+                Tcheckedparam[apar]=not uncheckall
+        self.set_d('ShowingParams',Tcheckedparam,True)
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+
+    
+
+    def PB_Clear_Parameters(self):
+        #print('Clear')
+        self.set_d('action','',False)
+        self.set_d('Gcode','',False)
+        self.set_d('Format','',False)
+        self.set_d('Force_id','',False)
+        self.set_d('Params',{},False)
+        self.set_d('ReqOpParamsdict',{},False)
+        self.set_d('ShowingParams',{},False)
+        self.set_d('action_2','',False)
+        self.set_d('Gcode_2','',False)
+        self.set_d('Format_2','',False)
+        self.set_d('Force_id_2','',False)
+        self.set_d('Params_2',{},False)
+        self.set_d('ReqOpParamsdict_2',{},False)
+        self.set_d('ShowingParams_2',{},True)
+        self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
+        self.Obj_refresh()
+        
     def PB_Select_Script_2(self):
         scriptfilename=self.aDialog.openFileNameDialog(4)  #4->Gcode and Action Files (*.gcode *.acode) 
         if scriptfilename is not None:
@@ -1803,13 +2252,64 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         index= 0 #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFixedString)
         self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)          
 
+    def Fill_General(self):
+        self.DVBDui.groupBox_VBDD_General.setTitle("My ID:"+str(self.Obj.batton_data['key_id']))
+
+    def Fill_Parameters_combobox(self):
+        self.DVBDui.comboBox_VBPD_Add_Param_DB.clear()
+        forcedinterface=self.DVBDui.comboBox_VBPD_CHid.currentText()
+        if forcedinterface =='':
+            parameter_list=self.CH.Get_list_of_all_parameters_all_interfaces()
+        else:
+            interface_id=self.Obj.batton_data['Force_id']
+            #print(interface_id)
+            try:
+                parameter_list=self.CH.Get_list_of_all_parameters_in_interface(interface_id)
+                #print('Parameter list found->',interface_id,parameter_list)
+            except Exception as e:
+                log.error(e)
+                parameter_list=self.CH.Get_list_of_all_parameters_all_interfaces()
+                pass
+        for aparam in parameter_list:
+            self.DVBDui.comboBox_VBPD_Add_Param_DB.addItem(aparam)
+
+    def Fill_parameters_options_combobox(self):
+        self.DVBDui.comboBox_VBPD_Add_Param_Op.clear()
+        self.DVBDui.comboBox_VBPD_Add_Param_Op.addItem('required')
+        self.DVBDui.comboBox_VBPD_Add_Param_Op.addItem('optional')
+        self.DVBDui.comboBox_VBPD_Add_Param_Op.addItem('optional_al_1')
+
+
+    def Fill_kind_combobox(self):
+        self.DVBDui.comboBox_VBDD_batton_kind.clear()
+        self.DVBDui.comboBox_VBDD_batton_kind.addItem('Batton')
+        self.DVBDui.comboBox_VBDD_batton_kind.addItem('Parameter-Source')
+        self.DVBDui.comboBox_VBDD_batton_kind.addItem('Transform')
+        self.DVBDui.comboBox_VBDD_batton_kind.addItem('Visualize-Sinks')                                  
+        try:            
+            index= self.DVBDui.comboBox_VBDD_batton_kind.findText(self.Obj.batton_data['Batton_kind'],QtCore.Qt.MatchFixedString)
+            #print("batton kind->",self.Obj.batton_data['Batton_kind'],index)
+            if index==-1:
+                index= 0                 
+        except:
+            #print("batton kind error->",self.Obj.batton_data['Batton_kind'],1)                     
+            index= 0 
+            pass   
+        self.DVBDui.comboBox_VBDD_batton_kind.setCurrentIndex(index)
+        self.ComboBox_Select_kind()
+
+
     def Fill_interface_combobox(self):        
         self.DVBDui.comboBox_VBDD_CHid.clear()
         self.DVBDui.comboBox_VBDD_CHid.addItem('')                          
+        self.DVBDui.comboBox_VBPD_CHid.clear()
+        self.DVBDui.comboBox_VBPD_CHid.addItem('')                          
         for iii in self.CH.Configdata['interfaceId']:           
             self.DVBDui.comboBox_VBDD_CHid.addItem(iii)     
+            self.DVBDui.comboBox_VBPD_CHid.addItem(iii)     
         try:            
             index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBPD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFixedString)
             if index==-1:
                 index= 0
         except:                     
@@ -1817,8 +2317,10 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             pass
 
         self.DVBDui.comboBox_VBDD_CHid.setCurrentIndex(index)    
+        self.DVBDui.comboBox_VBPD_CHid.setCurrentIndex(index)    
         aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DVBDui.label_VBDD_CHid.setText('Actual interface '+aname)  
+        self.DVBDui.label_VBPD_CHid.setText('Actual interface '+aname)  
 
     def Fill_interface_combobox_2(self):        
         self.DVBDui.comboBox_VBDD_CHid_2.clear()
@@ -1838,18 +2340,22 @@ class VariableButtonDataDialog(QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
 
     def Fill_action_combobox(self):
         self.DVBDui.comboBox_VBDD_action.clear()
+        self.DVBDui.comboBox_VBPD_action.clear()
         allactions=self.CH.getListofActions(['interfaceId','interfaceName','interfaceId_type','interfaceId_info'])
         self.DVBDui.comboBox_VBDD_action.addItem('')
+        self.DVBDui.comboBox_VBPD_action.addItem('')
         for iii in allactions:           
             self.DVBDui.comboBox_VBDD_action.addItem(iii)          
+            self.DVBDui.comboBox_VBPD_action.addItem(iii)          
         try:            
-            index= self.DVBDui.comboBox_VBDD_action.findText(self.Obj.batton_data['action'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_action.findText(self.Obj.batton_data['action'],QtCore.Qt.MatchFixedString)            
             if index==-1:
                 index= 0
         except:                     
             index= 0 
             pass
         self.DVBDui.comboBox_VBDD_action.setCurrentIndex(index)    
+        self.DVBDui.comboBox_VBPD_action.setCurrentIndex(index)    
         self.CH.Selected_action=self.DVBDui.comboBox_VBDD_action.currentText()
         #self.Obj.batton_data['key_id']
     
@@ -1968,9 +2474,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         abtn=self.create_batton()
         self.Edit_Batton_Data(abtn)
     
-    def create_batton(self,b_data=None):
-        
-        batton_data={'Pos':(0,0),'Size':(200,200),'Name':'New','Icon':None,'action':'','Gcode':'','Params':{}}
+    def create_batton(self,b_data=None):        
+        batton_data={'Pos':(0,0),'Size':(200,200),'Name':'New','Icon':None,'action':'','Gcode':'','Params':{},'Link_from':{},'Link_to':{}}
         if b_data==None:
             anid=-1
         else:            
@@ -2243,11 +2748,23 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         return False
     
     def del_unexisting_obj_links(self):
-        for ObjC in self.VBD_H.Object_List:                         
-            LF=ObjC.batton_data['Link_from']    
-            LFc=self.Copy_data(LF)        
-            LT=ObjC.batton_data['Link_to']
-            LTc=self.Copy_data(LT)        
+        for ObjC in self.VBD_H.Object_List:    
+            try:                     
+                LF=ObjC.batton_data['Link_from']    
+                LFc=self.Copy_data(LF)  
+            except:
+                log.error('No linking from info, generating empty field!')
+                ObjC.batton_data.update({'Link_from':{}})               
+                LFc={}
+                pass      
+            try:
+                LT=ObjC.batton_data['Link_to']
+                LTc=self.Copy_data(LT)        
+            except:
+                log.error('No linking to info, generating empty field!')
+                LTc={}
+                ObjC.batton_data.update({'Link_to':{}})
+                pass
             for an_id in LF:
                 if self.is_ID_in_VBD_H(an_id)==False:
                     log.info("Delete Link from "+str(LF[str(an_id)]))
@@ -2258,6 +2775,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
                     LTc.pop(an_id)
             ObjC.batton_data.update({'Link_from':LFc})
             ObjC.batton_data.update({'Link_to':LTc})
+        
     
     def link_same_obj(self):
         for ObjC in self.VBD_H.Object_List:      

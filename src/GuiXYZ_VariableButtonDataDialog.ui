@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>428</width>
+    <width>508</width>
     <height>586</height>
    </rect>
   </property>
@@ -19,7 +19,64 @@
      <property name="currentIndex">
       <number>0</number>
      </property>
-     <widget class="QWidget" name="tabWidget_VBDFPage1">
+     <widget class="QWidget" name="tabWidget_VBDF_General">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout">
+       <item row="2" column="0">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="1" column="0">
+        <widget class="QGroupBox" name="groupBox_VBDD_General">
+         <property name="title">
+          <string>GroupBox</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_15">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+             <widget class="QLabel" name="label_VBDD_Name">
+              <property name="text">
+               <string>Name:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="lineEdit_VBDD_Name"/>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_13">
+            <item>
+             <widget class="QLabel" name="label_VBDD_kind">
+              <property name="text">
+               <string>Batton Kind:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBox_VBDD_batton_kind"/>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabWidget_VBDF_First_State">
       <attribute name="title">
        <string>First State</string>
       </attribute>
@@ -57,20 +114,6 @@
          </item>
          <item>
           <widget class="QComboBox" name="comboBox_VBDD_batton_type"/>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <item>
-          <widget class="QLabel" name="label_VBDD_Name">
-           <property name="text">
-            <string>Name:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLineEdit" name="lineEdit_VBDD_Name"/>
          </item>
         </layout>
        </item>
@@ -213,7 +256,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="tabWidget_VBDFPage2">
+     <widget class="QWidget" name="tabWidget_VBDF_Second_State">
       <attribute name="title">
        <string>Second State</string>
       </attribute>
@@ -393,7 +436,212 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="tabWidget_VBDFPage3">
+     <widget class="QWidget" name="tabWidget_VBDF_Parameter">
+      <attribute name="title">
+       <string>Parameter</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_16">
+       <item>
+        <widget class="QGroupBox" name="groupBox_VBPD_byRead">
+         <property name="title">
+          <string>By Read action</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_17">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_14">
+            <item>
+             <widget class="QLabel" name="label_VBPD_CHid">
+              <property name="text">
+               <string>Force Id</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_VBPD_Force_id">
+              <property name="text">
+               <string>Force interface to:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBox_VBPD_CHid"/>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_15">
+            <item>
+             <widget class="QLabel" name="label_VBPD_action">
+              <property name="text">
+               <string>Action</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBox_VBPD_action"/>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_VBPD_Populate">
+              <property name="text">
+               <string>Populate</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_16">
+            <item>
+             <widget class="QLabel" name="label_VBPD_Add">
+              <property name="text">
+               <string>Add:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="lineEdit_VBPD_Add_Param"/>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBox_VBPD_Add_Param_DB"/>
+            </item>
+            <item>
+             <widget class="QComboBox" name="comboBox_VBPD_Add_Param_Op"/>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_VBPD_Add_Param">
+              <property name="text">
+               <string>Add</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_VBPD_Parameters">
+            <property name="title">
+             <string>Show Parameters</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_14">
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_18">
+               <item>
+                <spacer name="horizontalSpacer_2">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_VBPD_check_all">
+                 <property name="text">
+                  <string/>
+                 </property>
+                 <property name="icon">
+                  <iconset>
+                   <normaloff>img/User-Interface-Checked-Checkbox-icon.png</normaloff>img/User-Interface-Checked-Checkbox-icon.png</iconset>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_VBPD_uncheck_all">
+                 <property name="text">
+                  <string/>
+                 </property>
+                 <property name="icon">
+                  <iconset>
+                   <normaloff>img/User-Interface-Unchecked-Checkbox-icon.png</normaloff>img/User-Interface-Unchecked-Checkbox-icon.png</iconset>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QTableWidget" name="tableWidget_VBPD_parameters"/>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_17">
+               <item>
+                <widget class="QPushButton" name="pushButton_VBPD_clear">
+                 <property name="text">
+                  <string>Clear All</string>
+                 </property>
+                 <property name="icon">
+                  <iconset>
+                   <normaloff>img/bin-red-full-icon.png</normaloff>img/bin-red-full-icon.png</iconset>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_VBPD_clear_unchecked">
+                 <property name="text">
+                  <string>Clear Unchecked</string>
+                 </property>
+                 <property name="icon">
+                  <iconset>
+                   <normaloff>img/trash-icon.png</normaloff>img/trash-icon.png</iconset>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_VBPD_clear_selected">
+                 <property name="text">
+                  <string>Clear Selected</string>
+                 </property>
+                 <property name="icon">
+                  <iconset>
+                   <normaloff>img/Clear-icon.png</normaloff>img/Clear-icon.png</iconset>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabWidget_VBDF_Linking">
       <attribute name="title">
        <string>Linking</string>
       </attribute>
@@ -403,8 +651,8 @@
          <property name="title">
           <string>Link From</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout_13">
+          <item>
            <widget class="QListWidget" name="listWidget_VBDD_Linkfrom"/>
           </item>
          </layout>
@@ -415,28 +663,35 @@
          <property name="title">
           <string>Link To</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_4">
-          <item row="0" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout_12">
+          <item>
            <widget class="QListWidget" name="listWidget_VBDD_Linkto"/>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="checkBox_VBPD_Show_Lines">
+            <property name="text">
+             <string>Show Connecting Lines</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="tabWidget_VBDFPage4">
+     <widget class="QWidget" name="tabWidget_VBDF_Transform">
       <attribute name="title">
-       <string>Modifyer</string>
+       <string>Transform</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_10">
        <item>
-        <widget class="QGroupBox" name="groupBox">
+        <widget class="QGroupBox" name="groupBoxgroupBox_VBDD_Transform">
          <property name="title">
           <string>GroupBox</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_11">
           <item>
-           <widget class="QGroupBox" name="groupBox_2">
+           <widget class="QGroupBox" name="groupBox_VBDD_Transform2">
             <property name="title">
              <string>GroupBox</string>
             </property>
@@ -496,6 +751,11 @@
         </widget>
        </item>
       </layout>
+     </widget>
+     <widget class="QWidget" name="tabWidget_VBDF_Visualize">
+      <attribute name="title">
+       <string>Visualize</string>
+      </attribute>
      </widget>
     </widget>
    </item>
