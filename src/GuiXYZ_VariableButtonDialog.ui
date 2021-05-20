@@ -60,7 +60,25 @@
           <string>Buttons</string>
          </property>
          <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
+          <item row="3" column="0">
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="QPushButton" name="pushButton_VBD_Save">
+              <property name="text">
+               <string>Save</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_VBD_Load">
+              <property name="text">
+               <string>Load</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
            <layout class="QVBoxLayout" name="verticalLayout_2">
             <item>
              <widget class="QPushButton" name="pushButton_VBD_ButtonAdd">
@@ -92,19 +110,19 @@
             </item>
            </layout>
           </item>
-          <item row="1" column="0">
-           <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item row="0" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
             <item>
-             <widget class="QPushButton" name="pushButton_VBD_Save">
-              <property name="text">
-               <string>Save</string>
-              </property>
-             </widget>
+             <widget class="QComboBox" name="comboBox_VBD_BattonSelect"/>
             </item>
             <item>
-             <widget class="QPushButton" name="pushButton_VBD_Load">
+             <widget class="QPushButton" name="pushButton_VBD_Lock">
               <property name="text">
-               <string>Load</string>
+               <string/>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>img/Action-lock-pink-icon.png</normaloff>img/Action-lock-pink-icon.png</iconset>
               </property>
              </widget>
             </item>

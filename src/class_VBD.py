@@ -70,11 +70,14 @@ class Dnd_CustomGroupbox(QGroupBox):
     def __init__(self, title, parent):
         super().__init__(title, parent)
         self.setAcceptDrops(True)
+        self.melock=False
 
     def dragEnterEvent(self, e):    
         e.accept()    
 
     def Set_Obj_Position(self, target):
+        if self.melock==True:
+            return
         #x,y,W,H=target.get_size_position()
         position = target.frame.rect().topLeft() 
         #print('inside set_obj_pos',position.x(),position.y())
@@ -86,7 +89,8 @@ class Dnd_CustomGroupbox(QGroupBox):
         
 
     def dropEvent(self, e):      
-                  
+        if self.melock==True:
+            return          
         # find the widget under the cursor
         target=e.source()
         position = e.pos()
@@ -102,6 +106,12 @@ class Dnd_CustomGroupbox(QGroupBox):
         newpos=(position - QPoint(int(x), int(y)), anid)
         self.new_position.emit(newpos)
         e.accept()
+    
+    def lock(self,lockme=False):
+        self.melock=lockme
+    
+    def isLocked(self):
+        return self.melock
 
 class VBD_Button_set(QtWidgets.QWidget):
     mouseHover = QtCore.pyqtSignal(int)
@@ -117,11 +127,17 @@ class VBD_Button_set(QtWidgets.QWidget):
         self.CH=CH
         self.setObjectName(name)
         self.batton_data=batton_data
+        self.meLocked=False
         self.Create_VBD_Button()        
         QtCore.QMetaObject.connectSlotsByName(self)
         self.offset = 0    
         
-    
+    def Lock_me(self,lockme=False):
+        self.meLocked=lockme
+
+    def AmILocked(self):
+        return self.meLocked
+
     def enterEvent(self, event):
         self.mouseHover.emit(self.batton_data['key_id'])
     
@@ -129,13 +145,17 @@ class VBD_Button_set(QtWidgets.QWidget):
         self.mouseHover.emit(-1)
 
     def Frame_Resize(self):
+        if self.AmILocked()==True:
+            return
         W,H=self.batton_data['Size']        
         self.frame.resize(int(W),int(H))
         self.resize(int(W),int(H))
         PBsize=self.pushButton.size()
         self.pushButton.setIconSize(PBsize)
     
-    def Frame_Reposition(self):        
+    def Frame_Reposition(self):    
+        if self.AmILocked()==True:
+            return    
         self.set_position.emit(self.batton_data['key_id'])
         #x,y=self.batton_data['Pos']  
         #position=self.parent.rect().topLeft()              
@@ -326,8 +346,10 @@ class VBD_Button_set(QtWidgets.QWidget):
                 paramsdict=self.batton_data['Params']
                 paramsdict.update({Param:Value})
                 self.batton_data.update({'Params':paramsdict})
+                #evaluates the new gcode if action
+                self.Set_Gcodes_for_action(self.batton_data,1)
                 #print('Cell value changed->',row,paramsdict)
-                #self.Parameter_Changed()
+                
         except Exception as e:
             log.error("On Cell Value Changed:")
             log.error(e)
@@ -341,7 +363,9 @@ class VBD_Button_set(QtWidgets.QWidget):
                 paramsdict=self.batton_data['Params_2']
                 paramsdict.update({Param:Value})
                 self.batton_data.update({'Params_2':paramsdict})
-                #self.Parameter_Changed_2()
+                #evaluates the new gcode if action
+                self.Set_Gcodes_for_action(self.batton_data,2)
+                
         except Exception as e:
             log.error("On Cell Value Changed_2:")
             log.error(e)
@@ -442,7 +466,7 @@ class VBD_Button_set(QtWidgets.QWidget):
                 Parameters=value                
                 #print(type(Parameters),Parameters,len(Parameters))
                 if type(Parameters) is dict and len(Parameters)>0: 
-                    print('->set_data_to_VBD_Button->',iii,item,Parameters)
+                    #print('->set_data_to_VBD_Button->',iii,item,Parameters)
                     self.Force_values_into_Table(Parameters,self.tableWidget,parcol=0,valcol=1)                   
                     self.Fill_Tablewidget(Parameters)
                 self.pushButton.adjustSize()
@@ -476,9 +500,23 @@ class VBD_Button_set(QtWidgets.QWidget):
                 self.linking_request.emit(batton_data['key_id'])
             if item=='Link_to':
                 self.linking_request.emit(batton_data['key_id'])
+            if item=='Batton_is':                
+                self.Set_Gcodes_for_action(batton_data,1)
+            if item=='Batton_is_2':                
+                self.Set_Gcodes_for_action(batton_data,2)
 
-            
-
+    def Set_Gcodes_for_action(self,batton_data,_1or2=1):    
+        #Evaluates the Gcode if is an action  
+        if _1or2==1:           
+            if batton_data['Batton_is']=='action':                        
+                Gcode=self.Get_Gcode_from_Batton(batton_data)                
+                if Gcode is not '':                    
+                    self.batton_data['Gcode']=Gcode
+        if _1or2==2:
+            if batton_data['Batton_is_2']=='action':            
+                Gcode=self.Get_Gcode_from_Batton_2(batton_data)                
+                if Gcode is not '':                    
+                    self.batton_data['Gcode_2']=Gcode
                 
     def Set_button_icon(self,iconfilename):
         icon = QtGui.QIcon()
@@ -1290,12 +1328,6 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 
                 batton_data=self.Copy_data(newbatton_data)
                 
-                Gcode=self.Obj.Get_Gcode_from_Batton(batton_data)
-                if Gcode is not '':
-                    #self.set_d('Gcode',Gcode,True)
-                    batton_data['Gcode']=Gcode
-                    is_Gcode=False                                 
-                self.DVBDui.label_VBDD_Result.setText(Gcode)
             
         else:                                                
             if is_source==True:
@@ -1312,7 +1344,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             else:
                 # Clean params
                 batton_data['Params']={}
-                print("Params cleaned")
+                #print("Params cleaned")
                 self.DVBDui.tableWidget_VBDD_parameters.clear()
                 self.DVBDui.tableWidget_VBDD_parameters.setRowCount(0)                                                 
                 self.DVBDui.tableWidget_VBPD_parameters.clear()
@@ -1337,8 +1369,16 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         # Set Gcode           
         if is_Gcode==True:
             self.DVBDui.label_VBDD_Result.setText('Is Gcode')             
-        else:                        
-            self.Set_Gcode_text(batton_data['Gcode'])
+        else:   
+            if is_action==True:
+                Gcode=self.Obj.Get_Gcode_from_Batton(batton_data)                
+                #if Gcode is not '':                    
+                batton_data['Gcode']=Gcode                                                 
+                self.DVBDui.label_VBDD_Result.setText('Action Evaluated:'+Gcode)
+                self.Set_Gcode_text(Gcode,append=False)  
+                print('G code text set->',Gcode)
+            else:                   
+                self.Set_Gcode_text(batton_data['Gcode'],append=False)
         # Set parameter being viewed        
         self.DVBDui.groupBox_VBDD_Parameters.setEnabled(is_action)        
         self.DVBDui.groupBox_VBPD_Parameters.setEnabled(is_source)
@@ -1450,12 +1490,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 batton_data=self.Set_checking_Parameters_from_batton_2(self.DVBDui.tableWidget_VBDD_parameters_2,0,1,batton_data)                
                 self.Obj.Fill_actionParameters_Table_2(self.Obj.tableWidget_2,batton_data,parcol=0,showall=False)                
                 batton_data=self.Copy_data(newbatton_data)                
-                Gcode=self.Obj.Get_Gcode_from_Batton_2(batton_data)
-                if Gcode is not '':
-                    #self.set_d('Gcode',Gcode,True)
-                    batton_data['Gcode_2']=Gcode
-                    is_Gcode_2=False                                 
-                self.DVBDui.label_VBDD_Result_2.setText(Gcode)
+                
         else:                        
             # Clean params
             #self.set_d('Params',{},True) 
@@ -1484,8 +1519,15 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         # Set Gcode   
         if is_Gcode==True:
             self.DVBDui.label_VBDD_Result_2.setText('Is Gcode')             
-        else:                                    
-            self.Set_Gcode_text_2(batton_data['Gcode_2'])
+        else:   
+            if is_action_2==True:
+                Gcode=self.Obj.Get_Gcode_from_Batton_2(batton_data)
+                #if Gcode is not '':                    
+                batton_data['Gcode_2']=Gcode                    
+                self.DVBDui.label_VBDD_Result_2.setText(Gcode)
+                self.Set_Gcode_text_2(Gcode)
+            else:
+                self.Set_Gcode_text_2(batton_data['Gcode_2'])
         # Set parameter being viewed        
         self.DVBDui.groupBox_VBDD_Parameters_2.setEnabled(is_action_2)
         if is_action_2==False:
@@ -1690,8 +1732,11 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.set_d('Format',aFormat,True)
         self.DVBDui.label_VBDD_Format.setText(aFormat) 
         #print('Info to be filled:',self.Obj.batton_data)                
+        #Calculate and set Gcode
+        self.Obj.Set_Gcodes_for_action(self.Obj.batton_data,1)
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
+         
 
     def ComboBox_Select_action_2(self):
         selaction=self.DVBDui.comboBox_VBDD_action_2.currentText()                 
@@ -1705,11 +1750,15 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.set_d('Format_2',aFormat,True)
         self.DVBDui.label_VBDD_Format_2.setText(aFormat) 
         #print('Info to be filled:',self.Obj.batton_data)                
+        #Calculate and set Gcode
+        self.Obj.Set_Gcodes_for_action(self.Obj.batton_data,2)
         self.Obj.batton_data=self.Fill_Form_with_Batton_Data(self.Obj.batton_data)
         self.Obj_refresh()
+         
 
     def Obj_refresh(self):
         self.Obj.set_data_to_VBD_Button(self.Obj.batton_data)
+        
 
     def set_d(self,Key,Value,refresh=False):
         self.Obj.batton_data.update({Key:Value})
@@ -1830,7 +1879,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
     
     def Source_Parameter_Changed(self):      
         Parameters=self.Obj.Get_Parameter_Values_from_Table(self.DVBDui.tableWidget_VBPD_parameters,1,2)
-        print('Got source parameters',Parameters)        
+        #print('Got source parameters',Parameters)        
         self.set_d('Params',Parameters,True)         
     
     def Parameter_Changed_2(self):
@@ -1845,7 +1894,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
                 Parameters=self.Obj.batton_data['Params']
                 Parameters.update(aParam)
                 self.set_d('Params',Parameters,True)                             
-                print('Got source cell',aParam)        
+                #print('Got source cell',aParam)        
     
     def Cell_value_Changed(self,row,col):
         if col==2: #value change
@@ -1853,8 +1902,10 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             if aParam is not None:
                 Parameters=self.Obj.batton_data['Params']
                 Parameters.update(aParam)
-                self.set_d('Params',Parameters,True)                             
-                print('Got _1 cell',aParam)                 
+                self.set_d('Params',Parameters,True)   
+                #Calculate and set Gcode
+                self.Obj.Set_Gcodes_for_action(self.Obj.batton_data,1)                          
+                #print('Got _1 cell',aParam)                 
     
     def Cell_value_Changed_2(self,row,col):
         if col==2: #value change
@@ -1862,8 +1913,10 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             if aParam is not None:
                 Parameters=self.Obj.batton_data['Params_2']
                 Parameters.update(aParam)
-                self.set_d('Params_2',Parameters,True)                             
-                print('Got _2 cell',aParam)                 
+                self.set_d('Params_2',Parameters,True)    
+                #Calculate and set Gcode
+                self.Obj.Set_Gcodes_for_action(self.Obj.batton_data,2)                          
+                #print('Got _2 cell',aParam)                 
 
     def Get_checked_Parameters_from_Table(self,TableWidget,Checkcol,parcol):
         Numrows=TableWidget.rowCount()        
@@ -2578,8 +2631,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.DVBui.setupUi(self.Dialog_VBD)        
         self.Dialog_VBD.show()           
         self.Is_Dialog_Open=True    
-        self.Connect_Main_Button()
-        
+        self.Is_Locked=False
+        self.init_icons()        
+        self.Connect_Main_Button()        
         self.DVBui.groupBox_VBD_VarButtons = Dnd_CustomGroupbox("Custom Buttons",self.DVBui.frame_VBD_var)
         self.DVBui.groupBox_VBD_VarButtons.setMouseTracking(True)
         self.DVBui.groupBox_VBD_VarButtons.setAcceptDrops(True)
@@ -2587,6 +2641,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.DVBui.gridLayout_2.addWidget(self.DVBui.groupBox_VBD_VarButtons, 0, 1, 1, 1)
         self.DVBui.groupBox_VBD_VarButtons.new_position[tuple].connect(self.VBD_Set_Position)
         self.clickable(self.DVBui.groupBox_VBD_VarButtons).connect(self.VBD_Deselect)
+        self.Set_Locking()
+        
     
     def clickable(self,widget):    
         class Filter(QObject):        
@@ -2604,6 +2660,8 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         return filter.clicked 
 
     def PB_Add_Button(self):
+        if self.Is_Locked==True:            
+            return 
         abtn=self.create_batton()
         self.Edit_Batton_Data(abtn)
     
@@ -2632,13 +2690,84 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         abtn.linking_request[int].connect(self.VBD_Linking_Request)
               
         return abtn
+    def init_icons(self):
+        try:
+            self.iconlocked = QtGui.QIcon()
+            self.iconlocked.addPixmap(QtGui.QPixmap("img/Action-lock-pink-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.iconunlocked = QtGui.QIcon()
+            self.iconunlocked.addPixmap(QtGui.QPixmap("img/Action-lock-silver-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        except:
+            log.error("icons img/Action-lock-pink-icon.png and/or img/Action-lock-silver-icon.png missing! ")
+            self.iconlocked = None
+            self.iconunlocked = None
+            pass
 
+    def Lock_Battons(self):  
+        self.Is_Locked=True  
+        self.lock_Buttons(self.Is_Locked)    
+        
+        self.Batton_Locking(self.Is_Locked)
+        self.Set_a_button_icon(self.DVBui.pushButton_VBD_Lock,'',self.iconlocked)
+    
+    def Unlock_Battons(self):    
+        self.Is_Locked=False  
+        self.lock_Buttons(self.Is_Locked)          
+        self.Batton_Locking(self.Is_Locked)     
+        self.Set_a_button_icon(self.DVBui.pushButton_VBD_Lock,'',self.iconunlocked)
+    
+    def lock_Buttons(self,islocked):
+        self.DVBui.pushButton_VBD_ButtonAdd.setEnabled(not islocked)
+        self.DVBui.pushButton_VBD_ButtonClone.setEnabled(not islocked)
+        self.DVBui.pushButton_VBD_ButtonEdit.setEnabled(not islocked)
+        self.DVBui.pushButton_VBD_ButtonRemove.setEnabled(not islocked)
+        self.DVBui.groupBox_VBD_VarButtons.lock(islocked)
+        if islocked==True:    
+            self.DVBui.groupBox_VBD_VarButtons.setTitle('Buttons - Locked')  
+        else:
+            self.DVBui.groupBox_VBD_VarButtons.setTitle('Buttons - Unlocked')      
 
-    def Edit_Batton_Data(self,Obj):
+    def PB_Locking(self):
+        self.Is_Locked=not self.Is_Locked  
+        self.Set_Locking()
+
+    def Set_Locking(self):         
+        if self.Is_Locked==True:            
+            self.Lock_Battons()
+        else:
+            self.Unlock_Battons()
+
+    def Batton_Locking(self,islocked):   
+        try:     
+            for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+                Obj.Lock_me(islocked) 
+        except Exception as e:
+            #print(e)
+            #print('No locking')
+            pass
+
+    def Set_a_button_icon(self,apushButton,iconfilename,icon=None):
+        try:       
+            if icon==None and iconfilename!='':     
+                icon = QtGui.QIcon()
+                icon.addPixmap(QtGui.QPixmap(iconfilename), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                apushButton.setIcon(icon)
+                #PBsize=apushButton.size()
+                #apushButton.setIconSize(PBsize)
+            elif icon is not None and iconfilename=='':     
+                apushButton.setIcon(icon)
+                #PBsize=apushButton.size()
+                #apushButton.setIconSize(PBsize)
+
+        except Exception as e:
+            log.error("No Icon found:")
+            log.error(e)
+            pass
+
+    def Edit_Batton_Data(self,Obj):        
         Objs_Info=self.VBD_H.Get_Objects_List_Info()
         self.VBDD_Dialog=VariableButtonDataDialog(Obj,Objs_Info)
 
-    def Clone_Batton_Data(self,Obj):
+    def Clone_Batton_Data(self,Obj):       
         newbatton_data=self.Copy_data(Obj.batton_data)
         anid=self.VBD_H.Get_a_new_id()
         newbatton_data.update({'key_id':anid})
@@ -2662,7 +2791,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
                 
 
     def VBD_Hovered(self,anid):
-        #print('Hovered',anid)
+        #print('Hovered',anid)        
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
             if iiiid is anid:
                 #Obj.frame.setStyleSheet("border: 2px solid blue;")
@@ -2674,14 +2803,14 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         #print('Pressed GB')
         self.VBD_Selected(-1)
 
-    def VBD_Reposition(self,anid):
-         #print('reposition',anid)
-         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+    def VBD_Reposition(self,anid):        
+        #print('reposition',anid)
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
             if iiiid is anid:
                 #Obj.batton_data.update({'Pos':(apos.x(),apos.y())})
                 self.DVBui.groupBox_VBD_VarButtons.Set_Obj_Position(Obj)
 
-    def VBD_Selected(self,anid):        
+    def VBD_Selected(self,anid):              
         self.VBD_H.Select_Object(anid)
         self.Selected_Item=self.VBD_H.Selected_key                
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
@@ -2704,7 +2833,21 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.Link_battons(batton_id)
 
     def VBD_Button_Clicked(self,batton_data):
-        print(batton_data)
+        self.Print_batton_Report(batton_data)
+
+    def Print_batton_Report(self,batton_data):
+        print('-------------------------')
+        print('Batton Content:')
+        print('-------------------------')
+        for nnn,item in enumerate(batton_data):
+            print(self.str_of_length(str(nnn),3),self.str_of_length(item,18),batton_data[item])
+        print('-------------------------')
+    
+    def str_of_length(self,astr,length):
+        thelen=len(astr)
+        for a in range(length-thelen-1):
+            astr=astr+' '
+        return astr
 
     def dragEnterEvent(self, e: QDragEnterEvent):
         e.accept()
@@ -2719,11 +2862,31 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         self.DVBui.pushButton_VBD_ButtonEdit.clicked.connect(self.PB_Edit_Button)
         self.DVBui.pushButton_VBD_ButtonAdd.clicked.connect(self.PB_Add_Button)        
         self.DVBui.pushButton_VBD_ButtonRemove.clicked.connect(self.PB_Remove_Button)
+        self.DVBui.pushButton_VBD_Lock.clicked.connect(self.PB_Locking)
         self.DVBui.pushButton_VBD_Save.clicked.connect(self.PB_Save_Button_Layout)
         self.DVBui.pushButton_VBD_Load.clicked.connect(self.PB_Load_Button_Layout)
+        # activated-When user changes it
+        # currentIndexChanged -> when user or program changes it        
+        self.DVBui.comboBox_VBD_BattonSelect.activated.connect(self.ComboBox_Select_batton)
         self.DVBui.buttonBox.accepted.connect(self.accept)
         self.DVBui.buttonBox.rejected.connect(self.reject)
+    
+    def ComboBox_Select_batton(self):        
+        selectb=self.DVBui.comboBox_VBD_BattonSelect.currentText()
+        sellist,numsel=self.CH.Format_which_Inside_Parenthesees(selectb,IniP=r'\(',EndP=r'\)')
+        if numsel>0:
+            anid=sellist[0]
+            self.VBD_Selected(int(anid))
+        else:
+            self.VBD_Deselect()      
 
+    def Fill_BattonSelect_comboBox(self):
+        self.DVBui.comboBox_VBD_BattonSelect.clear()
+        self.DVBui.comboBox_VBD_BattonSelect.addItem('')
+        for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
+            xxxname='('+str(iiiid)+') '+str(Obj.batton_data['Name'] ) 
+            self.DVBui.comboBox_VBD_BattonSelect.addItem(xxxname)        
+            
     def PB_Remove_Button(self):
         anid=self.Selected_Item                
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
@@ -2938,6 +3101,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         #Get rid of non existing links
         #print("LT,LF->",LT,LF)
         self.del_unexisting_obj_links()
+        self.Fill_BattonSelect_comboBox()
         
             
         for Obj in self.VBD_H.Object_List:             
