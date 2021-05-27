@@ -147,7 +147,14 @@ class VBD_Button_set(QtWidgets.QWidget):
     def Frame_Resize(self):
         if self.AmILocked()==True:
             return
-        W,H=self.batton_data['Size']        
+        W,H=self.batton_data['Size']      
+        try:  
+            MS=self.batton_data['MarginSize']            
+            self.frame.setContentsMargins(MS,MS,MS,MS) #(left, top, right, bottom)
+            self.frame.setMinimumSize(QSize(2*MS, 2*MS))
+        except Exception as e:
+            print("Frame Margin:",e)
+            pass
         self.frame.resize(int(W),int(H))
         self.resize(int(W),int(H))
         PBsize=self.pushButton.size()
@@ -172,10 +179,15 @@ class VBD_Button_set(QtWidgets.QWidget):
 
     def get_size_position(self):
         W,H=self.batton_data['Size']
-        if W<20:            
+        try:  
+            MS=self.batton_data['MarginSize']                                    
+        except:
+            MS=10            
+            pass
+        if W<2*MS:            
             W=self.frame.width()
             self.batton_data.update({'Size':(W,H)})  
-        if H<20:
+        if H<2*MS:
             H=self.frame.height()
             self.batton_data.update({'Size':(W,H)})  
         try:
@@ -462,6 +474,12 @@ class VBD_Button_set(QtWidgets.QWidget):
     def set_data_to_VBD_Button(self,batton_data):
         for iii,item in enumerate(batton_data):
             value=batton_data[item]            
+            if item=='Pos':
+                Pos=value
+                self.Frame_Reposition()
+            if item=='Size':
+                Pos=value
+                self.Frame_Resize()
             if item=='Params':
                 Parameters=value                
                 #print(type(Parameters),Parameters,len(Parameters))
@@ -1081,6 +1099,11 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             batton_data.update({'Size':(100, 50)})            
             pass
         try:
+            MarginSize=batton_data['MarginSize']
+        except:
+            batton_data.update({'MarginSize':0})            
+            pass
+        try:
             Name=batton_data['Name']
         except:
             batton_data.update({'Name': 'New'})            
@@ -1254,6 +1277,11 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             is_script_2=False
             is_Gcode_2=False
             is_action_2=False
+        # Position and Size                
+        self.Fill_Pos(batton_data['Pos'])
+        self.Fill_Size(batton_data['Size'])                
+        self.DVBDui.lineEdit_VBDD_MarginSize.setText(str(batton_data['MarginSize'])) 
+
         # Enable/Disable Tabs        
         self.Enable_VBDD_Objects_for_Kind(batton_data['Batton_kind'])
         # Set icon        
@@ -1781,6 +1809,90 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         aName=self.DVBDui.lineEdit_VBDD_Name.text()
         self.set_d('Name',aName,True)
 
+    def Position_X_Changed(self,aPos):
+        #print("Got Xpos",aPos)
+        #aPos=self.DVBDui.lineEdit_VBDD_Position_X.text()
+        mypos=self.Obj.batton_data['Pos']
+        
+        try:
+            newxpos=int(aPos)
+            (_,y)=mypos
+            mypos=(newxpos,y)
+        except Exception as e:                        
+            #print('Position Changed Error',e)
+            pass
+        #print('new position->',mypos)
+        self.set_d('Pos',mypos,True)
+        
+    
+    def Position_Y_Changed(self,aPos):
+        #aPos=self.DVBDui.lineEdit_VBDD_Position_Y.text()
+        mypos=self.Obj.batton_data['Pos']
+        try:
+            newypos=int(aPos)            
+            (x,_)=mypos
+            mypos=(x,newypos)
+        except:
+            pass
+        self.set_d('Pos',mypos,True)
+           
+    
+    def Size_X_Changed(self,aSize):
+        
+        mysize=self.Obj.batton_data['Size']
+        try:
+            newx=int(aSize)
+            if newx>=0:
+                (_,y)=mysize
+                mysize=(newx,y)                
+        except:
+            pass        
+        self.set_d('Size',mysize,True)
+        self.Fill_Size(mysize)
+        aMSize=self.DVBDui.lineEdit_VBDD_MarginSize.text()
+        self.MarginSize_Changed(aMSize) #refresh inside
+        
+    
+    def Size_Y_Changed(self,aSize):
+        #aSize=self.DVBDui.lineEdit_VBDD_Size_Y.text()
+        mysize=self.Obj.batton_data['Size']
+        try:
+            newy=int(aSize)
+            if newy>=0:                
+                (x,_)=mysize
+                mysize=(x,newy)
+        except:
+            pass        
+        self.set_d('Size',mysize,True)
+        self.Fill_Size(mysize)        
+        aMSize=self.DVBDui.lineEdit_VBDD_MarginSize.text()
+        self.MarginSize_Changed(aMSize) #refresh inside
+
+    def Fill_Size(self,mysize):
+        (x,y)=mysize
+        self.DVBDui.lineEdit_VBDD_Size_X.setText(str(x))
+        self.DVBDui.lineEdit_VBDD_Size_Y.setText(str(y))
+    
+    def Fill_Pos(self,myPos):
+        (x,y)=myPos
+        self.DVBDui.lineEdit_VBDD_Position_X.setText(str(x))
+        self.DVBDui.lineEdit_VBDD_Position_Y.setText(str(y))        
+
+    def MarginSize_Changed(self,aSize):        
+        myMsize=self.Obj.batton_data['MarginSize']
+        mysize=self.Obj.batton_data['Size']
+        try:
+            newMs=int(aSize)
+            aminsize=min(mysize[0],mysize[1])
+            if newMs>=0 and newMs<=aminsize/2:
+                myMsize=newMs
+            else:
+                myMsize=int(aminsize/3)
+        except:
+            pass
+        self.set_d('MarginSize',myMsize,True)
+        self.DVBDui.lineEdit_VBDD_MarginSize.setText(str(myMsize))
+            
 
     def Connect_Data_buttons(self):
         self.DVBDui.buttonBox.accepted.connect(self.accept)
@@ -1812,6 +1924,11 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         #textEdited->only when user changes, not by the program
         #textChanged-> when user changes or the program changes text
         self.DVBDui.lineEdit_VBDD_Name.textEdited.connect(self.Name_Changed)
+        self.DVBDui.lineEdit_VBDD_Position_X.textEdited.connect(self.Position_X_Changed)
+        self.DVBDui.lineEdit_VBDD_Position_Y.textEdited.connect(self.Position_Y_Changed)
+        self.DVBDui.lineEdit_VBDD_Size_X.textEdited.connect(self.Size_X_Changed)
+        self.DVBDui.lineEdit_VBDD_Size_Y.textEdited.connect(self.Size_Y_Changed)
+        self.DVBDui.lineEdit_VBDD_MarginSize.textEdited.connect(self.MarginSize_Changed)
         #self.DVBDui.lineEdit_VBPD_Add_Param.textEdited.connect(self.Parameter_Line_Changed)
         self.DVBDui.plainTextEdit_VBDD_Gcode.textChanged.connect(self.Gcode_Change)
         self.DVBDui.plainTextEdit_VBDD_Gcode_2.textChanged.connect(self.Gcode_Change_2)
