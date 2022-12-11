@@ -2,11 +2,17 @@
 
 I use pyinstaller:
 get with: pip -install pyintaller
-Run this in console:
-pyi-makespec -n GuiXYZ_V2_1 -i "\img\eye-in-a-sky-icon.ico"  GuiXYZ_V2_mod.py
+Run this in console on src folder:
+python -m pyi-makespec -n GuiXYZ_V2_1 -i "<yourpath>\img\eye-in-a-sky-icon.ico"  Gui_XYZ_GImage_V2.py
+python -m PyInstaller --clean  GuiXYZ_V2_1.spec
+or
+pyi-makespec -n GuiXYZ_V2_1 -i "<yourpath>\img\eye-in-a-sky-icon.ico"  Gui_XYZ_GImage_V2.py
 Then this:
-pyinstaller --clean  GuiXYZ_V2_1.spec
-Then run copy_folders_to_dist.py file to copy folders into distribution folder.
+PyInstaller --clean  GuiXYZ_V2_1.spec
+Then run copy_folders_to_dist.py file to copy folders into distribution folder:
+python .\copy_folders_to_dist.py
+
+Clean manually the file log files content in temp folder. Dont delete the files.
 
 Then I use  Inno Setup to pack it into a single exe file:
 
