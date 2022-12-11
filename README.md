@@ -3,24 +3,24 @@
 
 The application is under development so some of its features are still under construction. As also since its so extensive please support me by commenting on issues or bugs you run with the software. This has been until now a single person effort.
 
-Software is not still very intuitive, specially when configuring a new interface, yet is planned to be updated and to make a wiki with information on "how to" and what everything does in the interface. If you have a machine is not in the interface configuration it is difficult for me to test it since I only have access to the few interfaces already in configurations. I'll be glad to support you with your new interface configuration.
+Software is not still very intuitive, specially when configuring a new interface, yet is planned to be updated and to make a wiki with information on "how to" and what everything does in the interface. If you have a machine which is not in the interface configuration I'll be glad to support you with your new interface configuration.
 
-Its build such that can be flexibly configured for any type of machine. Often Machines use different types of controllers to convert Gcode into actions. 
+Application is build such that can be flexibly configured for any type of machine. Often Machines use different types of controllers to convert Gcode into actions. 
 This software uses a general customizable interface for a Machine Gcode input.
 
 Interfaces can be added or removed, and any action can be accomodated to any machine G-code format.
 Configuration Files have a version for the following interfaces already defined:
-GRBL 0.9k 4th axis
-TinyG
-Marlin 2.0.x 
-GRBL 1.1h
-GRBL 1.1e g5x
+- GRBL 0.9k 4th axis
+- TinyG
+- Marlin 2.0.x 
+- GRBL 1.1h
+- GRBL 1.1e g5x
 
 -----
 Software features:
 - Set any interface for Gcode.
 - Interface through serial port with a Machine. (Wifi and Parallel ports are planned)
-- Basic movement Preset Gcode commands (for active interface): Homing, x,y,z movements. Reset, alarm clear. (Planned to be variable for multiaxis machines)
+- Basic movement Preset Gcode commands (for active interface): Homing, x,y,z movements. Reset, alarm clear. (Planned to be variable for multiaxis machines battons)
 - Interface detection (in configuration)
 - Manipulate,save load Gcode.
 - Stream Gcode    
