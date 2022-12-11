@@ -277,7 +277,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 namelist=self.CH.Configdata['interfaceName']
                 idlist=self.CH.Configdata['interfaceId']                                
                 for iii in range(len(identifierlist)):
-                    if identifierlist[iii] in grbl_out and grbl_out is not '':
+                    if identifierlist[iii] in grbl_out and grbl_out != '':
                         #print(grbl_out,iii,identifierlist[iii],idlist[iii],namelist[iii])
                         selid=idlist[iii]
                         log.info('Success: '+str(namelist[iii])+' interface identified! ID'+str(selid))
@@ -345,11 +345,14 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     
     def serialread_to_str(self,theread,coding=None):
         if type(theread)==bytes:
-            if coding!= None:
-                return str(theread.decode(coding))    
-            return str(theread.decode())
+            try:
+                if coding!= None:
+                    return str(theread.decode(coding))
+                return str(theread.decode())
+            except:
+                return str(theread)    
         else:    
-            return str(therad)
+            return str(theread)
 
     def get_config_value(self,configaction,anid):
         aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
@@ -681,7 +684,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
 
     def queue_write(self,cmd,isok,ending='\n',logcmd=False):
         if isok==True:
-            if cmd is not '' and cmd is not None:
+            if cmd != '' and cmd is not None:
                 if ending is not None:
                     self.rx_queue.put(cmd+ending)                    
                 else:
@@ -692,7 +695,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
 
     def port_write(self,cmd,isok,ending='\n',logcmd=False):
         if isok==True:
-            if cmd is not '' and cmd is not None:
+            if cmd != '' and cmd is not None:
                 if ending is not None:
                     self.ser_port.write(str.encode(cmd+ending))
                 else:
@@ -796,7 +799,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             astatus=PRdata[akey] 
             if astatus is None:    
                 return PRdata,astatus
-            if astatus is '':
+            if astatus == '':
                 return PRdata,astatus
             if showlog==True:
                 log.info('{'+akey+'}: '+ str(astatus))                   
@@ -815,7 +818,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
             if PRead['__success__']>0:
                 for PR in PRead:
-                    if PR is not '__success__':
+                    if PR != '__success__':
                         PRdata.update({PR:PRead[PR]})
                     foundmatch=True        
                     break
@@ -834,7 +837,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
             if PRead['__success__']>0:
                 for PR in PRead:
-                    if PR is not '__success__':
+                    if PR != '__success__':
                         PRdata.update({PR:PRead[PR]})
                 foundmatch=True        
                 if FirstResponse==True:
@@ -907,9 +910,9 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     PRdata,astatus=self.Read_key_Status(PRdata,iii,False)
                     if astatus is not None:
                         self.data.update({iii:self.set_correct_type(astatus)})
-                        if iii is 'STATUS':                            
+                        if iii == 'STATUS':                            
                             self.Set_StateXYZ_from_Status()                        
-                        if iii is 'STATE_XYZ':
+                        if iii == 'STATE_XYZ':
                             self.Set_Status_from_StateXYZ()   
 
                 if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:                    
@@ -1265,7 +1268,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''
         immediate=False
         for action in actionparamsfound:
-            if action is not '_action_code_':
+            if action != '_action_code_':
                 if action in self.action_critical_list:
                     immediate=True
                     critical=self.CH.action_code_match_action(actionparamsfound['_action_code_'],action) 
@@ -1293,7 +1296,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''        
         indexlist=[]
         for action in actionparamsfound:
-            if action is not '_action_code_':
+            if action != '_action_code_':
                 if action in self.action_critical_list:
                     indexlist.append(0)
                 if action in self.action_immediate_list:
@@ -1342,23 +1345,23 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
 
     def Do_immediate_command(self,action):
         #aclist=['quickPause','quickResume','quickStop','queueFlush','clearAlarm','unlockAlarm','softReset','emergencyKill']
-        if action is 'quickPause':
+        if action == 'quickPause':
             self.Send_Hold(1)
             #self.grbl_event_hold.set()
             immediate=True
-        elif action is 'quickResume':
+        elif action == 'quickResume':
             self.Send_Resume(1)
             #self.grbl_event_resume.set()
             immediate=True
-        elif action is 'quickStop':
+        elif action == 'quickStop':
             self.Send_Stop(1)
             #self.grbl_event_stop.set()            
             immediate=True
-        elif action is 'softReset':
+        elif action == 'softReset':
             self.Send_SoftReset(1)
             #self.grbl_event_softreset.set()
             immediate=True
-        elif action is 'emergencyKill':
+        elif action == 'emergencyKill':
             self.Send_Kill(1)
             #self.kill_event.set()
             immediate=True
@@ -1632,11 +1635,11 @@ class XYZMulti:
             log.error('Command not Added to queue!')    
 
     def send_queue_command_paramlist(self,action,parnamelist=[],parvarlist=[]):        
-        params=self.CH.fill_parameters(parnamelist,parvallist)            
+        params=self.CH.fill_parameters(parnamelist,parvarlist)            
         self.send_queue_command(action,params,True)
 
     def send_immediate_command_paramlist(self,action,parnamelist=[],parvarlist=[]):        
-        params=self.CH.fill_parameters(parnamelist,parvallist)            
+        params=self.CH.fill_parameters(parnamelist,parvarlist)            
         self.send_immediate_command(action,params,True)
 
     def goto_(self,x=None,y=None,z=None,f=None,atype=0):
@@ -1694,14 +1697,19 @@ class XYZMulti:
         #self.srl_cmd_queue.put('G0 Y' + str(y) + '\n')	
         self.goto_(None,y,None,None,0)
     
-    def clear_state(self):        
+    def clear_state(self):    
+        log.info("Sending Clear Alarm")    
         cmd='clearAlarm'        
         params={}
         self.send_queue_command(cmd,params,True)
-
-        
-        
-                
+    
+    def status_Report(self):          
+        cmd='statusReport'
+        parnamelist=[]
+        parvallist=[]
+        params=self.CH.fill_parameters(parnamelist,parvallist)                
+        self.send_queue_command(cmd,params,True)
+                        
     def read_grbl_config(self,Refresh=False,Showlog=False):
         if Refresh==True:
             self.ser_read_thread.Read_Actual_Config(Showlog)

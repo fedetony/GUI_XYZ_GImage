@@ -40,6 +40,23 @@
              <widget class="QComboBox" name="comboBox_CCD_interface"/>
             </item>
             <item>
+             <widget class="QPushButton" name="pushButton_CCD_Force_Interface">
+              <property name="maximumSize">
+               <size>
+                <width>25</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+              <property name="icon">
+               <iconset>
+                <normaloff>img/Actions-arrow-up-icon.png</normaloff>img/Actions-arrow-up-icon.png</iconset>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QLabel" name="label_CCD_interfaceName">
               <property name="text">
                <string/>
@@ -150,7 +167,7 @@
             <property name="currentIndex">
              <number>0</number>
             </property>
-            <widget class="QWidget" name="tab_CCD_ActionConfig" native="true">
+            <widget class="QWidget" name="tab_CCD_ActionConfig">
              <attribute name="title">
               <string>Action Config</string>
              </attribute>

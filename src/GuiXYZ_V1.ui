@@ -31,95 +31,93 @@
         </size>
        </property>
        <property name="currentIndex">
-        <number>3</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="tab_5">
         <attribute name="title">
          <string>Connect</string>
         </attribute>
-        <widget class="QWidget" name="layoutWidget">
-         <property name="geometry">
-          <rect>
-           <x>9</x>
-           <y>9</y>
-           <width>324</width>
-           <height>130</height>
-          </rect>
-         </property>
-         <layout class="QFormLayout" name="formLayout_2">
-          <item row="0" column="0">
-           <widget class="QGroupBox" name="groupBoxConnect">
-            <property name="title">
-             <string>Connect</string>
-            </property>
-            <layout class="QFormLayout" name="formLayout">
+        <layout class="QFormLayout" name="formLayout_8">
+         <item row="0" column="1">
+          <layout class="QFormLayout" name="formLayout_7">
+           <item row="0" column="0">
+            <layout class="QFormLayout" name="formLayout_2">
              <item row="0" column="0">
-              <widget class="QLabel" name="label_COM">
-               <property name="text">
-                <string>COM Port</string>
+              <widget class="QGroupBox" name="groupBoxConnect">
+               <property name="title">
+                <string>Connect</string>
                </property>
+               <layout class="QFormLayout" name="formLayout">
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_COM">
+                  <property name="text">
+                   <string>COM Port</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QComboBox" name="comboBox_COM"/>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_ConnSpeed">
+                  <property name="text">
+                   <string>Connection Speed</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QComboBox" name="comboBox_ConnSpeed">
+                  <property name="currentText">
+                   <string/>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QPushButton" name="pushButton_Refresh">
+                  <property name="text">
+                   <string>Refresh</string>
+                  </property>
+                  <property name="icon">
+                   <iconset>
+                    <normaloff>img/Actions-view-refresh-icon.png</normaloff>img/Actions-view-refresh-icon.png</iconset>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="pushButton_Connect">
+                  <property name="text">
+                   <string>Connect</string>
+                  </property>
+                  <property name="icon">
+                   <iconset>
+                    <normaloff>img/connect-icon.png</normaloff>img/connect-icon.png</iconset>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="comboBox_COM"/>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_ConnSpeed">
-               <property name="text">
-                <string>Connection Speed</string>
+              <widget class="QLabel" name="label_ConnectedStatus">
+               <property name="enabled">
+                <bool>true</bool>
                </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QComboBox" name="comboBox_ConnSpeed">
-               <property name="currentText">
+               <property name="text">
                 <string/>
                </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QPushButton" name="pushButton_Refresh">
-               <property name="text">
-                <string>Refresh</string>
+               <property name="pixmap">
+                <pixmap>img/connect-icon.png</pixmap>
                </property>
-               <property name="icon">
-                <iconset>
-                 <normaloff>img/Actions-view-refresh-icon.png</normaloff>img/Actions-view-refresh-icon.png</iconset>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QPushButton" name="pushButton_Connect">
-               <property name="text">
-                <string>Connect</string>
-               </property>
-               <property name="icon">
-                <iconset>
-                 <normaloff>img/connect-icon.png</normaloff>img/connect-icon.png</iconset>
+               <property name="scaledContents">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
             </layout>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QLabel" name="label_ConnectedStatus">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="pixmap">
-             <pixmap>img/connect-icon.png</pixmap>
-            </property>
-            <property name="scaledContents">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
        </widget>
        <widget class="QWidget" name="tab">
         <attribute name="title">
@@ -1371,7 +1369,7 @@
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

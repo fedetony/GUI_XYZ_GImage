@@ -112,13 +112,15 @@ class Vectorization(threading.Thread):
         # join edges of pixel groups
         self.Pbarini=50
         self.Pbarend=75
-        color_joined_pieces=self.join_edges_of_pixel_groups(color_edge_lists,opaque, keep_every_point)
+        color_joined_pieces=self.join_edges_of_pixel_groups(color_edge_lists,opaque, keep_every_point)                
         # Write svg format
         self.Pbarini=75
-        self.Pbarend=100
+        self.Pbarend=100        
         svg= self.write_color_joined_pieces_to_svg_contiguous(im,color_joined_pieces)
         self.Pbarini=0
         self.Pbarend=100
+        if self.printprocess==True:
+            print('Amount of color layers processed:',len(color_joined_pieces))
         return svg
     
     #@numba.jit
@@ -187,12 +189,13 @@ class Vectorization(threading.Thread):
                 edge_set = set([])
                 for coord in piece_pixel_list:
                     for offset, (start_offset, end_offset) in edges.items():
-                        neighbour = self.add_tuple(coord, offset)
+                        neighbour = self.add_tuple(coord, offset)                        
+                        if neighbour in piece_pixel_list:
+                            continue
+                        self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
                         start = self.add_tuple(coord, start_offset)
                         end = self.add_tuple(coord, end_offset)
                         edge = (start, end)
-                        if neighbour in piece_pixel_list:
-                            continue
                         edge_set.add(edge)
                 if not rgba in color_edge_lists:
                     color_edge_lists[rgba] = []
@@ -303,10 +306,10 @@ class Vectorization(threading.Thread):
         self.Pbar_Set_Status(Per)
         return Per   
 
-    def Vectorized_color_joined_pieces_to_gcode_contiguous(self,im,color_joined_pieces,Gimageinfo,TouchONgcode,TouchOFFgcode):
+    def Vectorized_color_joined_pieces_to_gcode_contiguous(self,im,color_joined_pieces,Gimageinfo,TouchONgcode,TouchOFFgcode,addon='\n'):
         [Img_ini_pos,Robot_XYZ,Resolution,Feedrate]=Gimageinfo
         s = StringIO()
-        #s.write(self.svg_header(*im.size))
+        #s.write(self.svg_header(*im.size))       
         lenlist=len(color_joined_pieces.items())
         sss=0
         for color, shapes in color_joined_pieces.items():
@@ -323,7 +326,8 @@ class Vectorization(threading.Thread):
                     [x,y]=self.Transform_pixel_coord_to_image_coord(im,x,y,Img_ini_pos,Robot_XYZ,Resolution)
                     here=(x, y)
                     s.write(""" X%.3f Y%.3f""" % here)
-                    s.write(""" F%.3f\n""" % Feedrate)
+                    s.write(""" F%.3f""" % Feedrate)
+                    s.write("""%s""" % addon)
                     s.write(TouchONgcode)
                     for edge in sub_shape:
                         here = edge[0]
@@ -331,20 +335,190 @@ class Vectorization(threading.Thread):
                         [x,y]=self.Transform_pixel_coord_to_image_coord(im,x,y,Img_ini_pos,Robot_XYZ,Resolution)
                         here=(x, y)
                         s.write("""G1 X%.3f Y%.3f""" % here)
-                        s.write(""" F%d\n""" % Feedrate)
+                        s.write(""" F%d""" % Feedrate)
+                        s.write("""%s""" % addon)
                     s.write(TouchOFFgcode)
                 #s.write(""" " style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n""" % (color[0:3], float(color[3]) / 255))
                 
         #s.write("""</svg>\n""")
+        if self.printprocess==True:
+            print('Amount of color layers processed:',lenlist)
         return s.getvalue()      
+    
+    def Sort_color_joined_pieces_by_color(self,color_joined_pieces):
+        #Structure oreder is:
+        #shapes=color_joined_pieces[color] # dictionary of colors
+        #shape=shapes[0]
+        #xylinesegments=shape[0]
+        #one_xylinesegment=xylinesegments[0] #tuple of two (x,y) points making a line
+        #xytuple=one_xylinesegment[0] #tuple of (x,y)
+
+        print(len(color_joined_pieces))
+        acol_list=self.get_list_of_colors(color_joined_pieces)
+        
+        #is already sorted by colors!!!!
+        #print(len(acol_list))
+        #print(acol_list)
+
+        return color_joined_pieces
+
+    def get_list_of_colors(self,color_joined_pieces):
+        col_list=[]
+        sss=0
+        lenlist=len(color_joined_pieces.items())
+        for color, shapes in color_joined_pieces.items():
+            if self.killer_event.is_set():
+                break
+            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
+            sss=sss+1
+            if self.is_color_in_list(color,col_list)==False:
+                col_list.append(color)
+        return col_list
+            
+
+    def is_color_in_list(self,acolor,alist):        
+        for ccc in alist:
+            if self.is_same_color(ccc,acolor):
+                return True
+        return False
+            
+    def is_same_color(self,color1,color2):        
+        lenc=len(color1)
+        for iii in range(0,lenc):
+            if(color1[iii]!=color2[iii]):
+                return False
+        return True
+            
+    '''
+    def Sort_color_joined_pieces_to_radial(self,color_joined_pieces,xp=0,yp=0,rmin=5):
+        lenlist=len(color_joined_pieces.items())
+        r2list=[]
+        sss=0        
+        rmin2=rmin*rmin
+        
+        #((175, 78, 0, 255), [[[((225, 156), (224, 156)), ((224, 156), (224, 158)), ((224, 158), (225, 158)), ((225, 158), (225, 156))]]])
+        
+        #shapes=color_joined_pieces[color] # dictionary of colors
+        #shape=shapes[0]
+        #xylinesegments=shape[0]
+        #one_xylinesegment=xylinesegments[0] #two (x,y) points
+        #xytuple=one_xylinesegment[0]
+        def byr2(eee):
+            return eee['r2']
+        print(len(color_joined_pieces))
+        nnn=0
+        new_color_joined_pieces={}
+        xmin=100000000
+        xmax=-100000000
+        ymin=1000000000
+        ymax=-100000000
+        for color, shapes in color_joined_pieces.items():
+            #num_shapes=len(shapes)
+            if nnn==0:
+                firstxytuple=shapes[0][0][0][0]
+                (xp, yp)=firstxytuple            
+            
+            jjj=0
+            for shape in shapes:
+                for sub_shape in shape:
+                    xytuple=sub_shape[0][0]                
+                    (x, y)=xytuple
+                    #print(x,y,xmin,xmax,ymin,ymax)
+                    if x>xmax:
+                        xmax=x
+                    elif x<=xmin:
+                        xmin=x    
+                    if y>ymax:
+                        ymax=y
+                    elif y<=ymin:
+                        ymin=y                  
+                #calculate distance
+                #r2=(x-xp)*(x-xp)+(y-yp)*(y-yp)                                                            
+                #index_shape_list.append({'iii':iii,'jjj':jjj,'r2':r2})                
+                jjj=jjj+1
+        print(xmin,xmax,ymin,ymax)
+        for color, shapes in color_joined_pieces.items():
+            new_shapes=[]
+            divisions=16
+            deltax=-(xmin-xmax)/divisions
+            deltay=-(ymin-ymax)/divisions
+            for xxx in range(1,divisions+1):
+                for yyy in range(1,divisions+1):                    
+                    rminx=xmin + (xxx-1)*deltax
+                    rmaxx=xmin + (xxx)*deltax
+                    rminy=ymin + (yyy-1)*deltay
+                    rmaxy=ymin + (yyy)*deltay  
+                    #print(rminx,rmaxx,rminy,rmaxy)                  
+                    for shape in shapes:
+                         for sub_shape in shape:
+                            xytuple=sub_shape[0][0]                
+                            (x, y)=xytuple                        
+                            if ((x>=rminx and x<rmaxx) and (y>=rminy and y<rmaxy)) or ((xxx==divisions or yyy==divisions) and (x>=rminx and x<=rmaxx) and (y>=rminy and y<=rmaxy)):
+                                new_shapes.append(shape)
+
+                
+            if nnn<10:                
+                print(len(shapes),len(new_shapes))
+                #print(nnn,'Not Sorted ->',index_shape_list)
+                #r2list.sort(key=byr2)
+                #print(nnn,'    Sorted ->',index_shape_list)                                
+                #print(nnn,' List',index_shape_list)
+
+            new_color_joined_pieces[color] = new_shapes                
+            nnn=nnn+1
+        print('did ->',nnn)
+        #print(color_joined_pieces.items())
+        
+        xylinesegments=shapes[0][0]
+        print(xylinesegments)
+        one_xylinesegment=shapes[0][0][0]
+        print(one_xylinesegment)
+        xytuple=shapes[0][0][0][0]
+        print(xytuple)
+        #make_err=color_joined_pieces.items(1)
+        
+        
+                    
+        
+        # sort the list  internal functions to use sort  
+        def byr2(eee):
+            return eee['r2']
+        def byx(eee):
+            return eee['x']
+        def byy(eee):
+            return eee['y']
+        def byrrr(eee):
+            return eee['rrr']
+        #it already does x0 -> ymax -> y min -> x+dx-> 
+        r2list.sort(key=byr2)
+        #for sitem in r2list:
+
+        
+        for color, shapes in color_joined_pieces.items():
+            if self.killer_event.is_set():
+                break
+            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
+            sss=sss+1            
+            for shape in shapes:  
+                for sub_shape in shape:
+                    here = sub_shape.pop(0)[0]
+                    (x, y)=here
+                    r2=(x-xp)*(x-xp)+(y-yp)*(y-yp)
+                     
+                    rrr=rrr+1   
+        
+        return new_color_joined_pieces      
+    '''
+    
 
     def Save_svg_text_file(self,svg_image,Filename):
         with open(Filename, "w") as text_file:
             text_file.write(svg_image)
 
 def main():
-    imageRGBA = Image.open('test/examples/angular.png').convert('RGBA')
-    print(imageRGBA.size)    
+    #imageRGBA = Image.open('test/examples/angular.png').convert('RGBA')
+    imageRGBA = Image.open(r'C:\Users\FedericoGarcia\Documents\Wi Tonyswork\02_Gitfolders\tools\xyz Gui V2\src\img\User-Interface-Checked-Checkbox-icon.png').convert('RGBA')    
+    print('Processing image of size',imageRGBA.size)    
     kill_ev = threading.Event()
     kill_ev.clear()
     Vectorize=Vectorization(imageRGBA,kill_ev)
@@ -352,7 +526,7 @@ def main():
     Vectorize.printprocess=True
     svg_image = Vectorize.rgba_image_to_svg_contiguous(im=imageRGBA)
     #svg_image = rgba_image_to_svg_pixels(image)
-    Filename="test/examples/angular.svg"
+    Filename=r"C:\Users\FedericoGarcia\Documents\Wi Tonyswork\02_Gitfolders\tools\xyz Gui V2\src\toadd\test2.svg"
     Vectorize.Save_svg_text_file(svg_image,Filename)
     #with open("test/examples/angular.svg", "w") as text_file:
     #    text_file.write(svg_image)

@@ -461,7 +461,7 @@ class GImage:
         CType='vectorf'
         
         ConfVar='Robot_XYZ'
-        CValue='0 0 20'
+        CValue='0 0 0'
         CInfo='(X,Y,Z) Origin point XYZ of Robot for canvas coordinate (0,0) tool touching the canvas.'
         self.Image_Config_Data=self.Set_ConfVar(self.Image_Config_Data,ConfVar,CValue,CUnit,CType,CInfo)
 

@@ -57,7 +57,34 @@ class queueStream(threading.Thread):
         self.Filelength=0
         self.Set_Streamtext_to_text_queue(text2stream)
         
-        
+    def remove_empty_lines_from_file(self,filename):        
+        counttot=0
+        count=0
+        lines_to_rem=[]
+        with open(filename,'r') as file:
+            for numl,line in enumerate(file):                
+                if line.isspace()==True or len(line)==0 or line=='':
+                    lines_to_rem.append(numl)
+                    count=count+1
+                counttot=counttot+1
+        file.close()
+        removed=len(lines_to_rem)
+        if removed>0:
+            log.info("Removing {} empty lines out of {} explicitly:{}".format(removed,counttot,lines_to_rem)) 
+            lines=[]
+            with open(filename,'r') as fp:
+                # read an store all lines into list
+                lines = fp.readlines()
+            # Write file
+            with open(filename,'w') as fp:
+                # iterate each line
+                for number, line in enumerate(lines):
+                    # delete lines in list. (do not write them)
+                    # note list index starts from 0
+                    if number not in lines_to_rem:
+                        fp.write(line)
+            fp.close()
+
     def Are_items_in_buffer(self):
         return self.itemsinbuffer_event.is_set()
 
@@ -205,7 +232,7 @@ class queueStream(threading.Thread):
                         if line=='':
                             line=None                    
                         line=line.rstrip()
-                        if line!='':                    
+                        if line!='' and line.isspace()==False:                    
                             self.text_queue.put(line)
                             self.Streamsize=self.Streamsize+1
                             self.Set_qsizes()
@@ -324,7 +351,8 @@ class queueStream(threading.Thread):
             try:
                 with open(filename, 'w') as yourFile:
                     yourFile.write(text2stream)                
-                yourFile.close()                
+                yourFile.close()
+                self.remove_empty_lines_from_file(filename)                
             except Exception as e:
                 log.error(e)
                 log.info("Temporary File was not Written!")

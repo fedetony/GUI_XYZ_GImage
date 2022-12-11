@@ -22,6 +22,7 @@ log.addHandler(ahandler)
 class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     set_clicked= QtCore.pyqtSignal(list)
     file_update= QtCore.pyqtSignal(str)
+    change_interface_id= QtCore.pyqtSignal(str)
     
     #def __init__(self,NumLayers,Selected_Layers,parent=None):    
     #    super().__init__(parent)
@@ -109,6 +110,23 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         
         #self.DCCui.label_CCD_testResultFormat.left_clicked[int].connect(self.left_click_P)
         #self.DCCui.label_CCD_testResultFormat.right_clicked[int].connect(self.right_click_P)
+        self.DCCui.pushButton_CCD_Force_Interface.clicked.connect(self.Force_Interface)
+
+    def Force_Interface(self):            
+        aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+        msgbox = QtWidgets.QMessageBox()
+        msgbox.setWindowTitle('Force Interface ...')
+        msgbox.setIcon(QtWidgets.QMessageBox.Question)
+        msgbox.setText("Would you like to force program to use "+aname+" interface?")        
+        msgbox.addButton(QtWidgets.QPushButton('Yes'), QtWidgets.QMessageBox.YesRole)
+        msgbox.addButton(QtWidgets.QPushButton('No'), QtWidgets.QMessageBox.NoRole)
+        msgbox.setDefaultButton(QtWidgets.QMessageBox.No)
+        
+        result = msgbox.exec_()
+        #print(result)
+        if result == 0: #QtWidgets.QMessageBox.AcceptRole:                                 
+            self.change_interface_id.emit(self.CH.id)
+        
 
     def Test_text_Changed(self):
         self.Do_Test_Read()
@@ -1450,9 +1468,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.id=self.CH.id  
             self.Refresh_after_config_File_change()
     
-    def Force_CH_refresh_info_From_file(self,log):
-        self.CH.Setup_Command_Handler(log)   #Refresh info in CH 
-        self.CH.Init_Read_Interface_Configurations(self.CH.Required_read,self.CH.Required_interface,log) 
+    def Force_CH_refresh_info_From_file(self,alog):
+        self.CH.Setup_Command_Handler(alog)   #Refresh info in CH 
+        self.CH.Init_Read_Interface_Configurations(self.CH.Required_read,self.CH.Required_interface,alog) 
     
     def PB_CCD_Set_Preview(self):            
         #print('clicked')

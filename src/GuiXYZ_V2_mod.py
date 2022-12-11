@@ -5,6 +5,7 @@ Python 3.7 pyQt5
 @author: F. Garcia
 """
 __author__ = "F. Garcia <fedetony@yahoo.com>"
+__version__ = "2.1"
 # Form implementation generated from reading ui file 'GuiXYZ_V1.ui'
 # All Ui interfaces:
 # Created by: PyQt5 UI code generator 5.13.0
@@ -210,11 +211,11 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
 
         block = self.firstVisibleBlock()
         blockNumber = block.blockNumber()
-        top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         bottom = top + self.blockBoundingRect(block).height()
 
         # Just to make sure I use the right font
-        height = self.fontMetrics().height()
+        height = int(self.fontMetrics().height())
         while block.isValid() and (top <= event.rect().bottom()):
             if block.isVisible() and (bottom >= event.rect().top()):
                 number = str(blockNumber + 1)
@@ -223,7 +224,7 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
                     painter.setPen(Qt.black)
                 else:
                     painter.setPen(Qt.red)
-                painter.drawText(0, top, self.lineNumberArea.width(), height, Qt.AlignRight, number)
+                painter.drawText(0, int(top), int(self.lineNumberArea.width()), int(height), Qt.AlignRight, number)
 
             block = block.next()
             top = bottom
@@ -332,6 +333,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         icon10a = QtGui.QIcon()
         icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.Icon_start=icon10a
+        windowicon = QtGui.QIcon()
+        windowicon.addPixmap(QtGui.QPixmap("img/eye-in-a-sky-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        MainWindow.setWindowIcon(windowicon)
+        MainWindow.setWindowTitle("XYZ Mover by FG V"+str(__version__))
         #--------------------------------------------------------        
         self.plaintextEdit_GcodeScript = QCodeEditor(self.groupBox_GcodeScript)        
         #self.plaintextEdit_GcodeScript.setGeometry(QtCore.QRect(10, 20, 431, 351))
@@ -360,8 +365,20 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.comboBox_GcodeStreamType.addItem("0")
         self.comboBox_GcodeStreamType.addItem("1")
         self.comboBox_GcodeStreamType.addItem("2")
+        self.comboBox_GcodeStreamType.addItem("3")
+        self.comboBox_GcodeStreamType.addItem("4")
+        self.comboBox_GcodeStreamType.addItem("5")
+        typeofstream='''typeofstream=0 Wait until each Command returns finish signal to send next one.(Slow) 
+typeofstream=1 Send all to machine and dont wait for response. 
+typeofstream=2 Send a number of lines and count the returns.
+typeofstream=3 No command interpretation. Wait until each Command returns finish signal to send next one.(Slow) 
+typeofstream=4 No command interpretation. Send all to machine and dont wait for response. 
+typeofstream=5 No command interpretation. Send a number of lines and count the returns.'''
+        
+        self.comboBox_GcodeStreamType.setToolTip(typeofstream)
+        
 
-        self.GcodeStreamType="1"
+        self.GcodeStreamType="5"
         index= self.comboBox_GcodeStreamType.findText(self.GcodeStreamType,QtCore.Qt.MatchFixedString)
         self.comboBox_GcodeStreamType.setCurrentIndex(index)
 
@@ -372,6 +389,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.CCDialog=class_CCD.CommandConfigurationDialog(self.Actual_Interface)
         
         self.CCDialog.file_update[str].connect(self.Configuration_Changed_Refresh)
+        self.CCDialog.change_interface_id[str].connect(self.Configuration_id_Changed)
         # Set Icons and status off
         self.Set_Icons_Status_OnOFF(False)
         
@@ -881,6 +899,15 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         if nb == 1: print('Single right click')
         else: print('Double right click')
     
+    def Configuration_id_Changed(self,newid):
+        self.Actual_Interface=newid
+        if self.XYZRobot_found==1:
+            log.info("Changing command handler configuration to id {}".format(newid))             
+            self.xyz_thread.CH.id=newid
+            self.xyz_thread.CH.Setup_Command_Handler(True)
+            aname=self.xyz_thread.CH.Get_action_format_from_id(self.xyz_thread.CH.Configdata,'interfaceName',self.xyz_thread.CH.id)
+            log.info("Command handler configuration {} Set".format(aname))             
+
     def Configuration_Changed_Refresh(self,afilename):
         #print(self.XYZRobot_found)
         if self.XYZRobot_found==1:
@@ -1223,7 +1250,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         except:       
             self.lineEdit_DeltaZ.setText(str(self.DeltaZ)) 
         try:
-            if self.lineEdit_Feedrate.text() is not '':
+            if self.lineEdit_Feedrate.text() != '':
                 value=int(self.lineEdit_Feedrate.text())
                 self.Feedrate=value
                 self.lineEdit_Feedrate.setText(str(self.Feedrate))    
@@ -1234,17 +1261,22 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
     def Move_Delta(self,DeltaX,DeltaY,DeltaZ):    
         self.Show_inbutton_pause()
-        self.Get_Actual_Pos()
-        self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
+        self.Get_Actual_Pos()                
+        self.ini_pos=[0*self.x_pos,0*self.y_pos,0*self.z_pos]                
         self.end_pos=[self.ini_pos[0]+DeltaX,self.ini_pos[1]+DeltaY,self.ini_pos[2]+DeltaZ]               
         if self.XYZRobot_found==1:
-            log.info("Going to: X = " + str(self.end_pos[0]) + ", Y = " + str(self.end_pos[1])+", Z = " + str(self.end_pos[2]))            
+            #Set relative movement
+            self.xyz_thread.send_queue_command('relativePositioning',{},True)                        
+            log.info("Delta Move: dX = " + str(DeltaX) + ", dY = " + str(DeltaY)+", dZ = " + str(DeltaZ))            
             if self.Feedrate==None:
                 self.xyz_thread.goto_xyz(self.end_pos[0],self.end_pos[1],self.end_pos[2])
             else:
                 self.xyz_thread.goto_xyzf(self.end_pos[0],self.end_pos[1],self.end_pos[2],self.Feedrate)                        
+            #Set absolute movement            
+            self.xyz_thread.send_queue_command('absolutePositioning',{},True)
         else:
             log.info("XYZ Robot Not Found for Moving") 
+
     def PB_Gcodesend(self):
         gcodeline=self.lineEdit_Gcode.text()
         log.info("Sending Gcode: "+gcodeline)
@@ -1750,7 +1782,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.COMBaudRate=self.comboBox_ConnSpeed.currentText()
     
     def ComboBox_Select_GcodeStreamType(self):
-        self.GcodeStreamType=self.comboBox_GcodeStreamType.currentText()      
+        self.GcodeStreamType=self.comboBox_GcodeStreamType.currentText()                              
     
     def PB_Connect(self):
         if self.StatusConnected==False:
@@ -1905,7 +1937,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
             self.Z = self.z_pos    
             self.lineEdit_Z.setText(str(self.Z))  
         try :
-            if self.lineEdit_Feedrate.text() is '':
+            if self.lineEdit_Feedrate.text() == '':
                 self.Feedrate=None
             else:    
                 self.Feedrate = int(self.lineEdit_Feedrate.text())
@@ -1920,9 +1952,13 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.Set_Actual_Position_Values(self.X,self.Y,self.Z)        
         self.Get_Actual_Pos()
         if self.XYZRobot_found==1:
-            self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)            
+            self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)   
+            #Show new position         
+            self.xyz_thread.status_Report()
+            self.xyz_thread.grbl_status()
+            self.ST.Signal_Data(self.xyz_update_thread.read())
         else:            
-            log.info("XYZ Robot not Connected for setting Position")                
+            log.info("XYZ Robot not Connected for setting Position")  
 
     def PB_Go(self):  
         self.Show_inbutton_pause()
@@ -1930,8 +1966,10 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         self.end_pos=[self.X,self.Y,self.Z]               
         self.ini_pos=[self.x_pos,self.y_pos,self.z_pos]                
         if self.XYZRobot_found==1:
-            log.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))
-            #self.XYZRobot_port.write(str.encode('g0 x' + str(self.X) + ' y' + str(self.Y)+ ' z' + str(self.Z) + '\n'))
+            log.info("Going to: X = " + str(self.X) + ", Y = " + str(self.Y)+", Z = " + str(self.Z))            
+            #Set absolute movement            
+            self.xyz_thread.send_queue_command('absolutePositioning',{},True)
+
             if self.Feedrate==None:
                 self.xyz_thread.goto_xyz(self.X,self.Y,self.Z)
             else:

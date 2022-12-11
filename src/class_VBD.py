@@ -44,7 +44,7 @@ from PyQt5.QtGui import QDragEnterEvent
 from PyQt5.QtWidgets import QFrame
 
 
-
+from math import *
 import re
 import logging
 import GuiXYZ_VBD
@@ -153,7 +153,7 @@ class VBD_Button_set(QtWidgets.QWidget):
             self.frame.setContentsMargins(MS,MS,MS,MS) #(left, top, right, bottom)
             self.frame.setMinimumSize(QSize(2*MS, 2*MS))
         except Exception as e:
-            print("Frame Margin:",e)
+            #print("Frame Margin:",e)
             pass
         self.frame.resize(int(W),int(H))
         self.resize(int(W),int(H))
@@ -1892,6 +1892,84 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             pass
         self.set_d('MarginSize',myMsize,True)
         self.DVBDui.lineEdit_VBDD_MarginSize.setText(str(myMsize))
+        
+
+    def Transform_text_Changed(self, atxt):
+        try:
+            #acomp=compile(atxt) #->fileneame (macro)
+            #value=eval(acomp)
+            #import math
+            #           
+            #mathdir=math.__dict__
+            #mathdict={}
+            #for iii in mathdir:
+            #    if '_' not in iii:
+            #        mathdict.update({str(iii):iii})
+            #print(mathdict)
+            #value=eval(atxt,mathdict)            
+            #print(dir())
+            #print(globals())
+            #print(locals())
+            globlsparam = {'__builtins__' : {'exp':exp,'pi':pi,'sin':sin,'cos':cos,'tan':tan,'sqrt':sqrt,'abs':abs,'CH':self.CH}}                        
+            #globlsparam = {'__builtins__' : None}  # -> Nothing except simple math: add subtract multiply           
+            #localsparam = {'myfunc1': myfunc1}
+
+            #exec('myfunc1', globlsparam, localsParameter) # valid
+            #exec('myfunc2', globlsparam, localsparam) # throws error            
+            #value=eval(atxt) # -> is allowing anything to run in the line (Safety critical) -> CH functions too
+            value=eval(atxt,globlsparam) 
+            print("Evaluated Value:",value)
+            #value=eval('dir()') 
+            #print("Evaluated Value:",value)
+            
+
+            #code = compile("4 / 3 * math.pi * math.pow(25, 3)", "<string>", "eval")
+            #value =eval(code)
+            #print("Evaluated Value:",value)
+            #code=compile('(99 if (8>3) else 0.45)+(2 if (8>3) else 0)*math.pi/math.tau', "<string>", "eval")
+            #value =eval(code)
+            #print("Evaluated Value:",value)
+            '''
+            filename='C:\\Users\\fg\\Documents\\BI Tonyswork\\05_Software\\01_Python\\xyz Gui\\src\\macros\\X_gt_Y.py'
+            source=self.Open_macro_file(filename)
+            mode='exec'
+            acomp=compile(source, filename, mode)            
+            loc={}
+            print('Compiled ok')
+            exec(acomp, globals(), loc)    
+            #exec('C:\\Users\\fg\\Documents\\BI Tonyswork\\05_Software\\01_Python\\xyz Gui\\src\\macros\\X_gt_Y',globals(), loc)
+            print('Executed ok',loc)
+            #loc=locals()        
+            #value=locals()['return_me']            
+            #value =eval(acomp)
+            print("Executed Value:",value)
+            the_code = 'a = 1\nb = 2\nreturn_me = a + b\n'
+            loc = {}
+            exec(the_code, globals(), loc)   
+            print(loc)         
+            return_workaround = loc['return_me']
+            #thi shall work too
+            #exec(the_code)
+            #return_workaround = locals()['return_me'] 
+            print(return_workaround)  # 3
+            '''
+        except Exception as e:
+            log.error("Bad Transform code:")
+            log.error(e)
+            pass
+
+    def Open_macro_file(self,filename):
+        datatxt=''
+        try:                
+            with open(filename, 'r') as yourFile:
+                #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
+                datatxt=yourFile.read()
+                #linelist=yourFile.readlines() #makes list of lines  
+            yourFile.close()                
+        except Exception as e:
+            log.error(e)
+            log.info("Macro File could not be read!")
+        return datatxt
             
 
     def Connect_Data_buttons(self):
@@ -1929,6 +2007,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.lineEdit_VBDD_Size_X.textEdited.connect(self.Size_X_Changed)
         self.DVBDui.lineEdit_VBDD_Size_Y.textEdited.connect(self.Size_Y_Changed)
         self.DVBDui.lineEdit_VBDD_MarginSize.textEdited.connect(self.MarginSize_Changed)
+        self.DVBDui.lineEdit_VBTD_Transform.textEdited.connect(self.Transform_text_Changed)
         #self.DVBDui.lineEdit_VBPD_Add_Param.textEdited.connect(self.Parameter_Line_Changed)
         self.DVBDui.plainTextEdit_VBDD_Gcode.textChanged.connect(self.Gcode_Change)
         self.DVBDui.plainTextEdit_VBDD_Gcode_2.textChanged.connect(self.Gcode_Change_2)
