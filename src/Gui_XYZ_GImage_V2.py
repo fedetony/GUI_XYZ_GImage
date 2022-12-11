@@ -4,8 +4,17 @@ Created on 16.06.2020
 Python 3.7 pyQt5
 @author: F. Garcia
 """
-__author__ = "F. Garcia <fedetony@yahoo.com>"
-__version__ = "2.1"
+__author__ = "FG"
+__authorname__ = "Federico García"
+__version__="2.1.0 Beta"
+__creationdate__="16.06.2020"
+__gitaccount__="<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
+__CR__="Copyright (C) <year> "+__authorname__
+__CRstatement__="""This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details."""
+
 # Form implementation generated from reading ui file 'GuiXYZ_V1.ui'
 # All Ui interfaces:
 # Created by: PyQt5 UI code generator 5.13.0
@@ -321,7 +330,21 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         #self.LH_T=class_LogHandler.Log_Update(self.kill_log_ev) 
         #self.LH_T.start()
            
-
+    def Show_aboutbox(self):
+        title='About '+self.Metitle
+        now = datetime.datetime.now()
+        year = str(now.strftime("%Y"))
+        thecr=str(__CR__.replace('<year>',year))
+        amsg='<h1 style="font-size:160%;color:red;">Programmed with love</h1>'+'<h1 style="font-size:160%;color:black;">by '+ __author__+'</h1> <p style="color:black;">github: '+__gitaccount__+'</p> <p style="color:black;"> Current version: V'+__version__+'</p> <p style="color:black;">Creation date: '+__creationdate__+'</p> <p style="font-size:25%;color:black;"><small>'+thecr+'</small></p> <p style="font-size:25%;color:black;"><small>'+__CRstatement__+"</small></p>"          
+        msgbox = QtWidgets.QMessageBox()
+        msgbox.setWindowTitle(title)
+        msgbox.setWindowIcon(self.iconMain)
+        if self.iconMainpixmap!=None:            
+            thepm=self.iconMainpixmap.scaled(160,160, QtCore.Qt.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation)#QtCore.Qt.FastTransformation)         
+            msgbox.setIconPixmap(thepm)
+        msgbox.setText(amsg)           
+        msgbox.setTextFormat(QtCore.Qt.RichText)
+        msgbox.exec_()
 
     def setupUi2(self, MainWindow):   
         # Before you copy -paste here all Object code, now is called directly from GuiXYZ_V1.py
@@ -334,9 +357,12 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.Icon_start=icon10a
         windowicon = QtGui.QIcon()
-        windowicon.addPixmap(QtGui.QPixmap("img/eye-in-a-sky-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.iconMainpixmap=QtGui.QPixmap("img/eye-in-a-sky-icon.png")
+        windowicon.addPixmap(self.iconMainpixmap, QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.iconMain=windowicon
         MainWindow.setWindowIcon(windowicon)
-        MainWindow.setWindowTitle("XYZ Mover by FG V"+str(__version__))
+        self.Metitle="XYZ Mover by FG V"+str(__version__)
+        MainWindow.setWindowTitle(self.Metitle)
         #--------------------------------------------------------        
         self.plaintextEdit_GcodeScript = QCodeEditor(self.groupBox_GcodeScript)        
         #self.plaintextEdit_GcodeScript.setGeometry(QtCore.QRect(10, 20, 431, 351))
@@ -627,6 +653,8 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         self.actionResize.triggered.connect(self.Open_ResizeToolDialog)
         self.actionCommand_Configuration.triggered.connect(self.Open_CommandConfigurationDialog)
         self.actionTranslate_Code.triggered.connect(self.Open_TranslateToolDialog)
+        #Aboutbox
+        self.actionAbout.triggered.connect(self.Show_aboutbox)
         
         self.comboBox_ConfigItem.currentIndexChanged.connect(self.Combo_config_Select)
         self.tableWidget_Config.cellClicked.connect(self.Config_Table_cellClick)
@@ -705,7 +733,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         self.IsRunning_event= threading.Event()
         self.IsRunning_event.clear()
         self.XYZRobot_com_port ='COM12'
-        self.Version ='2.0.3'
+        self.Version =__version__
         self.author=__author__ 
         self.state_xyz=0
         self.Status=''

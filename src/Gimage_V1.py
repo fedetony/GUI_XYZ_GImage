@@ -216,11 +216,11 @@ class GImage:
             for jjj in range(0,height):
                 data = self.imp.getpixel((iii,jjj))                    
                 if type(data) == tuple:
-                    if channel is 'R' or channel is 0:        
+                    if channel == 'R' or channel == 0:        
                         self.imp.putpixel((iii,jjj),(data[0], 0, 0))     
-                    if channel is 'G' or channel is 1:        
+                    if channel == 'G' or channel == 1:        
                         self.imp.putpixel((iii,jjj),(0, data[1], 0))         
-                    if channel is 'B' or channel is 2:        
+                    if channel == 'B' or channel == 2:        
                         self.imp.putpixel((iii,jjj),(0, 0, data[2]))
 
     def Retain_Selected_Layers(self,Selected_Layer_List):
@@ -753,9 +753,9 @@ class GImage:
                         return str(self.Image_Config_Data[Variable])    
                     if thetype=='bool':
                         aval=str(self.Image_Config_Data[Variable])
-                        if 'True' in aval or 'true' in aval or aval is '1' or aval is 'T':
+                        if 'True' in aval or 'true' in aval or aval == '1' or aval == 'T':
                             return True
-                        elif 'False' in aval or 'false' in aval or aval is '0' or aval is 'F':
+                        elif 'False' in aval or 'false' in aval or aval == '0' or aval == 'F':
                             return False      
                         else:    
                             return ''    
@@ -1045,7 +1045,7 @@ class Image_Gcode_Stream(threading.Thread):
             self.movement_length=0
             self.print_Layer_length=[]
             self.lastCount_positionXYZ=[0,0,0,Gimage_Data.Ztouch_pos]
-            if Gimage_Data.Ini_Script is not '':                 
+            if Gimage_Data.Ini_Script != '':                 
                 self.Gimage_Code=self.Gimage_Code+Gimage_Data.Ini_Script.replace('\\n','\n')                
             self.Gimage_Code=self.Gimage_Code+self.Do_a_Tool_Change(Gimage_Data.Tool_Change_XYZpos,Gimage_Data.Tool_Change,Zinfo,Gimage_Data.Tool_Change_Script)
             if Gimage_Data.Frame_Image==1:
@@ -1061,7 +1061,7 @@ class Image_Gcode_Stream(threading.Thread):
                 self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Accumulative(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage) 
             if self.Technique=='Vectorize':
                 self.Gimage_Code=self.Gimage_Code+self.Write_Gimage_Code_Vectorize(pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage)               
-            if Gimage_Data.End_Script is not '':             
+            if Gimage_Data.End_Script != '':             
                 self.Gimage_Code=self.Gimage_Code+Gimage_Data.End_Script.replace('\\n','\n')
             log.info(self.Technique+' Process Finished')   
                
@@ -1080,7 +1080,7 @@ class Image_Gcode_Stream(threading.Thread):
         Lcode=''
         if Tool_Change==True:            
             TC_script=Tool_Change_Script.replace('\\n','\n')     
-            if '\n' not in TC_script and TC_script is not '':
+            if '\n' not in TC_script and TC_script != '':
                 TC_script=TC_script+'\n'                      
             [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)    #is_up=False go to Move position,is_up=True go to touch position        
             Lcode=Lcode+Lcodeadd
@@ -1401,7 +1401,7 @@ class Image_Gcode_Stream(threading.Thread):
             Gimgcode=Gimgcode+' F'+str(fff)
         if eee!=None:
             Gimgcode=Gimgcode+' E'+str(eee)   
-        if aaachar is not '':
+        if aaachar != '':
             Gimgcode=Gimgcode+' '+aaachar              
         if aaa!=None:
             Gimgcode=Gimgcode+str(aaa) 

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>880</width>
+    <width>963</width>
     <height>654</height>
    </rect>
   </property>
@@ -1368,8 +1368,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>880</width>
-     <height>22</height>
+     <width>963</width>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1428,8 +1428,15 @@
     <addaction name="actionTranslate_Code"/>
     <addaction name="separator"/>
    </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>About</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
+   <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen">
@@ -1505,6 +1512,11 @@
   <action name="actionTranslate_Code">
    <property name="text">
     <string>Translate Code</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>

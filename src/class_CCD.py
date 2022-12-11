@@ -162,7 +162,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             formatlist=self.CH.Configdata[action]
             idlist=self.CH.Configdata['interfaceId']
             for jjj in range(len(formatlist)):
-                if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
+                if formatlist[jjj] != '' and  idlist[jjj]!= self.id:
                     msgtxt="Can't delete this action. Formats in other ids!"
                     log.error(msgtxt)
                     self.DCCui.label_CCD_testResult.setText(msgtxt)
@@ -235,7 +235,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             formatlist=self.CH.InterfaceConfigallids[action]
             idlist=self.CH.InterfaceConfigallids['interfaceId']
             for jjj in range(len(formatlist)):
-                if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
+                if formatlist[jjj] != '' and  idlist[jjj]!= self.id:
                     msgtxt="Can't delete this action. Formats in other ids!"
                     log.error(msgtxt)
                     self.DCCui.label_CCD_testIntResult.setText(msgtxt)
@@ -301,7 +301,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             formatlist=self.CH.ReadConfigallids[action]
             idlist=self.CH.ReadConfigallids['interfaceId']
             for jjj in range(len(formatlist)):
-                if formatlist[jjj] is not '' and  idlist[jjj]!= self.id:
+                if formatlist[jjj] != '' and  idlist[jjj] != self.id:
                     msgtxt="Can't delete this Read action. Formats exist in other ids!"
                     log.error(msgtxt)
                     self.DCCui.label_CCD_testreadResult.setText(msgtxt)
@@ -1302,7 +1302,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 Tpar=self.DCCui.tableWidget_CCD_actionParam.item(row, 0).text()             
                 Tvalue=self.DCCui.tableWidget_CCD_actionParam.item(row, 1).text()            
                 for param in Parameters:
-                    if param == Tpar and Tvalue is not '':
+                    if param == Tpar and Tvalue != '':
                         newparam.update({param:Tvalue})
                         break
         except:

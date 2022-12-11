@@ -1346,7 +1346,7 @@ class Command_Handler:
         _action_code_ key holds the action code line        
         '''    
         actionparamsfound={}
-        if Gcode is not None or Gcode is not '':
+        if Gcode != None or Gcode != '':
             #allactions=self.getListofActions(exceptlist=['interfaceId','interfaceName'])
             if interface_id is None:
                 interface_id=self.id            
@@ -1605,7 +1605,7 @@ class Command_Handler:
     def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid,typeofload=0):
         idlist=data['interfaceId']
         #oldFormat=self.Get_action_format_from_id(data,anaction,anid)       
-        if anaction is None or anaction is '':
+        if anaction == None or anaction == '':
             return '','' 
         newFormat=aFormat
         oldline='<'+anaction+'>'
@@ -1831,7 +1831,7 @@ class Command_Handler:
             info=''
             pass
         #print('before:',info)
-        if info is '':
+        if info == '':
             return info    
         readid=anid    
         #print('here ',readid)

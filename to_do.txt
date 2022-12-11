@@ -1,5 +1,14 @@
+known bugs:
+G1 and G17 get confussed
+multiline Gcode not recognized
 
 Todo:
+Set moving arrows icons for different machines axis configurations .. not only XYZ, but A,E UVW for 5 axis 6 axis or N axis configurations.
+Simplify configuration files to json style.
+Add about box
+Make log update window to not need console to run program and configure.
+Make documentation on how to use. Is even difficult for me to use some of the features.
+Translate is too slow!!!
 
 (Done)-Get Marlin config 
 -Get Machine info info from Config: ACC max feedrate steps/mm etc...

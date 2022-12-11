@@ -1,0 +1,13 @@
+22-12-11 16:38 [INFO] (MainThread) Checking configuration in:config/defaultConfig.cccfg
+22-12-11 16:38 [INFO] (MainThread) 	-Minimum Amount Check Passed:True
+22-12-11 16:38 [INFO] (MainThread) 	-Id Check Passed:True
+22-12-11 16:38 [INFO] (MainThread) 	-Amount of Formats Check Passed:True
+22-12-11 16:38 [INFO] (MainThread) 	-Required actions Check Passed:True
+22-12-11 16:38 [INFO] (MainThread) 	-Parenthesees Check Passed:True
+22-12-11 16:38 [INFO] (MainThread) Opening:config/defaultConfig.cccfg
+22-12-11 16:38 [INFO] (MainThread) Opening:config/defaultConfig.cccfg
+22-12-11 16:38 [INFO] (MainThread) Opening:config/defaultConfig.cccfg
+22-12-11 16:38 [WARNING] (MainThread) Position unknown!
+22-12-11 16:38 [WARNING] (MainThread) Position unknown!
+22-12-11 16:38 [INFO] (MainThread) XYZ Robot not Connected for setting Position
+cted for setting Position

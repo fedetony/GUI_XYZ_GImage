@@ -1,0 +1,12 @@
+All ui files are converted automatically and not modified in the code. Every .ui file has a correspondant .py file.
+Use command to generate them: 
+python -m PyQt5.uic.pyuic -x GuiXYZ_V1.ui -o GuiXYZ_V1.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_CommandConfigurationDialog.ui -o GuiXYZ_CCD.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_LayerSelectToolDialog.ui -o GuiXYZ_LSTD.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_ResizeToolDialog.ui -o GuiXYZ_RTD.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_TranslateToolDialog.ui -o GuiXYZ_TTD.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_VariableButtonDataDialog.ui -o GuiXYZ_VBDD.py
+python -m PyQt5.uic.pyuic -x GuiXYZ_VariableButtonDialog.ui -o GuiXYZ_VBD.py
+
+Object Names contain the ui file letters as convention.
+
