@@ -19,29 +19,29 @@
 #from PyQt5.QtCore import Qt
 #from PyQt5.QtCore import QMimeData
 
-from PyQt5 import QtCore, QtGui, QtWidgets 
-from PyQt5.QtCore import QObject
-from PyQt5.QtWidgets import QApplication
+from PyQt6 import QtCore, QtGui, QtWidgets 
+from PyQt6.QtCore import QObject
+from PyQt6.QtWidgets import QApplication
 
-from PyQt5.QtWidgets import * 
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtGui import * 
-from PyQt5.QtCore import * 
+from PyQt6.QtWidgets import * 
+from PyQt6.QtWidgets import QWidget
+from PyQt6.QtGui import * 
+from PyQt6.QtCore import * 
 #from PyQt5.QtWidgets import QTableWidget
-from PyQt5.QtWidgets import QTableWidgetItem
-from PyQt5.QtWidgets import QGroupBox
-from PyQt5.QtCore import QPoint
-from PyQt5.QtWidgets import QSizePolicy
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QCursor
-from PyQt5.QtGui import QColor
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtCore import QMimeData
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QDrag
-from PyQt5.QtGui import QDragEnterEvent
-from PyQt5.QtWidgets import QFrame
+from PyQt6.QtWidgets import QTableWidgetItem
+from PyQt6.QtWidgets import QGroupBox
+from PyQt6.QtCore import QPoint
+from PyQt6.QtWidgets import QSizePolicy
+from PyQt6.QtCore import QSize
+from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtCore import QMimeData
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QDrag
+from PyQt6.QtGui import QDragEnterEvent
+from PyQt6.QtWidgets import QFrame
 
 
 from math import *
@@ -88,12 +88,12 @@ class Dnd_CustomGroupbox(QGroupBox):
         self.new_position.emit(newpos)
         
 
-    def dropEvent(self, e):      
+    def dropEvent(self, e:QDropEvent):      
         if self.melock==True:
             return          
         # find the widget under the cursor
         target=e.source()
-        position = e.pos()
+        position = QPoint(int(e.position().x()), int(e.position().y()))
         # Receive the sent data
         # Correct the widget position by calculating the mouse position value at the time of the grab
         offset = e.mimeData().data("application/hotspot")
@@ -204,11 +204,11 @@ class VBD_Button_set(QtWidgets.QWidget):
         x,y,W,H=self.get_size_position()
         self.frame.setGeometry(QtCore.QRect(int(x), int(y),int(W), int(H) ))    
         self.frame.setMinimumSize(QSize(40, 40))
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         self.frame.setSizePolicy(sizePolicy)    
         self.frame.setMouseTracking(True)
-        self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.frame.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
+        self.frame.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
         self.frame.setObjectName("frame")        
         
         #self.splitter = QtWidgets.QSplitter(self.frame)
@@ -225,15 +225,15 @@ class VBD_Button_set(QtWidgets.QWidget):
         try:
             if self.batton_data['Icon']!=None:
                 icon = QtGui.QIcon()
-                icon.addPixmap(QtGui.QPixmap(self.batton_data['Icon']), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                icon.addPixmap(QtGui.QPixmap(self.batton_data['Icon']), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.pushButton.setIcon(icon)
         except:
             pass
         self.pushButton.setObjectName("pushButton")        
         self.pushButton.setText(self.batton_data['Name'])
         
-        self.pushButton.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.pushButton.setCursor(QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.pushButton.setSizePolicy(sizePolicy)
         self.verticalLayout.addWidget(self.pushButton)
         
@@ -538,7 +538,7 @@ class VBD_Button_set(QtWidgets.QWidget):
                 
     def Set_button_icon(self,iconfilename):
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(iconfilename), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(iconfilename), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton.setIcon(icon)
         PBsize=self.pushButton.size()
         self.pushButton.setIconSize(PBsize)
@@ -609,7 +609,7 @@ class VBD_Button_set(QtWidgets.QWidget):
         #self.tableWidget.clear()
         self.tableWidget.setRowCount(Table_NumRows)
         self.tableWidget.setHorizontalHeaderLabels(["Par", "Val","Const"])
-        self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+        self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
         iii=0        
         for ccc in ReqOpParamsdict:  
             if Showingparam[ccc]==True: 
@@ -651,7 +651,7 @@ class VBD_Button_set(QtWidgets.QWidget):
         #self.tableWidget_2.clear()
         self.tableWidget_2.setRowCount(Table_NumRows)
         self.tableWidget_2.setHorizontalHeaderLabels(["Par", "Val","Const"])
-        self.tableWidget_2.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+        self.tableWidget_2.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
         iii=0        
         for ccc in ReqOpParamsdict:  
             if Showingparam[ccc]==True: 
@@ -710,7 +710,7 @@ class VBD_Button_set(QtWidgets.QWidget):
     
     # overriding the mousePressEvent method 
     def mouseReleaseEvent(self, event): 
-        self.setCursor(QCursor(QtCore.Qt.ArrowCursor))
+        self.setCursor(QCursor(QtCore.Qt.CursorShape.ArrowCursor))
     
     def mouseMoveEvent(self, e: QMouseEvent): 
         # Left button is for click, so right button input is allowed
@@ -719,20 +719,20 @@ class VBD_Button_set(QtWidgets.QWidget):
         dx=5
         dy=5        
 
-        if e.buttons() == Qt.LeftButton:
+        if e.buttons() == Qt.MouseButton.LeftButton:
             self.focused_id.emit(self.batton_data['key_id'])
             #print('Frame:',self.frame.geometry(),'epos:',e.pos())        
-            if e.buttons() == Qt.LeftButton and e.x()>=Wf-dx and e.y()>=Hf-dy:   
+            if e.buttons() == Qt.MouseButton.LeftButton and e.position().x()>=Wf-dx and e.position().y()>=Hf-dy:   
                 self.focused_id.emit(self.batton_data['key_id'])
-                self.setCursor(QCursor(QtCore.Qt.SizeFDiagCursor))         
-                self.batton_data.update({'Size':(e.x(),e.y())})  
+                self.setCursor(QCursor(QtCore.Qt.CursorShape.SizeFDiagCursor))         
+                self.batton_data.update({'Size':(e.position().x(),e.position().y())})  
                 self.Frame_Resize()            
-        elif e.buttons() == Qt.RightButton:    
+        elif e.buttons() == Qt.MouseButton.RightButton:    
             #self.setCursor(QCursor(QtCore.Qt.ClosedHandCursor))
             # Declaration of MIME object for data transmission
             # Save data type and data to be sent in Bytes 
             mime_data = QMimeData()
-            mime_data.setData("application/hotspot", b"%d %d" % (e.x(), e.y()))
+            mime_data.setData("application/hotspot", b"%d %d" % (e.position().x(), e.position().y()))
             drag = QDrag(self)
             # Set MIME type data to Drag
             drag.setMimeData(mime_data)
@@ -743,12 +743,11 @@ class VBD_Button_set(QtWidgets.QWidget):
             self.render(pixmap)
             drag.setPixmap(pixmap)        
             drag.setHotSpot(e.pos() - self.rect().topLeft())                       
-            drag.exec_(Qt.MoveAction)
-        
-        if e.x()>=Wf-dx and e.y()>=Hf-dy:   
-           self.setCursor(QCursor(QtCore.Qt.SizeFDiagCursor))  
+            drag.exec(Qt.DropAction.MoveAction)
+        if e.position().x()>=Wf-dx and e.position().y()>=Hf-dy:   
+           self.setCursor(QCursor(QtCore.Qt.CursorShape.SizeFDiagCursor))  
         else:
-           self.setCursor(QCursor(QtCore.Qt.ArrowCursor))
+           self.setCursor(QCursor(QtCore.Qt.CursorShape.ArrowCursor))
     
     def Copy_data(self,adict):
         newdict={}
@@ -905,7 +904,7 @@ class VBD_Button_set(QtWidgets.QWidget):
                     iii=iii+1
                 tableWidget.setHorizontalHeaderLabels(alphabets_in_capital)
 
-            tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+            tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
             iii=0              
             Parameters=batton_data['Params']  
             Showingparam=batton_data['ShowingParams']  
@@ -1288,7 +1287,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         if batton_data['Icon'] is not None:
             try:
                 icon = QtGui.QIcon()
-                icon.addPixmap(QtGui.QPixmap(batton_data['Icon']), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                icon.addPixmap(QtGui.QPixmap(batton_data['Icon']), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.Dialog_VBDD.setWindowIcon(icon)
             except Exception as e:
                 log.error("Batton Icon:")
@@ -1318,7 +1317,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DVBDui.label_VBDD_CHid.setText('Actual interface: '+aname)
             self.DVBDui.label_VBPD_CHid.setText('Actual interface: '+aname)
-        index= self.DVBDui.comboBox_VBDD_CHid.findText(batton_data['Force_id'],QtCore.Qt.MatchFixedString)
+        index= self.DVBDui.comboBox_VBDD_CHid.findText(batton_data['Force_id'],QtCore.Qt.MatchFlag.MatchFixedString)
         self.DVBDui.comboBox_VBDD_CHid.setCurrentIndex(index) 
         # Set Name
         self.DVBDui.lineEdit_VBDD_Name.setText(batton_data['Name'])
@@ -1326,11 +1325,11 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         index=0
         if batton_data['action'] == '' and batton_data['Batton_is'] != 'action':
            is_action=False
-           #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString) 
+           #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFlag.MatchFixedString) 
            index=0
         else:
             if self.CH.Is_action_in_Config(batton_data['action'])==True:
-                index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString)
+                index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFlag.MatchFixedString)
                 is_action=True     
                 batton_data['Batton_is']='action'           
             else:
@@ -1427,7 +1426,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         # Second state
         #---------------------------------------------------------------------------------
         try:
-            index=self.DVBDui.comboBox_VBDD_batton_type.findText(batton_data['Batton_type'],QtCore.Qt.MatchFixedString)
+            index=self.DVBDui.comboBox_VBDD_batton_type.findText(batton_data['Batton_type'],QtCore.Qt.MatchFlag.MatchFixedString)
             self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)                      
         except Exception as e:
             #print(e)
@@ -1435,7 +1434,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.comboBox_VBDD_batton_type.setCurrentIndex(index)                                  
             pass
         try:            
-            index=self.DVBDui.comboBox_VBDD_batton_type_2.findText(batton_data['Batton_type_2'],QtCore.Qt.MatchFixedString)
+            index=self.DVBDui.comboBox_VBDD_batton_type_2.findText(batton_data['Batton_type_2'],QtCore.Qt.MatchFlag.MatchFixedString)
             self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)          
         except Exception as e:
             #print(e)
@@ -1485,18 +1484,18 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         else:
             aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DVBDui.label_VBDD_CHid_2.setText('Actual interface: '+aname)
-        index= self.DVBDui.comboBox_VBDD_CHid_2.findText(batton_data['Force_id_2'],QtCore.Qt.MatchFixedString)
+        index= self.DVBDui.comboBox_VBDD_CHid_2.findText(batton_data['Force_id_2'],QtCore.Qt.MatchFlag.MatchFixedString)
         self.DVBDui.comboBox_VBDD_CHid_2.setCurrentIndex(index) 
         
         # Set action
         index=0
         if batton_data['action_2'] == '' and batton_data['Batton_is_2']!='action':
            is_action_2=False
-           #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFixedString) 
+           #index= self.DVBDui.comboBox_VBDD_action.findText(batton_data['action'],QtCore.Qt.MatchFlag.MatchFixedString) 
            index=0
         else:
             if self.CH.Is_action_in_Config(batton_data['action_2'])==True:
-                index= self.DVBDui.comboBox_VBDD_action_2.findText(batton_data['action_2'],QtCore.Qt.MatchFixedString)
+                index= self.DVBDui.comboBox_VBDD_action_2.findText(batton_data['action_2'],QtCore.Qt.MatchFlag.MatchFixedString)
                 is_action_2=True
                 batton_data['Batton_is_2']='action'
             else:
@@ -2559,7 +2558,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.comboBox_VBDD_batton_type_2.clear()         
                                            
         try:            
-            index= self.DVBDui.comboBox_VBDD_batton_type.findText(self.Obj.batton_data['Batton_type'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_batton_type.findText(self.Obj.batton_data['Batton_type'],QtCore.Qt.MatchFlag.MatchFixedString)
             if index==-1:
                 index= 0     
         except:                     
@@ -2578,16 +2577,16 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             xxxname='('+xxxid+') '+str(self.Objs_Info[xObj])
             item = QtWidgets.QListWidgetItem()
             item.setText(xxxname)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)   
+            item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.CheckState.Unchecked)   
             #bckgnd=item.background()         
             if xxxid==my_id:                                
                 item.setBackground(color)
             self.DVBDui.listWidget_VBDD_Linkfrom.addItem(item)
             item2 = QtWidgets.QListWidgetItem()
             item2.setText(xxxname)
-            item2.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item2.setCheckState(QtCore.Qt.Unchecked)
+            item2.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+            item2.setCheckState(QtCore.Qt.CheckState.Unchecked)
             #bckgnd=item2.background()         
             if xxxid==my_id:                                 
                 item2.setBackground(color)
@@ -2597,7 +2596,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
           
         sel_bt=self.DVBDui.comboBox_VBDD_batton_type.currentText()          
         #print('Fill batton 2 call...',sel_bt)  
-        #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFixedString)
+        #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFlag.MatchFixedString)
         self.DVBDui.comboBox_VBDD_batton_type_2.clear()         
         if sel_bt == 'Push Button':            
             self.DVBDui.comboBox_VBDD_batton_type_2.addItem('')              
@@ -2624,13 +2623,13 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             print('in else')
             self.DVBDui.comboBox_VBDD_batton_type_2.addItem('') 
         try:            
-            index= self.DVBDui.comboBox_VBDD_batton_type_2.findText(self.Obj.batton_data['Batton_type_2'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_batton_type_2.findText(self.Obj.batton_data['Batton_type_2'],QtCore.Qt.MatchFlag.MatchFixedString)
             if index==-1:
                 index= 0     
         except:                     
             index= 0 
             pass                      
-        index= 0 #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFixedString)
+        index= 0 #index=self.DVBui.comboBox_VBDD_batton_type.findText('Push Button',QtCore.Qt.MatchFlag.MatchFixedString)
         self.DVBDui.comboBox_VBDD_batton_type_2.setCurrentIndex(index)          
 
     def Fill_General(self):
@@ -2669,7 +2668,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         self.DVBDui.comboBox_VBDD_batton_kind.addItem('Transform')
         self.DVBDui.comboBox_VBDD_batton_kind.addItem('Visualize-Sinks')                                  
         try:            
-            index= self.DVBDui.comboBox_VBDD_batton_kind.findText(self.Obj.batton_data['Batton_kind'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_batton_kind.findText(self.Obj.batton_data['Batton_kind'],QtCore.Qt.MatchFlag.MatchFixedString)
             #print("batton kind->",self.Obj.batton_data['Batton_kind'],index)
             if index==-1:
                 index= 0                 
@@ -2690,8 +2689,8 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.comboBox_VBDD_CHid.addItem(iii)     
             self.DVBDui.comboBox_VBPD_CHid.addItem(iii)     
         try:            
-            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFixedString)
-            index= self.DVBDui.comboBox_VBPD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFlag.MatchFixedString)
+            index= self.DVBDui.comboBox_VBPD_CHid.findText(self.Obj.batton_data['Force_id'],QtCore.Qt.MatchFlag.MatchFixedString)
             if index==-1:
                 index= 0
         except:                     
@@ -2710,7 +2709,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         for iii in self.CH.Configdata['interfaceId']:           
             self.DVBDui.comboBox_VBDD_CHid_2.addItem(iii)                          
         try:            
-            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id_2'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_CHid.findText(self.Obj.batton_data['Force_id_2'],QtCore.Qt.MatchFlag.MatchFixedString)
             if index==-1:
                 index= 0
         except:                     
@@ -2730,7 +2729,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
             self.DVBDui.comboBox_VBDD_action.addItem(iii)          
             self.DVBDui.comboBox_VBPD_action.addItem(iii)          
         try:            
-            index= self.DVBDui.comboBox_VBDD_action.findText(self.Obj.batton_data['action'],QtCore.Qt.MatchFixedString)            
+            index= self.DVBDui.comboBox_VBDD_action.findText(self.Obj.batton_data['action'],QtCore.Qt.MatchFlag.MatchFixedString)            
             if index==-1:
                 index= 0
         except:                     
@@ -2748,7 +2747,7 @@ class VariableButtonDataDialog(QtWidgets.QWidget,GuiXYZ_VBDD.Ui_Dialog_VBDD):
         for iii in allactions:           
             self.DVBDui.comboBox_VBDD_action_2.addItem(iii)          
         try:            
-            index= self.DVBDui.comboBox_VBDD_action_2.findText(self.Obj.batton_data['action_2'],QtCore.Qt.MatchFixedString)
+            index= self.DVBDui.comboBox_VBDD_action_2.findText(self.Obj.batton_data['action_2'],QtCore.Qt.MatchFlag.MatchFixedString)
             if index==-1:
                 index= 0
         except:                     
@@ -2845,7 +2844,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
             clicked = QtCore.pyqtSignal()
             def eventFilter(self, obj, event):            
                 if obj == widget:
-                    if event.type() == QtCore.QEvent.MouseButtonRelease:
+                    if event.type() == QtCore.QEvent.Type.MouseButtonRelease:
                         if obj.rect().contains(event.pos()):
                             self.clicked.emit()
                             # The developer can opt for .emit(obj) to get the object within the slot.
@@ -2889,9 +2888,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
     def init_icons(self):
         try:
             self.iconlocked = QtGui.QIcon()
-            self.iconlocked.addPixmap(QtGui.QPixmap("img/Action-lock-pink-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.iconlocked.addPixmap(QtGui.QPixmap("img/Action-lock-pink-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.iconunlocked = QtGui.QIcon()
-            self.iconunlocked.addPixmap(QtGui.QPixmap("img/Action-lock-silver-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.iconunlocked.addPixmap(QtGui.QPixmap("img/Action-lock-silver-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         except:
             log.error("icons img/Action-lock-pink-icon.png and/or img/Action-lock-silver-icon.png missing! ")
             self.iconlocked = None
@@ -2945,7 +2944,7 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         try:       
             if icon==None and iconfilename!='':     
                 icon = QtGui.QIcon()
-                icon.addPixmap(QtGui.QPixmap(iconfilename), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                icon.addPixmap(QtGui.QPixmap(iconfilename), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 apushButton.setIcon(icon)
                 #PBsize=apushButton.size()
                 #apushButton.setIconSize(PBsize)
@@ -2991,9 +2990,9 @@ class VariableButtonDialog(QWidget,GuiXYZ_VBD.Ui_Dialog_VBD):
         for iiiid,Obj in zip(self.VBD_H.Object_Key_List,self.VBD_H.Object_List):
             if iiiid is anid:
                 #Obj.frame.setStyleSheet("border: 2px solid blue;")
-                Obj.frame.setFrameShadow(QFrame.Plain)
+                Obj.frame.setFrameShadow(QFrame.Shadow.Plain)
             else:
-                Obj.frame.setFrameShadow(QFrame.Raised)
+                Obj.frame.setFrameShadow(QFrame.Shadow.Raised)
 
     def VBD_Deselect(self):
         #print('Pressed GB')
@@ -3393,7 +3392,7 @@ def main():
     anid='0'
     app = QtWidgets.QApplication(sys.argv)
     VBD_test=VariableButtonDialog(anid)                
-    sys.exit(app.exec_())   
+    sys.exit(app.exec())   
 
 if __name__ == '__main__':
     main()

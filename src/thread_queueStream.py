@@ -12,7 +12,7 @@ import re
 import io
 import sys
 import os
-from common import *
+# from common import *
 
 
 log = logging.getLogger(__name__)

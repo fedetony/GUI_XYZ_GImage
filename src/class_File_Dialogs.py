@@ -1,10 +1,11 @@
-from PyQt5.QtWidgets import *
+from PyQt6.QtWidgets import *
 
 class Dialogs(QWidget):
     def __init__(self):
         super().__init__()
-        self.options = QFileDialog.Options()
-        self.options |= QFileDialog.DontUseNativeDialog
+        # self.options = QFileDialog.options()
+        # self.options |= QFileDialog.Option.DontUseNativeDialog
+        self.options = QFileDialog.Option.DontUseNativeDialog
         self.dir=""
     def get_filter(self,filter):
         if filter==0:

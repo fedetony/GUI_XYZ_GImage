@@ -6,10 +6,10 @@ Python 3.7 pyQt5
 """
 # Created by: PyQt5 UI code generator 5.13.0
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 
-from PyQt5.QtWidgets import *
+from PyQt6.QtWidgets import *
 from PIL.ImageQt import ImageQt
 import re
 import io #TextIOWrapper

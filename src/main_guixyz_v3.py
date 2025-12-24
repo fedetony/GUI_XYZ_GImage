@@ -6,8 +6,8 @@ Python 3.7 pyQt5
 """
 __author__ = "FG"
 __authorname__ = "Federico García"
-__version__="2.1.0 Beta"
-__creationdate__="16.06.2020"
+__version__="3.1.0 Beta"
+__creationdate__= "20.12.2025" #"16.06.2020"
 __gitaccount__="<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
 __CR__="Copyright (C) <year> "+__authorname__
 __CRstatement__="""This program is distributed in the hope that it will be useful,
@@ -15,15 +15,15 @@ __CRstatement__="""This program is distributed in the hope that it will be usefu
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details."""
 
-# Form implementation generated from reading ui file 'GuiXYZ_V1.ui'
+# Form implementation generated from reading ui file 'guixyz_v3.ui'
 # All Ui interfaces:
 # Created by: PyQt5 UI code generator 5.13.0
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
+from PyQt6.QtCore import *
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import *
 from PIL.ImageQt import ImageQt
 
 import sys
@@ -32,10 +32,10 @@ import serial
 
 import datetime
 import time
-import csv
+# import csv
 import re
-import io #TextIOWrapper
-import binascii
+# import io #TextIOWrapper
+# import binascii
 import logging
 import queue
 import threading
@@ -76,7 +76,7 @@ import thread_Gcode_Stream
 import thread_XYZ_Update
 from Gimage_V1 import Image_Gcode_Stream 
 from Gimage_V1 import GImage 
-import GuiXYZ_V1
+import guixyz_v3 #GuiXYZ_V1
 import GuiXYZ_LSTD
 import GuiXYZ_CCD
 import GuiXYZ_RTD
@@ -112,11 +112,11 @@ class QLabel_altered(QLabel):
         self.left_click_count = self.right_click_count = 0
 
     def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.left_click_count += 1
             if not self.timer.isActive():
                 self.timer.start()
-        if event.button() == QtCore.Qt.RightButton:
+        if event.button() == QtCore.Qt.MouseButton.RightButton:
             self.right_click_count += 1
             if not self.timer.isActive():
                 self.timer.start()
@@ -176,7 +176,7 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
         while max_value >= 10:
             max_value /= 10
             digits += 1
-        space = 3 + self.fontMetrics().width('9') * digits
+        space = 3 + self.fontMetrics().averageCharWidth() * digits
         return space
 
     def updateLineNumberAreaWidth(self, _):
@@ -203,11 +203,11 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
             block = selection.cursor.block()
             blockNumber = block.blockNumber()          
             if blockNumber>=self.block_from-1 and blockNumber<self.block_to:
-                lineColor = QColor(Qt.blue).lighter(160)
+                lineColor = QColor(Qt.GlobalColor.blue).lighter(160)
             else:
-                lineColor = QColor(Qt.yellow).lighter(160)
+                lineColor = QColor(Qt.GlobalColor.yellow).lighter(160)
             selection.format.setBackground(lineColor)
-            selection.format.setProperty(QTextFormat.FullWidthSelection, True)            
+            selection.format.setProperty(QTextFormat.Property.FullWidthSelection, True)            
             selection.cursor.clearSelection()
             
             extraSelections.append(selection)
@@ -216,7 +216,7 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
     def lineNumberAreaPaintEvent(self, event):
         painter = QPainter(self.lineNumberArea)
 
-        painter.fillRect(event.rect(), Qt.lightGray)
+        painter.fillRect(event.rect(), Qt.GlobalColor.lightGray)
 
         block = self.firstVisibleBlock()
         blockNumber = block.blockNumber()
@@ -230,10 +230,10 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
                 number = str(blockNumber + 1)
                 
                 if blockNumber>=self.block_from-1 and blockNumber<self.block_to:
-                    painter.setPen(Qt.black)
+                    painter.setPen(Qt.GlobalColor.black)
                 else:
-                    painter.setPen(Qt.red)
-                painter.drawText(0, int(top), int(self.lineNumberArea.width()), int(height), Qt.AlignRight, number)
+                    painter.setPen(Qt.GlobalColor.red)
+                painter.drawText(0, int(top), int(self.lineNumberArea.width()), int(height), Qt.AlignmentFlag.AlignRight, number)
 
             block = block.next()
             top = bottom
@@ -248,9 +248,9 @@ class QCodeEditor(QtWidgets.QPlainTextEdit,QSyntaxHighlighter):
             try:
                 if not self.isReadOnly():                
                     selection = QTextEdit.ExtraSelection()
-                    lineColor = QColor(Qt.blue).lighter(160)
+                    lineColor = QColor(Qt.GlobalColor.blue).lighter(160)
                     selection.format.setBackground(lineColor)
-                    selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+                    selection.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
                     selection.cursor = QTextCursor(tb) #self.textCursor()
                     selection.cursor.clearSelection()
                     selection.cursor.setBlockCharFormat(fmt)
@@ -284,10 +284,10 @@ class MyWindow(QtWidgets.QMainWindow):
         result = QtWidgets.QMessageBox.question(self,
                       "Confirm Exit...",
                       "Are you sure you want to exit ?",
-                      QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
+                      QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
         event.ignore()
 
-        if result == QtWidgets.QMessageBox.Yes:
+        if result == QtWidgets.QMessageBox.StandardButton.Yes:
             #print('inside class')       
             # self.CCDialog      
             try:                
@@ -313,7 +313,7 @@ class MyWindow(QtWidgets.QMainWindow):
             ui.killer_event.set()            
             event.accept()
     
-class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
+class Ui_MainWindow_V2(guixyz_v3.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(Ui_MainWindow_V2, self).__init__(*args, **kwargs)  
         #Start the log queue  
@@ -340,25 +340,25 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
         msgbox.setWindowTitle(title)
         msgbox.setWindowIcon(self.iconMain)
         if self.iconMainpixmap!=None:            
-            thepm=self.iconMainpixmap.scaled(160,160, QtCore.Qt.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation)#QtCore.Qt.FastTransformation)         
+            thepm=self.iconMainpixmap.scaled(160,160, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation)#QtCore.Qt.FastTransformation)         
             msgbox.setIconPixmap(thepm)
         msgbox.setText(amsg)           
-        msgbox.setTextFormat(QtCore.Qt.RichText)
-        msgbox.exec_()
+        msgbox.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        msgbox.exec()
 
     def setupUi2(self, MainWindow):   
-        # Before you copy -paste here all Object code, now is called directly from GuiXYZ_V1.py
+        # Before you copy -paste here all Object code, now is called directly from guixyz_v3.py
         
         icon10 = QtGui.QIcon()
-        icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         #-------------------------------------------------------
         self.Icon_pause=icon10
         icon10a = QtGui.QIcon()
-        icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.Icon_start=icon10a
         windowicon = QtGui.QIcon()
         self.iconMainpixmap=QtGui.QPixmap("img/eye-in-a-sky-icon.png")
-        windowicon.addPixmap(self.iconMainpixmap, QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        windowicon.addPixmap(self.iconMainpixmap, QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.iconMain=windowicon
         MainWindow.setWindowIcon(windowicon)
         self.Metitle="XYZ Mover by FG V"+str(__version__)
@@ -385,7 +385,7 @@ class Ui_MainWindow_V2(GuiXYZ_V1.Ui_MainWindow):
 
         #Set default
         self.COMBaudRate="115200"
-        index= self.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFixedString)
+        index= self.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFlag.MatchFixedString)
         self.comboBox_ConnSpeed.setCurrentIndex(index)
 
         self.comboBox_GcodeStreamType.addItem("0")
@@ -405,7 +405,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         
 
         self.GcodeStreamType="5"
-        index= self.comboBox_GcodeStreamType.findText(self.GcodeStreamType,QtCore.Qt.MatchFixedString)
+        index= self.comboBox_GcodeStreamType.findText(self.GcodeStreamType,QtCore.Qt.MatchFlag.MatchFixedString)
         self.comboBox_GcodeStreamType.setCurrentIndex(index)
 
         self.Fill_COM_Combo()
@@ -601,10 +601,10 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             msgbox.setIcon(QtWidgets.QMessageBox.Question)
             msgbox.setText("Would you like to Resume the Stream? \nor\n"+
                         "Would you like to Stop the Stream?")
-            msgbox.addButton(QtWidgets.QPushButton('Resume'), QtWidgets.QMessageBox.AcceptRole)
-            msgbox.addButton(QtWidgets.QPushButton('Stop'), QtWidgets.QMessageBox.YesRole)
-            msgbox.addButton(QtWidgets.QPushButton('Cancel'), QtWidgets.QMessageBox.NoRole)
-            msgbox.setDefaultButton(QtWidgets.QMessageBox.Cancel)        
+            msgbox.addButton(QtWidgets.QPushButton('Resume'), QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+            msgbox.addButton(QtWidgets.QPushButton('Stop'), QtWidgets.QMessageBox.ButtonRole.YesRole)
+            msgbox.addButton(QtWidgets.QPushButton('Cancel'), QtWidgets.QMessageBox.ButtonRole.NoRole)
+            msgbox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)        
             result = msgbox.exec_()
             #print(result)
             if result == 0: #Resume QtWidgets.QMessageBox.AcceptRole:      
@@ -756,10 +756,10 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         # this ensures the label can also re-size downwards
         self.label_Image_Preview.setMinimumSize(1, 1)
         # get resize events for the label        
-        self.label_Image_Preview.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_Image_Preview.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         #self.setCentralWidget(self.label_Image_Preview)
         #self.tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.tabWidget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.tabWidget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         QtWidgets.QApplication.instance().processEvents()        
         #self.label_Image_Preview.adjustSize()
         self.label_Image_Preview = QLabel_altered(self.groupBox_Image_Preview)
@@ -897,14 +897,14 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
 
     def Change_comboBox_Image_Process_from_LSTD(self):
         if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.comboBox_Image_Process.currentText():    
-            index= self.comboBox_Image_Process.findText(self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText(),QtCore.Qt.MatchFixedString)
+            index= self.comboBox_Image_Process.findText(self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
             self.comboBox_Image_Process.setCurrentIndex(index)   
             Color_Palette=self.G_Image.Get_Color_Palette()
             self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                   
             
     def Change_comboBox_LSTD_from_Image_Process(self):
         if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.comboBox_Image_Process.currentText():                 
-            index= self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.findText(self.comboBox_Image_Process.currentText(),QtCore.Qt.MatchFixedString)
+            index= self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.findText(self.comboBox_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
             self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.setCurrentIndex(index)   
             Color_Palette=self.G_Image.Get_Color_Palette()
             self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                             
@@ -957,16 +957,16 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         #print("Image resized!!!!!") 
         if self.G_Image.IsProcessedimagetoprint == True:
             self.label_Image_Preview_Processed.setPixmap(self.the_pixmap_p.scaled(
-                self.label_Image_Preview_Processed.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))
+                self.label_Image_Preview_Processed.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation))
 
     def Image_Preview_Resized(self):
         #print("Image resized!!!!!") 
         if self.G_Image.Isimagetoprint == True:
             if (self.the_pixmap):
                 self.label_Image_Preview.setPixmap(self.the_pixmap.scaled(
-                    self.label_Image_Preview.size(), QtCore.Qt.KeepAspectRatio,
-                    QtCore.Qt.SmoothTransformation))               
+                    self.label_Image_Preview.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation))               
 
     def PB_Set_Changes_Image_Config(self):
         data=self.Get_data_from_Image_Config_Table()
@@ -1103,12 +1103,12 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
 
     def setImage(self,alabel, image):
         alabel.setPixmap(QtGui.QPixmap.fromImage(image).scaled(
-                alabel.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))
+                alabel.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation))
     def setPixmap(self,alabel, aPixmap):
         alabel.setPixmap(aPixmap.scaled(
-                alabel.size(), QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation))
+                alabel.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation))
         #self.label_Image_Preview.setPixmap(aPixmap)    
 
     def Show_Image_Preview(self):
@@ -1393,7 +1393,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         try:            
             #self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
             self.xyz_gimagestream_thread=Image_Gcode_Stream(self.killer_event,self.plaintextEdit_GcodeScript) 
-            self.xyz_gimagestream_thread.setName("Gimage Stream") 
+            self.xyz_gimagestream_thread.name = "Gimage Stream" 
             self.xyz_gimagestream_thread.start()
             log.info("SUCCESS: Image to Gcode thread Initialized :)")  
             self.IsImageThread=True 
@@ -1415,10 +1415,10 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.stream_event_stop= threading.Event()
             self.stream_event_stop.clear()
             self.xyz_gcodestream_thread=thread_Gcode_Stream.XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
-            self.xyz_gcodestream_thread.setName("XYZ Gcode Stream") 
+            self.xyz_gcodestream_thread.name = "XYZ Gcode Stream" 
             self.xyz_gcodestream_thread.start()
             self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.ST,self.xyz_thread,self.xyz_gcodestream_thread,self.killer_event)
-            self.xyz_update_thread.setName("XYZ Update") 
+            self.xyz_update_thread.name = "XYZ Update" 
             self.xyz_update_thread.start()
             if self.IsImageThread==False:
                 self.Start_Image_Thread()
@@ -1515,7 +1515,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         self.tableWidget_Image_Config.setRowCount(self.Image_Config_Table_NumRows)
         self.tableWidget_Image_Config.setColumnCount(self.Image_Config_Table_NumCols)
         self.tableWidget_Image_Config.setHorizontalHeaderLabels(["Id", "Value","Unit", "Info", "Type"])
-        self.tableWidget_Image_Config.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)            
+        self.tableWidget_Image_Config.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)            
         iii=0
         for ccc in config:
             if not '_Info' in ccc and not '_Type' in ccc and not '_Unit' in ccc:                
@@ -2045,10 +2045,10 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         result = QtWidgets.QMessageBox.question(self,
                       "Confirm Exit...",
                       "Are you sure you want to exit ?",
-                      QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
+                      QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
         event.ignore()
 
-        if result == QtWidgets.QMessageBox.Yes:            
+        if result == QtWidgets.QMessageBox.StandardButton.Yes:            
             self.App_Close_Event() 
             #print('inside def') 
             try:                
@@ -2136,4 +2136,4 @@ if __name__ == "__main__":
     
     aDialog=class_File_Dialogs.Dialogs()
     MainWindow.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

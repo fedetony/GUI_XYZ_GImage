@@ -1,6 +1,6 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QColor
+from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import QColor
 import re
 import logging
 import GuiXYZ_CCD
@@ -118,9 +118,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         msgbox.setWindowTitle('Force Interface ...')
         msgbox.setIcon(QtWidgets.QMessageBox.Question)
         msgbox.setText("Would you like to force program to use "+aname+" interface?")        
-        msgbox.addButton(QtWidgets.QPushButton('Yes'), QtWidgets.QMessageBox.YesRole)
-        msgbox.addButton(QtWidgets.QPushButton('No'), QtWidgets.QMessageBox.NoRole)
-        msgbox.setDefaultButton(QtWidgets.QMessageBox.No)
+        msgbox.addButton(QtWidgets.QPushButton('Yes'), QtWidgets.QMessageBox.ButtonRole.YesRole)
+        msgbox.addButton(QtWidgets.QPushButton('No'), QtWidgets.QMessageBox.ButtonRole.NoRole)
+        msgbox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
         
         result = msgbox.exec_()
         #print(result)
@@ -185,8 +185,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm Format delete...",
                     "Old Format: "+str(oldFormat)+"\n"+
                     "Are you sure you want to delete the Format?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.filename,action,'',self.id,self.CH.Configdata) 
                 msgtxt=msgtxt="action:  "+action+" Format cleared!"
                 log.info(msgtxt)
@@ -197,8 +197,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm action, info and type delete...",
                     "You are about to permanently delete action: "+action+"\n"                    
                     "Are you sure you want to delete the action?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 #first info and type
                 self.Delete_action_in_ConfigFile(self.CH.filename,action+'_info',self.CH.Configdata_info) 
                 self.Delete_action_in_ConfigFile(self.CH.filename,action+'_type',self.CH.Configdata_type) 
@@ -257,8 +257,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm Format delete...",
                     "Old Format: "+str(oldFormat)+"\n"+
                     "Are you sure you want to delete the Format?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action,'',self.id,self.CH.InterfaceConfigallids) 
                 msgtxt=msgtxt="action:  "+action+" Format cleared!"
                 log.info(msgtxt)
@@ -269,8 +269,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm action, info and type delete...",
                     "You are about to permanently delete action: "+action+"\n"                    
                     "Are you sure you want to delete the action?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 #first info and type
                 self.Delete_action_in_ConfigFile(self.CH.Interfacefilename,action+'_info',self.CH.InterfaceConfigallids_info) 
                 self.Delete_action_in_ConfigFile(self.CH.Interfacefilename,action+'_type',self.CH.InterfaceConfigallids_type) 
@@ -324,8 +324,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm Format delete...",
                     "Old Format: "+str(oldFormat)+"\n"+
                     "Are you sure you want to delete the Format?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.Replace_Format_in_ConfigFile(self.CH.Readfilename,action,'',self.id,self.CH.ReadConfigallids) 
                 msgtxt=msgtxt="Read action:  "+action+" Format cleared!"
                 log.info(msgtxt)
@@ -336,8 +336,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     "Confirm action, info and type delete...",
                     "You are about to permanently delete read action: "+action+"\n"                    
                     "Are you sure you want to delete the action?",
-                    QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
+                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+            if result == QtWidgets.QMessageBox.StandardButton.Yes:
                 #First info and type
                 self.Delete_action_in_ConfigFile(self.CH.Readfilename,action+'_info',self.CH.ReadConfigallids_info) 
                 self.Delete_action_in_ConfigFile(self.CH.Readfilename,action+'_type',self.CH.ReadConfigallids_type) 
@@ -369,10 +369,10 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         msgbox.setIcon(QtWidgets.QMessageBox.Question)
         msgbox.setText("Would you like to clone the "+aname+" interface? \nor\n"+
                       "Would you like to Create an empty interface?")
-        msgbox.addButton(QtWidgets.QPushButton('Clone '+str(self.id)), QtWidgets.QMessageBox.AcceptRole)
-        msgbox.addButton(QtWidgets.QPushButton('Empty'), QtWidgets.QMessageBox.YesRole)
-        msgbox.addButton(QtWidgets.QPushButton('Cancel'), QtWidgets.QMessageBox.NoRole)
-        msgbox.setDefaultButton(QtWidgets.QMessageBox.Cancel)
+        msgbox.addButton(QtWidgets.QPushButton('Clone '+str(self.id)), QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        msgbox.addButton(QtWidgets.QPushButton('Empty'), QtWidgets.QMessageBox.ButtonRole.YesRole)
+        msgbox.addButton(QtWidgets.QPushButton('Cancel'), QtWidgets.QMessageBox.ButtonRole.NoRole)
+        msgbox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)
         additional={}
         additional.update({'interfaceId_info':''})
         additional.update({'interfaceId_type':''})
@@ -490,8 +490,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                       "Confirm Format Replace...",
                       "Old Format: "+str(oldFormat)+"\nfor New Format: "+ str(newFormat)+"\n"+
                       "Are you sure you want to Replace the Format?",
-                      QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-                if result == QtWidgets.QMessageBox.Yes:
+                      QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+                if result == QtWidgets.QMessageBox.StandardButton.Yes:
                     self.Replace_Format_in_ConfigFile(self.CH.filename,action,newFormat,self.id,dataset)
                     msgtxt="action:  "+action+" Format replaced for "+newFormat+" "
                     log.info(msgtxt)
@@ -531,8 +531,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                       "Confirm Format Replace...",
                       "Old Format: "+str(oldFormat)+"\nfor New Format: "+ str(newFormat)+"\n"+
                       "Are you sure you want to Replace the Format?",
-                      QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-                if result == QtWidgets.QMessageBox.Yes:
+                      QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+                if result == QtWidgets.QMessageBox.StandardButton.Yes:
                     self.Replace_Format_in_ConfigFile(self.CH.Readfilename,action,newFormat,self.id,dataset)
                     msgtxt="action:  "+action+" Format replaced for "+newFormat+" "
                     log.info(msgtxt)
@@ -575,8 +575,8 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                       "Confirm Format Replace...",
                       "Old Format: "+str(oldFormat)+"\nfor New Format: "+ str(newFormat)+"\n"+
                       "Are you sure you want to Replace the Format?",
-                      QtWidgets.QMessageBox.Yes| QtWidgets.QMessageBox.No)
-                if result == QtWidgets.QMessageBox.Yes:
+                      QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
+                if result == QtWidgets.QMessageBox.StandardButton.Yes:
                     if istype==False and isinfo==False:
                         self.Replace_Format_in_ConfigFile(self.CH.Interfacefilename,action+'_type',newType,self.id,self.CH.InterfaceConfigallids_type)
                         #print('Replaced type',newType)
@@ -876,7 +876,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         Table_NumCols=4
         self.DCCui.tableWidget_CCD.setColumnCount(Table_NumCols)        
         self.DCCui.tableWidget_CCD.setHorizontalHeaderLabels(["Action", "Format","Info","Type"])
-        self.DCCui.tableWidget_CCD.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+        self.DCCui.tableWidget_CCD.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
         iii=0
         tabindex=self.Actual_Tab
         if tabindex==0:
@@ -931,7 +931,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.comboBox_CCD_interface.clear()
         for iii in self.CH.Configdata['interfaceId']:           
             self.DCCui.comboBox_CCD_interface.addItem(iii)                          
-        index= self.DCCui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFixedString)
+        index= self.DCCui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
         self.DCCui.comboBox_CCD_interface.setCurrentIndex(index)    
         aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DCCui.label_CCD_interfaceName.setText(aname)    
@@ -942,7 +942,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.comboBox_CCD_action.addItem('')
         for iii in allactions:           
             self.DCCui.comboBox_CCD_action.addItem(iii)          
-        #index= self.DCCui.comboBox_CCD_action.findText('interfaceName',QtCore.Qt.MatchFixedString)
+        #index= self.DCCui.comboBox_CCD_action.findText('interfaceName',QtCore.Qt.MatchFlag.MatchFixedString)
         index=0
         self.DCCui.comboBox_CCD_action.setCurrentIndex(index)    
         self.CH.Selected_action=self.DCCui.comboBox_CCD_action.currentText()
@@ -953,7 +953,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.comboBox_CCD_readaction.addItem('')
         for iii in allactions:           
             self.DCCui.comboBox_CCD_readaction.addItem(iii)          
-        #index= self.DCCui.comboBox_CCD_readaction.findText('interfaceName',QtCore.Qt.MatchFixedString)
+        #index= self.DCCui.comboBox_CCD_readaction.findText('interfaceName',QtCore.Qt.MatchFlag.MatchFixedString)
         index=0
         self.DCCui.comboBox_CCD_readaction.setCurrentIndex(index)    
         self.Selected_read_dict.update({'action':self.DCCui.comboBox_CCD_readaction.currentText()})
@@ -1053,10 +1053,10 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
 
     def set_combobox_Genint_type(self,atype):        
         index=0
-        index=self.DCCui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFixedString)    
+        index=self.DCCui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFlag.MatchFixedString)    
         if index==-1:
             self.DCCui.comboBox_CCD_Inttype.addItem(atype)
-            index=self.DCCui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFixedString)    
+            index=self.DCCui.comboBox_CCD_Inttype.findText(atype,QtCore.Qt.MatchFlag.MatchFixedString)    
         self.DCCui.comboBox_CCD_Inttype.setCurrentIndex(index) 
         self.Selected_Int_dict.update({'Type':atype})
         #print('Type to ',atype)
@@ -1343,7 +1343,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             Table_NumRows=len(ReqOpParamsdict)
             self.DCCui.tableWidget_CCD_actionParam.setRowCount(Table_NumRows)
             self.DCCui.tableWidget_CCD_actionParam.setHorizontalHeaderLabels(["Parameter", "Value","Constraint"])
-            self.DCCui.tableWidget_CCD_actionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+            self.DCCui.tableWidget_CCD_actionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
             iii=0
             befaconstraint=''
             if P_Allinfo['IsOred']==True:
@@ -1421,7 +1421,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                     Table_NumRows=nummatch
                     self.DCCui.tableWidget_CCD_readactionParam.setRowCount(Table_NumRows)
                     self.DCCui.tableWidget_CCD_readactionParam.setHorizontalHeaderLabels(["Match", "Parameter","Value","Option"])
-                    self.DCCui.tableWidget_CCD_readactionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)    
+                    self.DCCui.tableWidget_CCD_readactionParam.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)    
                     #print(optiontxtlist)
                     #print(optionlist)
                     #print(paramlist)
@@ -1521,7 +1521,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             txtlog=''
             for iii in self.CH.Read_Config:
                 if iii != 'interfaceId' and iii != '':
-                    index= self.DCCui.comboBox_CCD_readaction.findText(iii,QtCore.Qt.MatchFixedString)        
+                    index= self.DCCui.comboBox_CCD_readaction.findText(iii,QtCore.Qt.MatchFlag.MatchFixedString)        
                     try:
                         #Clean last result
                         self.Selected_read_dict.update({'testRead':''})

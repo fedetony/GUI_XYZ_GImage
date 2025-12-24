@@ -3,7 +3,7 @@ import queue
 import re
 import logging
 import time
-from common import *
+#from common import *
 
 # install pySerial NOT serial!!!
 import serial

@@ -6,10 +6,10 @@ Python 3.7 pyQt5
 """
 # Created by: PyQt5 UI code generator 5.13.0
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 
-from PyQt5.QtWidgets import *
+from PyQt6.QtWidgets import *
 from PIL.ImageQt import ImageQt
 import re
 import io #TextIOWrapper
@@ -422,7 +422,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
         self.DTTui.comboBox_TTD_Type_Code.addItem(".acode")        
         self.DTTui.comboBox_TTD_Type_Code.addItem(".ngc")        
         self.File_Type_to=".gcode"
-        index= self.DTTui.comboBox_TTD_Type_Code.findText(self.File_Type_to,QtCore.Qt.MatchFixedString)
+        index= self.DTTui.comboBox_TTD_Type_Code.findText(self.File_Type_to,QtCore.Qt.MatchFlag.MatchFixedString)
         self.DTTui.comboBox_TTD_Type_Code.setCurrentIndex(index)
 
     def Enable_buttons(self):                        
@@ -463,7 +463,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
         self.DTTui.comboBox_TTD_ID_Code.clear()
         for iii in self.CH.Configdata['interfaceId']:           
             self.DTTui.comboBox_TTD_ID_Code.addItem(iii)                          
-        index= self.DTTui.comboBox_TTD_ID_Code.findText(self.CH.id,QtCore.Qt.MatchFixedString)
+        index= self.DTTui.comboBox_TTD_ID_Code.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
         self.DTTui.comboBox_TTD_ID_Code.setCurrentIndex(index)    
         aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DTTui.label_TTD_ID_to_Name.setText(aname)

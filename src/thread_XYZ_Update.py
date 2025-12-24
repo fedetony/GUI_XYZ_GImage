@@ -1,11 +1,11 @@
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 import threading
 import queue
 import re
 import logging
 import time
-from common import *
+# from common import *
 import datetime
 
 log = logging.getLogger(__name__)

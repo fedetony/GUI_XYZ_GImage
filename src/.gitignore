@@ -1,7 +1,0 @@
-temp/__last_run__.log
-/dist
-/build
-/toadd
-*.bak
-*.spec
-__pycache__
