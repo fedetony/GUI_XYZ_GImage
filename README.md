@@ -1,49 +1,97 @@
-# GuiXYZ Version 2.1.0 -beta
-![Python Logo](https://github.com/fedetony/GUI_XYZ_GImage/blob/GuiXYZ_V2.0/src/img/eye-in-a-sky-icon.ico "GuiXYZ V2.10beta by FG") This application is used to control machines which use Gcode. Gcode interfaces as Marlin,GRBL and others can be configured to be used for Gcode streaming, or to translate the old Gcodes to a new machine. 
+# GuiXYZ Version 3.1.0 -beta
+![Python Logo](https://github.com/fedetony/GUI_XYZ_GImage/blob/GuiXYZ_V2.0/src/img/eye-in-a-sky-icon.ico "GuiXYZ V3.1.0 beta by FG") .
 
-The application is under development so some of its features are still under construction. As also since its so extensive please support me by commenting on issues or bugs you run with the software. This has been until now a single person effort.
+---
 
-Software is not still very intuitive, specially when configuring a new interface, yet is planned to be updated and to make a wiki with information on "how to" and what everything does in the interface. If you have a machine which is not in the interface configuration I'll be glad to support you with your new interface configuration.
+# **G‑Code Machine Interface & Translator**
 
-Application is build such that can be flexibly configured for any type of machine. Often Machines use different types of controllers to convert Gcode into actions. 
-This software uses a general customizable interface for a Machine Gcode input.
+This application is designed to control machines that use G‑code. It supports multiple controller types—such as Marlin, GRBL, TinyG, and others—and can be configured for:
 
-Interfaces can be added or removed, and any action can be accomodated to any machine G-code format.
-Configuration Files have a version for the following interfaces already defined:
-- GRBL 0.9k 4th axis
-- TinyG
-- Marlin 2.0.x 
-- GRBL 1.1h
-- GRBL 1.1e g5x
+- **Direct G‑code streaming**, or  
+- **Translating G‑code from one machine interface to another**
 
------
-Software features:
-- Set any interface for Gcode.
-- Interface through serial port with a Machine. (Wifi and Parallel ports are planned)
-- Basic movement Preset Gcode commands (for active interface): Homing, x,y,z movements. Reset, alarm clear. (Planned to be variable for multiaxis machines battons)
-- Interface detection (in configuration)
-- Manipulate,save load Gcode.
-- Stream Gcode    
-    -Stream a part of a code
-- Send single Gcode commands
-- Machine configuration
-    -Read
-    -Modify
-- Translate Gcode from one interface to other interface. (Is slow)
-- Checking Gcode with respect to interface (Not working properly)
-- Gimage manipulation 
-    Generates gcode from an image (Under construction) Works partially only outputs Marlin interface gcode
-    -Gui is not very intuitive
-    -vectorize image
-    -raster image
-    -Customize positioning sizes    
-General Batton Configuration.(Under construction)
-    -Creation of customized buttons and visualizations for any action, gcode or script.
-    -Batton action run under click, press, or relase, two state functionality.
-    -action chain Linking
-    -action Looping
+The goal is to provide a flexible, customizable environment capable of adapting to almost any G‑code‑driven machine.
 
-Gcode Visualization: Not constructed yet, just planned. (requires batton visualizations)
+---
+
+## **Project Status**
+
+This software is currently under active development. Some features are incomplete or experimental, and the interface is still evolving. Since this is a one‑person project, feedback is incredibly valuable. If you encounter bugs, unclear behavior, or missing features, please open an issue—your input genuinely helps shape the project.
+
+Configuring a new machine interface is not yet intuitive, but a full wiki and “how‑to” documentation are planned. If your machine is not yet supported, I’m happy to help you create a working configuration.
+
+---
+
+## **Design Philosophy**
+
+Machines often use different controllers, each with its own G‑code dialect. This application provides a **generalized, customizable interface layer** that allows:
+
+- Adding or removing machine interfaces  
+- Defining how each action maps to each controller’s G‑code  
+- Translating G‑code between interfaces  
+- Extending or modifying behavior without touching the core code  
+
+The configuration system is flexible enough to adapt to almost any machine that speaks G‑code.
+
+---
+
+## **Included Interface Configurations**
+
+The project currently includes ready‑to‑use configurations for:
+
+- **GRBL 0.9k (4‑axis)**
+- **TinyG**
+- **Marlin 2.0.x**
+- **GRBL 1.1h**
+- **GRBL 1.1e (G5X variant)**
+
+More can be added easily through the configuration system.
+
+---
+
+## **Platform Support**
+
+- Linux — fully supported
+- Windows — fully supported
+
+Both platforms share the same configuration logic and feature set.
+
+---
+
+## **Features**
+
+### **Machine Communication**
+- Select any supported interface for G‑code output  
+- Communicate with machines over **serial ports**  
+  - (Wi‑Fi and parallel‑port support planned)
+
+### **Movement & Control**
+- Preset movement commands (homing, axis moves, reset, alarm clear)  
+- Planned: customizable multi‑axis control buttons
+
+### **G‑Code Tools**
+- Load, edit, and save G‑code files  
+- Stream full programs or selected segments  
+- Send single G‑code commands  
+- Read and modify machine configuration  
+- Translate G‑code between interfaces  
+  - (Currently slow, but functional)  
+- Validate G‑code against the selected interface  
+  - (Work in progress)
+
+### **Image‑to‑G‑Code (Experimental)**
+- Convert images into G‑code  
+- Vector and raster modes  
+- Positioning and size customization  
+- Currently outputs Marlin‑compatible G‑code only  
+- GUI still under development
+
+### **Custom Button System (Under Construction)**
+- Create custom buttons for actions, scripts, or G‑code  
+- Trigger on click, press, release, or toggle  
+- Chain multiple actions  
+- Loop actions  
+- Custom visualizations
 
 -----
 
