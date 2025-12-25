@@ -10,6 +10,7 @@ from types import *
 import os
 import shutil
 import sys
+import yaml
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -34,7 +35,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.Is_Dialog_Open=False   
         self.Actual_Tab=0
         self.Setup_Command_Config()
-        self.Activate_test_button=False
+        self.Activate_test_button=True
         #self.openCommandConfigDialog()   #comment this line to be called only when you want the dialog    
     
     def Setup_Command_Config(self):
@@ -116,13 +117,13 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         msgbox = QtWidgets.QMessageBox()
         msgbox.setWindowTitle('Force Interface ...')
-        msgbox.setIcon(QtWidgets.QMessageBox.Question)
+        msgbox.setIcon(QtWidgets.QMessageBox.Icon.Question)
         msgbox.setText("Would you like to force program to use "+aname+" interface?")        
         msgbox.addButton(QtWidgets.QPushButton('Yes'), QtWidgets.QMessageBox.ButtonRole.YesRole)
         msgbox.addButton(QtWidgets.QPushButton('No'), QtWidgets.QMessageBox.ButtonRole.NoRole)
         msgbox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
         
-        result = msgbox.exec_()
+        result = msgbox.exec()
         #print(result)
         if result == 0: #QtWidgets.QMessageBox.AcceptRole:                                 
             self.change_interface_id.emit(self.CH.id)
@@ -366,7 +367,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         aname=self.CH.getGformatforActionid('interfaceName',self.id)
         msgbox = QtWidgets.QMessageBox()
         msgbox.setWindowTitle('Add Interface ...')
-        msgbox.setIcon(QtWidgets.QMessageBox.Question)
+        msgbox.setIcon(QtWidgets.QMessageBox.Icon.Question)
         msgbox.setText("Would you like to clone the "+aname+" interface? \nor\n"+
                       "Would you like to Create an empty interface?")
         msgbox.addButton(QtWidgets.QPushButton('Clone '+str(self.id)), QtWidgets.QMessageBox.ButtonRole.AcceptRole)
@@ -376,7 +377,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         additional={}
         additional.update({'interfaceId_info':''})
         additional.update({'interfaceId_type':''})
-        result = msgbox.exec_()
+        result = msgbox.exec()
         #print(result)
         if result == 0: #QtWidgets.QMessageBox.AcceptRole:      
             aname=aname+'_clone'
@@ -423,9 +424,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             log.error(amsg)            
             msgbox = QtWidgets.QMessageBox()
             msgbox.setWindowTitle('Delete Interface ...')
-            msgbox.setIcon(QtWidgets.QMessageBox.Critical)
+            msgbox.setIcon(QtWidgets.QMessageBox.Icon.Critical)
             msgbox.setText(amsg)            
-            msgbox.exec_()
+            msgbox.exec()
             return False
         else:
             for iii in self.CH.Configdata['interfaceId']:
@@ -458,9 +459,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         else:            
             msgbox = QtWidgets.QMessageBox()
             msgbox.setWindowTitle('Delete Interface ...')
-            msgbox.setIcon(QtWidgets.QMessageBox.Information)
+            msgbox.setIcon(QtWidgets.QMessageBox.Icon.Information)
             msgbox.setText("To delete " +aname +" interface you must set the interfaceName to DELETE")            
-            msgbox.exec_()
+            msgbox.exec()
             return False
 
     def PB_CCD_actionAdd(self):
@@ -1568,72 +1569,82 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             
 
     def PB_debugtests(self):
-        '''
-        newFormat='[a][b][c][d][4][?{7}]{8}'
-        print(self.get_list_in_between_txt(newFormat,'[',']'))
-
-        print(self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}') ) 
-        print(self.Format_which_Inside_Parenthesees(newFormat) ) 
-        '''
-        '''
-        Reqactions={'test','interfaceId','interfaceName'}
-        isok=self.CH.Check_command_config_file_Content('test/testConfig.config',Reqactions,False)
-        print('Check Passed:',isok)
-        '''
+        print("++"*33)
+        print("DEBUG MODE")
+        print("++"*33)
         
-        '''
-        Params=self.CH.Get_Parameters_Needed_for_action(self.Selected_action,self.id)
-        print(Params)
-        print(self.CH.Get_list_of_all_parameters_in_interface(self.id))
-        print(self.CH.Get_Gcode_for_Action(action,Parameters))
-        '''
-        '''
-        print('--------------------------------------------------')
-        Reqactions={'interfaceId'}
-        isok=self.CH.Check_command_config_file_Content('config/InterfaceConfig.config',Reqactions,False)
-        print('Check Passed:',isok)
-        data=self.CH.Load_command_config_from_file('config/InterfaceConfig.config')
-        print(data)
-        print('--------------------------------------------------')
-        action='test'    
-        Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}    
-        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
-        print(Gcode)        
-        self.DCCui.label_test.setText(Gcode)  
-        '''
-        '''
-        print('--------------------------------------------------')
-        aFormat=self.CH.getGformatforAction('linearMove')
-        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
-        aFormat=self.CH.getGformatforAction('rapidMove')
-        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
-        action=self.DCCui.comboBox_CCD_action.currentText()
-        aFormat=self.CH.getGformatforAction(action)
-        print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
-        Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}  
-        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
-        print(Gcode)        
-        self.DCCui.label_test.setText(Gcode) 
-        '''
-        print('--------------------------------------------------')
-        #Gcodeline='G0 X0.5 Y0.8 Z3'
-        #print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G1 X0.5 Z3 Y0.8 F100'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        #Gcodeline='G0 X0.5 Z0.8 Y3'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G0 Z8'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G92 X0.5'
-        #print(self.CH.get_action_from_gcode(Gcodeline))
-        #Gcodeline='G1 X0.5 E0.8 Z3 F200'
-        #print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G1 G0 X0.5 Y0.8 Z3 F200'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        Gcodeline='G28 Z'
-        print(self.CH.get_action_from_gcode(Gcodeline,2))
-        #Gcodeline='G54 G0 X0.5 Y0.8 Z3'
-        #print(self.CH.get_action_from_gcode(Gcodeline,1))
+        self.CH.save_all_configs_to_yaml("test_yaml_config.yml")
+        # '''
+        # newFormat='[a][b][c][d][4][?{7}]{8}'
+        # print(self.get_list_in_between_txt(newFormat,'[',']'))
+
+        # print(self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}') ) 
+        # print(self.Format_which_Inside_Parenthesees(newFormat) ) 
+        # '''
+        # '''
+        # Reqactions={'test','interfaceId','interfaceName'}
+        # isok=self.CH.Check_command_config_file_Content('test/testConfig.config',Reqactions,False)
+        # print('Check Passed:',isok)
+        # '''
+        
+        # '''
+        # Params=self.CH.Get_Parameters_Needed_for_action(self.Selected_action,self.id)
+        # print(Params)
+        # print(self.CH.Get_list_of_all_parameters_in_interface(self.id))
+        # print(self.CH.Get_Gcode_for_Action(action,Parameters))
+        # '''
+        # '''
+        # print('--------------------------------------------------')
+        # Reqactions={'interfaceId'}
+        # isok=self.CH.Check_command_config_file_Content('config/InterfaceConfig.config',Reqactions,False)
+        # print('Check Passed:',isok)
+        # data=self.CH.Load_command_config_from_file('config/InterfaceConfig.config')
+        # print(data)
+        # print('--------------------------------------------------')
+        # action='test'    
+        # Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}    
+        # Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
+        # print(Gcode)        
+        # self.DCCui.label_test.setText(Gcode)  
+        # '''
+        # '''
+        # print('--------------------------------------------------')
+        # aFormat=self.CH.getGformatforAction('linearMove')
+        # print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        # aFormat=self.CH.getGformatforAction('rapidMove')
+        # print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        # action=self.DCCui.comboBox_CCD_action.currentText()
+        # aFormat=self.CH.getGformatforAction(action)
+        # print(aFormat,'->',self.CH.regex_for_parameters(aFormat))
+        # Parameters={'X':15,'Y':20.1,'Z':'8','str_var':'X'}  
+        # Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters)
+        # print(Gcode)        
+        # self.DCCui.label_test.setText(Gcode) 
+        # '''
+        # print('--------------------------------------------------')
+        # #Gcodeline='G0 X0.5 Y0.8 Z3'
+        # #print(self.CH.get_action_from_gcode(Gcodeline,2))
+        # Gcodeline='G1 X0.5 Z3 Y0.8 F100'
+        # print(self.CH.get_action_from_gcode(Gcodeline,2))
+        # #Gcodeline='G0 X0.5 Z0.8 Y3'
+        # #print(self.CH.get_action_from_gcode(Gcodeline))
+        # #Gcodeline='G0 Z8'
+        # #print(self.CH.get_action_from_gcode(Gcodeline))
+        # #Gcodeline='G92 X0.5'
+        # #print(self.CH.get_action_from_gcode(Gcodeline))
+        # #Gcodeline='G1 X0.5 E0.8 Z3 F200'
+        # #print(self.CH.get_action_from_gcode(Gcodeline,2))
+        # Gcodeline='G1 G0 X0.5 Y0.8 Z3 F200'
+        # print(self.CH.get_action_from_gcode(Gcodeline,2))
+        # Gcodeline='G28 Z'
+        # print(self.CH.get_action_from_gcode(Gcodeline,2))
+        # #Gcodeline='G54 G0 X0.5 Y0.8 Z3'
+        # #print(self.CH.get_action_from_gcode(Gcodeline,1))
+    
+
+    
+
+
     '''
     def left_click_P(self, nb):
         if nb == 1: print('Single left click')

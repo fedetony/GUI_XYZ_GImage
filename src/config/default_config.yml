@@ -1,0 +1,1494 @@
+actions:
+  format:
+    test:
+    - '[&&(1)]{coordSet}'
+    - '!\%'
+    - M410
+    - ''
+    - '[&&(1)]{coordSet}'
+    - '[&&(1)]{coordSet}'
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    interfaceName:
+    - Grbl 0.9k-4 Axes
+    - TinyG V.x
+    - Marlin V2.0.x
+    - Rep_Rap
+    - Grbl 1.1k-ORTUR
+    coordXYZSet:
+    - '[ X{X}][ Y{Y}][ Z{Z}]'
+    - '[ X{X}][ Y{Y}][ Z{Z}]'
+    - '[ X{X}][ Y{Y}][ Z{Z}]'
+    - '[ X{X}][ Y{Y}][ Z{Z}]'
+    - '[ X{X}][ Y{Y}][ Z{Z}]'
+    offsetXYZSet:
+    - '[ X{dX}][ Y{dY}][ Z{dZ}]'
+    - '[ X{dX}][ Y{dY}][ Z{dZ}]'
+    - '[ X{dX}][ Y{dY}][ Z{dZ}]'
+    - '[ X{dX}][ Y{dY}][ Z{dZ}]'
+    - '[ X{dX}][ Y{dY}][ Z{dZ}]'
+    coordIJKSet:
+    - '[ I{I}][ J{J}][ K{K}]'
+    - '[ I{I}][ J{J}][ K{K}]'
+    - '[ I{I}][ J{J}][ K{K}]'
+    - '[ I{I}][ J{J}][ K{K}]'
+    - '[ I{I}][ J{J}][ K{K}]'
+    offsetIJKSet:
+    - '[ I{dI}][ J{dJ}][ K{dK}]'
+    - '[ I{dI}][ J{dJ}][ K{dK}]'
+    - '[ I{dI}][ J{dJ}][ K{dK}]'
+    - '[ I{dI}][ J{dJ}][ K{dK}]'
+    - '[ I{dI}][ J{dJ}][ K{dK}]'
+    coordABCSet:
+    - '[ A{A}][ B{B}][ C{C}]'
+    - '[ A{A}][ B{B}][ C{C}]'
+    - '[ A{A}][ B{B}][ C{C}]'
+    - '[ A{A}][ B{B}][ C{C}]'
+    - '[ A{A}][ B{B}][ C{C}]'
+    coordUVWSet:
+    - '[ U{U}][ V{V}][ W{W}]'
+    - '[ U{U}][ V{V}][ W{W}]'
+    - '[ U{U}][ V{V}][ W{W}]'
+    - '[ U{U}][ V{V}][ W{W}]'
+    - '[ U{U}][ V{V}][ W{W}]'
+    offsetUVWSet:
+    - '[ U{dU}][ V{dV}][ W{dW}]'
+    - '[ U{dU}][ V{dV}][ W{dW}]'
+    - '[ U{dU}][ V{dV}][ W{dW}]'
+    - '[ U{dU}][ V{dV}][ W{dW}]'
+    - '[ U{dU}][ V{dV}][ W{dW}]'
+    coordSet:
+    - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ A{A}]'
+    - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}]'
+    - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}]'
+    - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]'
+    - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ A{A}]'
+    arcSet:
+    - ' X{X} Y{Y} I{I} J{J}'
+    - ' [&&(3)]{coordXYZSet}[ R{R}]||{coordIJKSet}'
+    - ' X{X} Y{Y} I{I} J{J}'
+    - ' X{X} Y{Y} I{I} J{J}'
+    - ' X{X} Y{Y} I{I} J{J}'
+    help:
+    - $
+    - ''
+    - ''
+    - ''
+    - $
+    reportSettings:
+    - $$
+    - $$
+    - M503
+    - ''
+    - $$
+    reportBuildInfo:
+    - $I
+    - (TinyG Version Build)\n$fv\n$fb
+    - M115
+    - ''
+    - $I
+    reportParserState:
+    - $G
+    - ''
+    - ''
+    - ''
+    - $G
+    reportGcodeParameters:
+    - $#
+    - ''
+    - ''
+    - ''
+    - $#
+    statusReport:
+    - '?'
+    - '?'
+    - M114[{par}]
+    - ''
+    - '?'
+    movingstatusReport:
+    - '? '
+    - '? '
+    - S000
+    - ''
+    - '? '
+    Comment:
+    - ;{msg}
+    - ;{msg}
+    - ({msg})
+    - ''
+    - ;{msg}
+    Message:
+    - '{char(40)}[{msg}]{char(41)}'
+    - ({msg})
+    - M117[ {msg}]
+    - ''
+    - '{char(40)}[{msg}]{char(41)}'
+    automaticstatusReports-Disable:
+    - ''
+    - $sv=0
+    - ''
+    - ''
+    - ''
+    automaticstatusReports-Moving:
+    - ''
+    - $si={timems}
+    - ''
+    - ''
+    - ''
+    automaticstatusReports-Filtered:
+    - ''
+    - $sv=1
+    - ''
+    - ''
+    - ''
+    automaticstatusReports-Unfiltered:
+    - ''
+    - $sv=2
+    - ''
+    - ''
+    - ''
+    requestReport:
+    - ''
+    - '{request}'
+    - ''
+    - ''
+    - ''
+    quickPause:
+    - '!'
+    - '!'
+    - P000
+    - ''
+    - '!'
+    quickResume:
+    - '~'
+    - '~'
+    - R000
+    - ''
+    - '~'
+    quickStop:
+    - '!{char(0x18)}'
+    - '{quickPause}{queueFlush}'
+    - M410
+    - ''
+    - '!{char(0x18)}'
+    queueFlush:
+    - '{softReset}'
+    - '%'
+    - ''
+    - ''
+    - '{softReset}'
+    userPause:
+    - M0
+    - M0
+    - M0
+    - ''
+    - M0
+    userResume:
+    - '~'
+    - M60
+    - M108
+    - ''
+    - '~'
+    clearAlarm:
+    - $X
+    - char(24)
+    - M108
+    - ''
+    - $X
+    unlockAlarm:
+    - $X
+    - char(24)
+    - ''
+    - ''
+    - $X
+    softReset:
+    - char(0x18)
+    - char(0x18)
+    - M999
+    - ''
+    - char(0x18)
+    emergencyKill:
+    - ^X
+    - char(0x18)
+    - M112
+    - ''
+    - ^X
+    Home:
+    - $H
+    - G28.2 X0 Y0 Z0
+    - G28
+    - ''
+    - $H
+    timedPause:
+    - M0 [P{P}]||[S{S}]
+    - M0 [P{P}]||[S{S}]
+    - M0 [P{P}]||[S{S}]
+    - ''
+    - M0 [P{P}]||[S{S}]
+    programPause:
+    - M0 [P{P}][S{S}]
+    - M0 [P{P}][S{S}]
+    - M0 [P{P}][S{S}]
+    - ''
+    - M0 [P{P}][S{S}]
+    programResume:
+    - '{userResume}'
+    - '{userResume}'
+    - '{userResume}'
+    - ''
+    - '{userResume}'
+    programStop:
+    - ''
+    - M60
+    - ''
+    - ''
+    - ''
+    checkgcodeMode_On:
+    - $C
+    - ''
+    - ''
+    - ''
+    - $C
+    checkgcodeMode_Off:
+    - $C
+    - ''
+    - ''
+    - ''
+    - $C
+    sleepMode:
+    - $SLP
+    - ''
+    - ''
+    - ''
+    - $SLP
+    setUnitstoinches:
+    - G20
+    - G20
+    - G20
+    - G20
+    - G20
+    setUnitstomm:
+    - G21
+    - G21
+    - G21
+    - G21
+    - G21
+    setUnits:
+    - G2{par}
+    - G2{par}
+    - G2{par}
+    - G2{par}
+    - G2{par}
+    cancelModalmode:
+    - G80
+    - ''
+    - ''
+    - ''
+    - G80
+    inversetimeFeedrateMode:
+    - G93
+    - ''
+    - ''
+    - ''
+    - G93
+    unitsperminFeedrateMode:
+    - G94
+    - ''
+    - ''
+    - ''
+    - G94
+    turnOffCutterRadiouscompensation:
+    - G40
+    - ''
+    - ''
+    - ''
+    - G40
+    userHome:
+    - $H
+    - G28[{par}]
+    - G28[ {par}]
+    - ''
+    - $H
+    HomeX:
+    - ''
+    - G28.1
+    - G28 X
+    - ''
+    - ''
+    HomeY:
+    - ''
+    - G28.2
+    - G28 Y
+    - ''
+    - ''
+    HomeZ:
+    - ''
+    - G28.3
+    - G28 Z
+    - ''
+    - ''
+    parkHead:
+    - ''
+    - ''
+    - G27
+    - ''
+    - ''
+    - ''
+    autoBedLevel:
+    - ''
+    - ''
+    - G29[ {par}]
+    - G32[ P{P}][ S{S}]
+    - ''
+    setZprobeheadoffset:
+    - ''
+    - G10 L2 P{P}[&&(1)]{offsetXYZSet}
+    - M851 [&&(1)]{coordXYZSet}
+    - ''
+    - ''
+    singleZProbe:
+    - ''
+    - ''
+    - G30 [&&(1)]{coordXYZSet}[ P{P}][ S{S}][ H{H}]
+    - G30 [&&(1)]{coordXYZSet}[ P{P}][ S{S}][ H{H}]
+    - ''
+    undockZProbesled:
+    - ''
+    - ''
+    - G32
+    - ''
+    - ''
+    deltaAutocalibration:
+    - ''
+    - ''
+    - G33[ P{P}][ {T}][ C{C}][ F{F}][ V{V}][ {E}]
+    - ''
+    - ''
+    autoalignZstepper:
+    - ''
+    - ''
+    - G34[ I{I}][ T{T}][ A{A}]
+    - ''
+    - ''
+    straightProbe:
+    - ''
+    - ''
+    - G38{par}[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ F{F}]
+    - ''
+    - ''
+    bedlevelingState:
+    - ''
+    - ''
+    - M420[ {C}][ L{L}][ {S}][ T{T}][ {V}][ Z{Z}]
+    - ''
+    - ''
+    backlashCalibrationPerform:
+    - ''
+    - ''
+    - G425[ {B}][ T{T}][ U{U}][ {V}]
+    - ''
+    - ''
+    backlashCalibrationSet:
+    - ''
+    - ''
+    - M425[ F{F}][ S{S}]{coordXYZSet}[ {Zp}]
+    - ''
+    - ''
+    rapidMove:
+    - G0{coordSet}
+    - G0{coordSet}
+    - G0{coordSet}
+    - G0{coordSet}
+    - G0{coordXYZSet}[ S{S}]
+    linearMove:
+    - G1{coordSet}[ F{F}]
+    - G1{coordSet}[ F{F}]
+    - G1{coordSet}
+    - G1{coordSet}
+    - G1{coordXYZSet}[ S{S}][ F{F}]
+    clockwiseArcMove:
+    - G2{arcSet}[ A{A}][ F{F}]
+    - G2{arcSet}[ F{F}]
+    - G2{arcSet}[ E{E}][ F{F}]
+    - G2{arcSet}[ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]
+    - G2{arcSet}[ S{S}][ F{F}]
+    counterclockwiseArcMove:
+    - G3{arcSet}[ A{A}][ F{F}]
+    - G3{arcSet}[ F{F}]
+    - G3{arcSet}[ E{E}][ F{F}]
+    - G3{arcSet}[ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]
+    - G3{arcSet}[ S{S}][ F{F}]
+    retractFilament:
+    - '{relativePositioning}\nG0 A{dA}\n{absolutePositioning}'
+    - '{relativePositioning}\nG0 E{dE}\n{absolutePositioning}'
+    - G10
+    - G10
+    - '{relativePositioning}\nG0 A{dA}\n{absolutePositioning}'
+    unretractFilament:
+    - '{relativePositioning}\nG0 A-{dA}\n{absolutePositioning}'
+    - '{relativePositioning}\nG0 E-{dE}\n{absolutePositioning}'
+    - G11
+    - G11
+    - '{relativePositioning}\nG0 A-{dA}\n{absolutePositioning}'
+    dwell:
+    - G4 S{S}
+    - G4 P{P}
+    - G4 [&&(1)][S{S}]||[P{P}]
+    - G4 [&&(1)][S{S}]||[P{P}]
+    - G4 S{S}
+    cleanTool:
+    - ''
+    - ''
+    - G12 [P{P}][ S{S}][ T{T}]
+    - ''
+    - ''
+    movetoGridpoint:
+    - ''
+    - ''
+    - G42[&&(1)][ I{I}][ J{J}][ {P}][ F{F}]
+    - ''
+    - ''
+    jogMode:
+    - $J=[{Gcommand}][&&(1)]{coordXYZSet}[ F{F}]
+    - ''
+    - ''
+    - ''
+    - $J=[{Gcommand}][&&(1)]{coordXYZSet}[ F{F}]
+    jogCancel:
+    - '{char(0x85)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x85)}'
+    absolutePositioning:
+    - G90
+    - G90
+    - G90
+    - G90
+    - G90
+    relativePositioning:
+    - G91
+    - G91
+    - G91
+    - G91
+    - G91
+    plainSelectionXY:
+    - G17
+    - G17
+    - G17
+    - G17
+    - G17
+    plainSelectionZX:
+    - G18
+    - G18
+    - G18
+    - ''
+    - G18
+    plainSelectionYZ:
+    - G19
+    - G19
+    - G19
+    - ''
+    - G19
+    PINDAprobetemperaturecalibration:
+    - ''
+    - ''
+    - G42[ {P}]
+    - ''
+    - ''
+    setPosition:
+    - G92{coordSet}
+    - G92{coordSet}
+    - G92{coordSet}
+    - G92{coordSet}
+    - G92{coordSet}
+    setHomeOffset:
+    - ''
+    - ''
+    - M206[&&(1)][ P{dP}][ T{dT}]{offsetXYZSet}
+    - ''
+    - ''
+    setHomeOffsetHere:
+    - ''
+    - ''
+    - M428
+    - ''
+    - ''
+    setCoordinatesystemOffsets:
+    - G10 L2[&&(1)][ P{P}]{offsetXYZSet}
+    - G10 L2[&&(1)][ P{P}]{offsetXYZSet}{coordABCSet}
+    - '{useCoordinatesystem}\n{setHomeOffset}\n{saveSettings}'
+    - G92{par}{coordXYZSet}{coordABCSet}{coordUVWSet}
+    - G10 L2[&&(1)][ P{P}]{offsetXYZSet}
+    useNativeCoordinatesystem:
+    - G53
+    - G53
+    - G53
+    - G53
+    - G53
+    useCoordinatesystem:
+    - '{G54toG59}'
+    - '{G54toG59}'
+    - '{G54toG59}'
+    - ''
+    - '{G54toG59}'
+    resetSettings:
+    - $RST=$
+    - ''
+    - M502
+    - ''
+    - $RST=$
+    restoreSettings:
+    - ''
+    - ''
+    - M501
+    - ''
+    - ''
+    saveSettings:
+    - ''
+    - ''
+    - M500
+    - ''
+    - ''
+    resetWorkCoordinates:
+    - $RST=#
+    - ''
+    - ''
+    - ''
+    - $RST=#
+    resetAllEEPROM:
+    - $RST=*
+    - ''
+    - M502\nM500
+    - ''
+    - $RST=*
+    validateEEPROMcontents:
+    - ''
+    - ''
+    - M504
+    - ''
+    - ''
+    modifySetting:
+    - '{setting}={value}'
+    - ''
+    - '{setting}{value}'
+    - ''
+    - '{setting}={value}'
+    setDooropenState:
+    - '{char(0x84)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x84)}'
+    feedOverride-set100per:
+    - '{char(0x90)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x90)}'
+    feedOverride-increase10per:
+    - '{char(0x91)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x91)}'
+    feedOverride-decrease10per:
+    - '{char(0x92)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x92)}'
+    feedOverride-increase1per:
+    - '{char(0x93)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x93)}'
+    feedOverride-decrease1per:
+    - '{char(0x94)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x94)}'
+    rapidOverride-set100per:
+    - '{char(0x95)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x95)}'
+    rapidOverride-set50per:
+    - '{char(0x96)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x96)}'
+    rapidOverride-set25per:
+    - '{char(0x97)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x97)}'
+    spindleSpeedOverride-set100per:
+    - '{char(0x99)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x99)}'
+    spindleSpeedOverride-increase10per:
+    - '{char(0x9A)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x9A)}'
+    spindleSpeedOverride-decrease10per:
+    - '{char(0x9B)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x9B)}'
+    spindleSpeedOverride-increase1per:
+    - '{char(0x9C)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x9C)}'
+    spindleSpeedOverride-decrease1per:
+    - '{char(0x9D)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x9D)}'
+    toggleSpindleEnable:
+    - '{char(0x9E)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0x9E)}'
+    toggleFloodCoolantEnable:
+    - '{char(0xA0)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0xA0)}'
+    toggleMistCoolantEnable:
+    - '{char(0xA1)}'
+    - ''
+    - ''
+    - ''
+    - '{char(0xA1)}'
+    setStartUpGcodeBlock:
+    - $N{Block}={gcode}
+    - ''
+    - ''
+    - ''
+    - $N{Block}={gcode}
+    test3:
+    - '[&&(1)]{coordSet}'
+    - ''
+    - ''
+    - ''
+    - '[&&(1)]{coordSet}'
+    test2:
+    - '[&&(1)]{coordSet}'
+    - ''
+    - ''
+    - ''
+    - '[&&(1)]{coordSet}'
+  info:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    Home:
+    - No parameters
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - No parameters
+    test:
+    - hola
+    - test2
+    - ''
+    - ''
+    - hola
+    test2:
+    - ''
+    - ''
+    - ''
+    - ''
+    - ''
+    movingstatusReport:
+    - add spaces if matches statusReport
+    - ''
+    - ''
+    - ''
+    - add spaces if matches statusReport
+  type:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+read:
+  format:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    acknowledgecommandexecutedRead:
+    - ''
+    - r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]
+    - r'([oO][kK])'[1{ACK}]
+    - ''
+    - ''
+    acknowledgecommandreceivedRead:
+    - r'([oO][kK])'[1{ACKCMD}]
+    - r'([oO][kK])'[1{ACKCMD}]
+    - ''
+    - ''
+    - r'([oO][kK])'[1{ACKCMD}]
+    errorRead:
+    - r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]
+    - r'[Ee][rR]{2}[:](.*)'[1{ERROR}]
+    - r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]
+    - ''
+    - r'[Ee][rR]{2}[oO][rR](.*)'[1{ERROR}]
+    alarmRead:
+    - r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]
+    - ''
+    - r'[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]
+    - ''
+    - r'^[Aa][lL][aA][rR][mM](.*)'[1{ALARM}]
+    infoRead:
+    - r'^\[(.*)\]'[1{INFO}]
+    - ''
+    - r'echo:(.*)'[1{INFO}]
+    - ''
+    - r'^\[(.*)\]'[1{INFO}]
+    actionRead:
+    - ''
+    - ''
+    - r'action(.*)'[1{ACTION}]
+    - ''
+    - ''
+    configRead:
+    - r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - r'\[(\w+)\]\s(.*)[\s+]([+-]?\d+\S?\d*)\s*(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}][4{ConfUnit}]
+    - r'Cap:\s?\s?([^:]*):(\d+)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - r'(\$[^\D]{1,4})=([+-]?[\d.]*[\d]+)([^\$]*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    stateRead:
+    - ''
+    - r'stat:([0-9])'[1{STATE_XYZ}]
+    - r'S_XYZ:([0-9]+)'[1{STATE_XYZ}]
+    - ''
+    - ''
+    temperaturesRead:
+    - ''
+    - ''
+    - ''
+    - ''
+    - ''
+    positionResponseRead:
+    - r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]
+    - ''
+    - r'X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)'[1{XPOS}][2{YPOS}][3{ZPOS}][4{EPOS}][5{MXPOS}][6{MYPOS}][7{MZPOS}]
+    - ''
+    - r'[<](\w*)[|]MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+)[|]FS:([0-9]+),([0-9]+)[|>]*'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{FeedRateX}][6{FeedRateY}]
+    positionResponseRead_posz:
+    - ''
+    - r'posz:([+-]?[0-9]*[.][0-9]+)'[1{ZPOS}]
+    - ''
+    - ''
+    - r'[<](\w*)[|]WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+)[|]FS:([0-9]+),([0-9]+)[|>]*'[1{STATUS}][2{XPOS}][3{YPOS}][4{ZPOS}][5{FeedRateX}][6{FeedRateY}]
+    positionResponseRead_posx:
+    - ''
+    - r'posx:([+-]?[0-9]*[.][0-9]+)'[1{XPOS}]
+    - ''
+    - ''
+    - ''
+    positionResponseRead_posy:
+    - ''
+    - r'posy:([+-]?[0-9]*[.][0-9]+)'[1{YPOS}]
+    - ''
+    - ''
+    - ''
+    acknowledgecommandotherRead:
+    - ''
+    - r'([qQ][rR])[:](\d*)'[1{ACK}][2{ACKCODE}]
+    - ''
+    - ''
+    - ''
+    infoRead_Velocity:
+    - ''
+    - r'Velocity:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{VEL}][2{VELUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Xpos:
+    - ''
+    - r'X position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{XPOS}][2{XPOSUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Ypos:
+    - ''
+    - r'Y position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{YPOS}][2{YPOSUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Zpos:
+    - ''
+    - r'Z position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{ZPOS}][2{ZPOSUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Feedrate:
+    - ''
+    - r'Feed\srate:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{FEEDRATE}][2{FEEDRATEUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Apos:
+    - ''
+    - r'A position:\s*([+-]?\d*\S?\d*)\s*(.*)'[1{APOS}][2{APOSUNIT}]
+    - ''
+    - ''
+    - ''
+    infoRead_Units:
+    - ''
+    - r'Units:\s*(\S*)(.*)'[1{UNITS}][2{UNITSINFO}]
+    - ''
+    - ''
+    - ''
+    infoRead_CoordSystem:
+    - ''
+    - r'Coordinate\ssystem:\s*(\S*)(.*)'[1{COORDSYS}][2{COORDSYSINFO}]
+    - ''
+    - ''
+    - ''
+    infoRead_DistanceMode:
+    - ''
+    - r'Distance\smode:\s*(\S*)(.*)'[1{DISTANCEMODE}][2{DISTANCEMODEINFO}]
+    - ''
+    - ''
+    - ''
+    infoRead_FeedRateMode:
+    - ''
+    - r'Feed\srate\smode:\s*(\S*)(.*)'[1{FEEDRATEMODE}][2{FEEDRATEMODEINFO}]
+    - ''
+    - ''
+    - ''
+    infoRead_MachineState:
+    - ''
+    - r'Machine\sstate:\s*(\S*)'[1{MSTATE}]
+    - ''
+    - ''
+    - ''
+    configRead_Units:
+    - ''
+    - ''
+    - r'echo:\s?\s?(G2)(\d+)\s[^;]*(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_TempUnits:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M149)\s([^;]*)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_Filament:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M200)\s([D].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_Steps_per_Unit:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M92)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaximumFeedrates:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M203)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaximumAcceleration:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M201)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_AccelerationPrintRetractTravel:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M204)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_Advanced:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M205)\s([B].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_HomeOffset:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M206)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaterialHeatupS0:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M145 S0)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaterialHeatupS1:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M145 S1)\s([H].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_PIDsettings:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M301)\s([P].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_StepperDriverCurrentXYZ:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M906)\s([X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_StepperDriverCurrentE:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M906\sT0)\s([E].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_DriverStepMode:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M569\sS\d)\s([T].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_DriverStepModeX:
+    - ''
+    - ''
+    - r'echo:\s?\s?(M569)\s([S]\d\s[X].*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_FilamentTxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Filament settings)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_Steps_per_Unittxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Steps per unit)(:)(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaximumFeedratestxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Maximum\sfeedrates)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaximumAccelerationtxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Maximum\sAcceleration)(\s)(.*):'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_AccelerationPRTtxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Acceleration)\s(.*):(.*)'[1{ConfCMD}][3{ConfValue}][2{ConfInfo}]
+    - ''
+    - ''
+    configRead_Advancedtxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Advanced):(.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_HomeOffsettxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Home\soffset)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_MaterialHeatuptxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Material\sheatup\sparameters)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_PIDsettingstxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(PID\ssettings)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_StepperDriverCurrenttxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Stepper\sdriver\scurrent)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+    configRead_DriverStepModetxt:
+    - ''
+    - ''
+    - r'echo:\s?\s?(Driver\sstepping\smode)(:.*)'[1{ConfCMD}][2{ConfValue}][3{ConfInfo}]
+    - ''
+    - ''
+  info:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+  type:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+behavior:
+  format:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    cycletime:
+    - '0.1'
+    - '0.1'
+    - '0.2'
+    - '0.2'
+    - '0.1'
+    defaultInterface:
+    - '0'
+    - '0'
+    - '0'
+    - '0'
+    - '0'
+    beforestartupSequence:
+    - ''
+    - ''
+    - ''
+    - ''
+    - ''
+    afterstartupSequence:
+    - '{unlockAlarm}'
+    - ''
+    - ''
+    - ''
+    - '{unlockAlarm}'
+    hasautoReport:
+    - 'False'
+    - 'True'
+    - 'False'
+    - ''
+    - 'False'
+    interfaceidentifyer:
+    - Grbl 0.9k
+    - tinyg
+    - 'echo:Unknown command:'
+    - reprap
+    - ok
+    timetowaitafterresume:
+    - '0.2'
+    - '0.2'
+    - '0.2'
+    - '0.2'
+    - '0.2'
+    showOK:
+    - 'False'
+    - 'False'
+    - 'False'
+    - 'False'
+    - 'False'
+    logpositionoutputFormat:
+    - '{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}'
+    - '{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}'
+    - ''
+    - ''
+    - '{char(60)}S_XYZ:{STATE_XYZ},X:{XPOS},Y:{YPOS},Z:{ZPOS}{char(62)}'
+    logPosition:
+    - 'True'
+    - 'True'
+    - 'True'
+    - ''
+    - 'True'
+    logAllReadData:
+    - 'False'
+    - 'True'
+    - 'False'
+    - ''
+    - 'False'
+    logStateChange:
+    - 'True'
+    - 'True'
+    - 'True'
+    - ''
+    - 'True'
+    timeforMachineStartup:
+    - '0'
+    - ''
+    - ''
+    - ''
+    - '0'
+    logNoread:
+    - 'True'
+    - 'True'
+    - 'True'
+    - ''
+    - 'True'
+    movementactionlist:
+    - rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint
+    - ''
+    - ''
+    - ''
+    - rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint
+    probingactionlist:
+    - Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform
+    - ''
+    - ''
+    - ''
+    - Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform
+    modecontinueactionlist:
+    - coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet
+    - ''
+    - ''
+    - ''
+    - coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet
+    modecancelactionlist:
+    - checkgcodeMode_Off,cancelModalmode
+    - ''
+    - ''
+    - ''
+    - checkgcodeMode_Off,cancelModalmode
+    modeinitactionlist:
+    - jogMode
+    - ''
+    - ''
+    - ''
+    - jogMode
+    timeblockactionlist:
+    - dwell,userPause,programPause,timedPause,quickPause
+    - ''
+    - ''
+    - ''
+    - dwell,userPause,programPause,timedPause,quickPause
+    immediateactionlist:
+    - movingstatusReport
+    - ''
+    - ''
+    - ''
+    - movingstatusReport
+    QuitReadOnMatch:
+    - 'True'
+    - 'False'
+    - 'True'
+    - ''
+    - 'True'
+  info:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    cycletime:
+    - Cycle time in seconds send read/Write requesats to the machine
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Cycle time in seconds send read/Write requesats to the machine
+    defaultInterface:
+    - Default Interface Id
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Default Interface Id
+    beforestartupSequence:
+    - Commands to be sent after serial connection is stablished.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Commands to be sent after serial connection is stablished.
+    afterstartupSequence:
+    - Commands to be sent after startup sequence.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Commands to be sent after startup sequence.
+    hasautoReport:
+    - If interface autoreports will not ask for position reports every cycle.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - If interface autoreports will not ask for position reports every cycle.
+    interfaceidentifyer:
+    - This allows to identify the interface by the response of the machine in startup
+      sequence.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - This allows to identify the interface by the response of the machine in startup
+      sequence.
+    timetowaitafterresume:
+    - Time in seconds required for interface to wait after resume command.After wait
+      enables hold command.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Time in seconds required for interface to wait after resume command.After wait
+      enables hold command.
+    showOK:
+    - logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead
+      is received.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - logs every time acknowledgecommandexecutedRead or acknowledgecommandreceivedRead
+      is received.
+    logpositionoutputFormat:
+    - '*(1)'
+    - Output format for logging position, logs machine output if empty
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logPosition:
+    - '*(1)'
+    - if you want to report in the log the position change. Log true logs only when
+      position change.
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logAllReadData:
+    - '*(1)'
+    - if True will show in the log every response from the machine.
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logStateChange:
+    - Logs when state STATE_XYZ or STATUS changes value.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Logs when state STATE_XYZ or STATUS changes value.
+    timeforMachineStartup:
+    - Time given to the Machine before the startup sequence. Machine needs some time
+      to react.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - Time given to the Machine before the startup sequence. Machine needs some time
+      to react.
+    modeinitactionlist:
+    - 'Initialize mode commandlist: Leave Blank for Default: jogMode'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Initialize mode commandlist: Leave Blank for Default: jogMode'
+    timeblockactionlist:
+    - 'Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Time or blocking commandlist: Leave Blank for Default: dwell,userPause,programPause,timedPause,quickPause'
+    modecancelactionlist:
+    - 'Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Cancel mode commandlist: Leave Blank for Default: checkgcodeMode_Off,cancelModalmode'
+    probingactionlist:
+    - 'Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Probing action commandlist: Leave Blank for Default:Home,userHome,HomeX,HomeY,HomeZ,parkHead,autoBedLevel,singleZProbe,deltaAutocalibration,autoalignZstepper,straightProbe,backlashCalibrationPerform'
+    movementactionlist:
+    - 'Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Movement action command list: Leave Blank for Default:rapidMove,linearMove,clockwiseArcMove,counterclockwiseArcMove,retractFilament,unretractFilament,cleanTool,movetoGridpoint'
+    modecontinueactionlist:
+    - 'Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - 'Actions used to continue a mode without command: Leave Blank for Default:  coordXYZSet,offsetXYZSet,coordIJKSet,offsetIJKSet,coordABCSet,coordUVWSet,offsetUVWSet,coordSet,arcSet'
+    immediateactionlist:
+    - list of actions to be sent immediately and not to the queue.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list of actions to be sent immediately and not to the queue.
+    QuitReadOnMatch:
+    - '*(1)'
+    - When True if reading finds a match will get the data and return (Fast read).
+      Else will try to match the remaining read regex functions (Slower read).
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+  type:
+    interfaceId:
+    - '0'
+    - '1'
+    - '2'
+    - '3'
+    - '4'
+    hasautoReport:
+    - bool
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - bool
+    beforestartupSequence:
+    - action
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - action
+    defaultInterface:
+    - int
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - int
+    cycletime:
+    - float
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - float
+    afterstartupSequence:
+    - action
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - action
+    interfaceidentifyer:
+    - str
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - str
+    timetowaitafterresume:
+    - float
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - float
+    showOK:
+    - bool
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - bool
+    logpositionoutputFormat:
+    - '*(1)'
+    - action
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logPosition:
+    - '*(1)'
+    - bool
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logAllReadData:
+    - '*(1)'
+    - bool
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    logStateChange:
+    - bool
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - bool
+    timeforMachineStartup:
+    - float
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - float
+    logNoread:
+    - '*(1)'
+    - bool
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'
+    movementactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    probingactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    modecontinueactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    modecancelactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    modeinitactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    timeblockactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    immediateactionlist:
+    - list
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - list
+    QuitReadOnMatch:
+    - '*(1)'
+    - bool
+    - '*(1)'
+    - '*(1)'
+    - '*(1)'

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on 16.06.2020
-Python 3.7 pyQt5
+Created on 16.06.2020 modified 20.12.2025
+Python 3.10.12 pyQt6
 @author: F. Garcia
 """
+__app__ = "GUI_XYZ"
 __author__ = "FG"
 __authorname__ = "Federico García"
 __version__="3.1.0 Beta"
@@ -17,7 +18,7 @@ __CRstatement__="""This program is distributed in the hope that it will be usefu
 
 # Form implementation generated from reading ui file 'guixyz_v3.ui'
 # All Ui interfaces:
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt6 UI code generator 6.4.2
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
@@ -30,9 +31,9 @@ import sys
 import glob
 import serial
 
-import datetime
+from datetime import datetime
 import time
-# import csv
+import yaml
 import re
 # import io #TextIOWrapper
 # import binascii
@@ -46,29 +47,45 @@ import os
 #Configure logger before importing classes (so they become child loggers)
 import class_LogHandler
 ap=class_LogHandler.get_appPath()
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
-                    datefmt='%y-%m-%d %H:%M',
-                    filename=ap+'/temp/__last_run__.log',
-                    filemode='w')
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-# create file handler which logs even debug messages
-fh = logging.FileHandler(ap+'/temp/__last_run__.log')
-fh.setLevel(logging.DEBUG)
-# create formatter and add it to the handlers
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s')
-fh.setFormatter(formatter)
-# add the handlers to logger
-log.addHandler(fh)
+img_path=os.path.join(ap,"img")
+config_path=os.path.join(ap,"config")
+from pathlib import Path
 
-#log_queue = queue.Queue()  
-#queue_handler= class_LogHandler.QueueHandler(log_queue)  
-#queue_handler.setLevel(logging.INFO)      
-#formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
-#queue_handler.setFormatter(formatter)
-#log.addHandler(queue_handler) 
-#print(log.handlers)
+def load_config(path: str):
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
+
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+general_config_file=os.path.join(config_path,"general_configuration.yml")
+general_config = load_config(general_config_file)
+log_path = general_config["paths"]["log_dir"]
+
+log_file="__session__.log"
+now = datetime.now() 
+if general_config["behavior"]["log_per_session"]:
+    dtformatted = now.strftime("%y%m%d_%H%M%S")
+    log_file=dtformatted+log_file
+if not os.path.exists(log_path):
+    print("Log directory not found:", log_path)
+    app_log_path=os.path.join(ap,log_path)
+    if not os.path.exists(app_log_path):
+        print("Creating path for log files:", app_log_path)
+        os.makedirs(app_log_path)
+    log_path=app_log_path
+    print("Log directory:", log_path)
+log_file=os.path.join(log_path,log_file)
+timestamp = now.strftime("%y-%m-%d %H:%M:%S")
+with open(log_file,"w", encoding="utf-8") as f: 
+    f.write(f"With coffee and love by FG\n log for {__app__} {__version__}: {timestamp}\n")
+
+LM = class_LogHandler.LoggerManager(log_file)
+
+log = LM.get_logger(__name__)
+log.info("Application starting...")
+
 
 #from thread_xyz_grbl import XYZGrbl
 from thread_xyz_multi_interface import XYZMulti
@@ -332,7 +349,7 @@ class Ui_MainWindow_V2(guixyz_v3.Ui_MainWindow):
            
     def Show_aboutbox(self):
         title='About '+self.Metitle
-        now = datetime.datetime.now()
+        now = datetime.now()
         year = str(now.strftime("%Y"))
         thecr=str(__CR__.replace('<year>',year))
         amsg='<h1 style="font-size:160%;color:red;">Programmed with love</h1>'+'<h1 style="font-size:160%;color:black;">by '+ __author__+'</h1> <p style="color:black;">github: '+__gitaccount__+'</p> <p style="color:black;"> Current version: V'+__version__+'</p> <p style="color:black;">Creation date: '+__creationdate__+'</p> <p style="font-size:25%;color:black;"><small>'+thecr+'</small></p> <p style="font-size:25%;color:black;"><small>'+__CRstatement__+"</small></p>"          
@@ -350,14 +367,14 @@ class Ui_MainWindow_V2(guixyz_v3.Ui_MainWindow):
         # Before you copy -paste here all Object code, now is called directly from guixyz_v3.py
         
         icon10 = QtGui.QIcon()
-        icon10.addPixmap(QtGui.QPixmap("img/Button-Pause-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon10.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Pause-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         #-------------------------------------------------------
         self.Icon_pause=icon10
         icon10a = QtGui.QIcon()
-        icon10a.addPixmap(QtGui.QPixmap("img/Button-Play-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon10a.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Play-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.Icon_start=icon10a
         windowicon = QtGui.QIcon()
-        self.iconMainpixmap=QtGui.QPixmap("img/eye-in-a-sky-icon.png")
+        self.iconMainpixmap=QtGui.QPixmap(os.path.join(img_path,"eye-in-a-sky-icon.png"))
         windowicon.addPixmap(self.iconMainpixmap, QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.iconMain=windowicon
         MainWindow.setWindowIcon(windowicon)
@@ -1736,7 +1753,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         if self.Is_Image_Config_Table_Empty()==False: 
             fileName = "Image_Config_"
             ext='.txt'
-            now = datetime.datetime.now()
+            now = datetime.now()
             fileName = now.strftime("%Y-%m-%d_%H-%M")+'_'+fileName+ext
 
             fileName=aDialog.saveFileDialog(2) #2 is txt
@@ -1778,7 +1795,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         if self.Is_Config_Table_Empty()==False: 
             fileName = "Config_grbl"
             ext='.txt'
-            now = datetime.datetime.now()
+            now = datetime.now()
             fileName = now.strftime("%Y-%m-%d_%H-%M")+'_'+fileName+ext
 
             fileName=aDialog.saveFileDialog(2) #2 is txt

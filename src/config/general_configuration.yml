@@ -1,0 +1,17 @@
+# General application configuration
+
+paths:
+  log_dir: "logs/"
+  config_dir: "config/"
+  last_opened_file: "/home/user/projects/test.gcode"
+  last_opened_path: "/home/user/projects"
+
+ui:
+  window_maximized: true
+  window_geometry: "1200x800+50+50"   # optional, if you want to restore size/position
+  theme: "dark"
+
+behavior:
+  log_per_session: false
+  autosave_interval: 300
+  check_updates: false

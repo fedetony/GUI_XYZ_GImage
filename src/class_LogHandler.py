@@ -4,25 +4,76 @@ import threading
 import class_ST
 import os
 import sys
+from pathlib import Path
 
+
+class LoggerManager:
+    def __init__(self, log_file):
+        self.log_file = Path(log_file)
+        self.log_queue = queue.Queue()
+        self.root = logging.getLogger()
+        self.root.setLevel(logging.DEBUG)
+
+        if not self.root.handlers:
+            self._setup_file_handler()
+            self._setup_queue_handler()
+
+        self.gui_handler = None
+        self.update_thread = None
+
+    def attach_gui_handler(self, gui_panel):
+        if self.gui_handler is None:
+            self.gui_handler = ConsolePanelHandler(gui_panel)
+            self.gui_handler.setLevel(logging.DEBUG)
+            self.gui_handler.setFormatter(logging.Formatter(
+                "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+                "%y-%m-%d %H:%M"
+            ))
+            self.root.addHandler(self.gui_handler)
+
+    def start_gui_update_thread(self, killer_event):
+        if self.update_thread is None:
+            self.update_thread = Log_Update(killer_event)
+            self.update_thread.start()
+
+    def _setup_file_handler(self):
+        fh = logging.FileHandler(self.log_file, mode="a", encoding="utf-8")
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%y-%m-%d %H:%M:%S"
+        ))
+        self.root.addHandler(fh)
+
+    def _setup_queue_handler(self):
+        qh = QueueHandler(self.log_queue)
+        qh.setLevel(logging.DEBUG)
+        qh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%y-%m-%d %H:%M"
+        ))
+        self.root.addHandler(qh)
+
+    def _setup_gui_handler(self):
+        gh = ConsolePanelHandler(self.gui_panel)
+        gh.setLevel(logging.DEBUG)
+        gh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%y-%m-%d %H:%M"
+        ))
+        self.root.addHandler(gh)
+
+    def get_logger(self, name):
+        return logging.getLogger(name)
 
 '''
-# set up logging to file - see previous section for more details
-log = logging.getLogger('') #root logger
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
-                    datefmt='%y-%m-%d %H:%M',
-                    filename='/temp/__last_run__.log',
-                    filemode='w')
-# define a Handler which writes INFO messages or higher to the sys.stderr
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-# set a format which is simpler for console use
-formatter = logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
-# tell the handler to use this format
-console.setFormatter(formatter)
-# add the handler to the root logger
-logging.getLogger('').addHandler(console)
+# How to use it
+LM = LoggerManager(log_file)
+LM.start_gui_update_thread(killer_event)
+
+log = LM.get_logger("main")
+log.info("Application started")
+
 '''
 
 class QueueHandler(logging.Handler):

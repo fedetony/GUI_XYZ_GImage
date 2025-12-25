@@ -2,6 +2,7 @@
 import re
 import logging
 import fileinput
+import yaml
 #from types import *
 
 log = logging.getLogger(__name__)
@@ -22,6 +23,59 @@ class Command_Handler:
         if self.Set_all_Filenames(configfilelist)==True:                    
             self.Setup_Command_Handler()
             self.Init_Read_Interface_Configurations()
+
+    def save_all_configs_to_yaml(self,filepath):
+        """
+        Stores All parallel dictionaries into a single YAML file.
+        """
+        data = {
+            "actions": {
+                "format": self.Configdata,
+                "info": self.Configdata_info,
+                "type": self.Configdata_type
+            },
+            "read": {
+                "format": self.ReadConfigallids,
+                "info": self.ReadConfigallids_info,
+                "type": self.ReadConfigallids_type
+            },
+            "behavior": {
+                "format": self.InterfaceConfigallids,
+                "info": self.InterfaceConfigallids_info,
+                "type": self.InterfaceConfigallids_type
+            }
+        }
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+    
+
+    def load_config_from_yaml(self,filepath):
+        """
+        Loads the YAML file and sets the dictionaries.
+        """
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        if data is None: 
+            log.error(f"{filepath} YAML file is empty or invalid!")
+            return {},{},{}
+        actions = data.get("actions", {})
+        read = data.get("read", {})
+        behavior = data.get("behavior", {})
+
+        self.Configdata = actions.get("format", {})
+        self.Configdata_info = actions.get("info", {})
+        self.Configdata_type = actions.get("type", {})
+
+        self.ReadConfigallids = read.get("format", {})
+        self.ReadConfigallids_info = read.get("info", {})
+        self.ReadConfigallids_type = read.get("type", {})
+
+        self.InterfaceConfigallids = behavior.get("format", {})
+        self.InterfaceConfigallids_info = behavior.get("info", {})
+        self.InterfaceConfigallids_type = behavior.get("type", {})
+
+        return actions, read, behavior
 
     def Set_all_Filenames(self,configfilelist):
         try:
