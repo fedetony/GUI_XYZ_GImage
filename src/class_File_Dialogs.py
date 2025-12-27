@@ -18,8 +18,8 @@ class Dialogs(QWidget):
             self.filters="All Files (*);;Text Files (*.txt)"
             self.selected_filter = "Text Files (*.txt)"
         elif filter==3:
-            self.filters="All Files (*);;Configuration Files (*.cccfg *.iccfg *.rccfg);;Interface Files (*.iccfg);;Read Files (*.rccfg);;Command Files (*.cccfg)"
-            self.selected_filter = "Configuration Files (*.cccfg *.iccfg *.rccfg)" 
+            self.filters="All Files (*);;Yaml Files (*.yml);;Json Files (*.json)"
+            self.selected_filter = "Yaml Files (*.yml)" 
         elif filter==4:
             self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Action Files (*.acode)"
             self.selected_filter = "Gcode Files (*.gcode)"   
@@ -36,7 +36,7 @@ class Dialogs(QWidget):
         0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        3->Configuration Files (*.yml *.json)
         4->Gcode and Action Files (*.gcode *.ncg *.acode) 
         5->Batton Configuration files (*.btncfg)
         else all Files
@@ -57,7 +57,7 @@ class Dialogs(QWidget):
         0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        3->Configuration Files (*.yml *.json)
         4->Gcode and Action Files (*.gcode *.ncg *.acode) 
         5->Batton Configuration files (*.btncfg)
         else all Files
@@ -75,7 +75,7 @@ class Dialogs(QWidget):
         0->Gcode Files (*.gcode *.ncg)
         1->Images (*.png *.xpm *.jpg *.bmp)
         2->Text Files (*.txt)
-        3->Configuration Files (*.cccfg *.iccfg *.rccfg)
+        3->Configuration Files (*.yml *.json)
         4->Gcode and Action Files (*.gcode *.ncg *.acode) 
         5->Batton Configuration files (*.btncfg)
         else all Files

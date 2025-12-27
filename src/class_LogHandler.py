@@ -54,15 +54,6 @@ class LoggerManager:
         ))
         self.root.addHandler(qh)
 
-    def _setup_gui_handler(self):
-        gh = ConsolePanelHandler(self.gui_panel)
-        gh.setLevel(logging.DEBUG)
-        gh.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
-            "%y-%m-%d %H:%M"
-        ))
-        self.root.addHandler(gh)
-
     def get_logger(self, name):
         return logging.getLogger(name)
 

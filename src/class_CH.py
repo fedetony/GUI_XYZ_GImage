@@ -1,9 +1,13 @@
-
+import os
 import re
 import logging
 import fileinput
 import yaml
 #from types import *
+import class_LogHandler
+ap=class_LogHandler.get_appPath()
+img_path=os.path.join(ap,"img")
+config_path=os.path.join(ap,"config")
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -14,15 +18,36 @@ ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
 
 class Command_Handler:    
-    def __init__(self,selected_interface_id,configfilelist=None,Required_actions={'interfaceId','interfaceName'}):            
+    def __init__(self,selected_interface_id,yaml_config_file=None,Required_actions=None):            
         self.__name__="CH"
-        self.Set_id(selected_interface_id)
-        self.Required_actions=Required_actions
-        self.Required_read={}
-        self.Required_interface={}
-        if self.Set_all_Filenames(configfilelist)==True:                    
-            self.Setup_Command_Handler()
-            self.Init_Read_Interface_Configurations()
+        self.parenth = Parenthesees()
+
+        # Forward all public methods from parenth to this instance
+        for name in dir(self.parenth):
+            if not name.startswith("_"):  # skip private/internal
+                attr = getattr(self.parenth, name)
+                if callable(attr):
+                    setattr(self, name, attr)
+        # init all dictionaries empty
+        self.yaml_filename=None
+        self._clear_actual_interface_dictionaries()
+        self._clear_data_dictionaries()
+        # Set id
+        self.id=selected_interface_id
+        # Set default required commands
+        if Required_actions is None:
+            self.Required_actions={'interfaceId','interfaceName'}
+        else:
+            self.Required_actions=set(Required_actions)
+        self.Required_read={'interfaceId'}
+        self.Required_interface={'interfaceId'}
+        # Set filenames
+        if self.set_yaml_file(yaml_config_file):
+            if self.load_and_set_config_from_yaml(self.yaml_filename,True,True):
+                self._set_actual_interface_dictionaries()
+        # if self.Set_all_Filenames(configfilelist)==True:                     
+        #     self.Setup_Command_Handler()
+        #     self.Init_Read_Interface_Configurations()
 
     def save_all_configs_to_yaml(self,filepath):
         """
@@ -58,11 +83,38 @@ class Command_Handler:
             data = yaml.safe_load(f)
         if data is None: 
             log.error(f"{filepath} YAML file is empty or invalid!")
-            return {},{},{}
-        actions = data.get("actions", {})
-        read = data.get("read", {})
-        behavior = data.get("behavior", {})
+            return None,None,None
+        actions = data.get("actions", None)
+        read = data.get("read", None)
+        behavior = data.get("behavior", None)
+        if actions is None: 
+            log.error(f"In {filepath} YAML file: actions format are invalid!")
+        if read is None: 
+            log.error(f"In {filepath} YAML file: read formats are invalid!")
+        if behavior is None: 
+            log.error(f"In {filepath} YAML file: behavior formats are invalid!")
+        return actions, read, behavior
+    
+    def load_and_set_config_from_yaml(self,filepath:str,check_required=False,log_check=True):
+        """Loads the YAML file and sets the dictionaries. 
+        Returns True if setting was completed.
 
+        Args:
+            filepath (str): yaml file with path
+            check_required (bool, optional): check required commands are present. Defaults to False.
+            log_check (bool, optional): Log all checking process if True, if False will log errors only. Defaults to True.
+
+        Returns:
+            bool: True if dictionaries with commands for all interfaces were set.
+        """
+        actions, read, behavior = self.load_config_from_yaml(filepath)
+        if check_required:
+            r_a,r_r,r_b=[self.Required_actions,self.Required_read,self.Required_interface]
+        else:
+            r_a,r_r,r_b=[None,None,None]
+        if not self.check_yaml_config(actions, read, behavior,r_a, r_r, r_b,log_check):
+            return False
+        # set values if all is ok
         self.Configdata = actions.get("format", {})
         self.Configdata_info = actions.get("info", {})
         self.Configdata_type = actions.get("type", {})
@@ -74,43 +126,531 @@ class Command_Handler:
         self.InterfaceConfigallids = behavior.get("format", {})
         self.InterfaceConfigallids_info = behavior.get("info", {})
         self.InterfaceConfigallids_type = behavior.get("type", {})
+        return True
 
-        return actions, read, behavior
+    def _get_unique_id(self):
+        """Return the next available unique interface ID as a string."""
+        id_list = self.get_id_list()
+        if id_list is None:
+            return "0"
 
-    def Set_all_Filenames(self,configfilelist):
-        try:
-            self.filename=configfilelist[0]    
-            self.Interfacefilename=configfilelist[1]
-            self.Readfilename=configfilelist[2]
+        used = set(id_list)
+        new_id = 0
+        while str(new_id) in used:
+            new_id += 1
+        return str(new_id)
+
+    def _create_non_existing_interface(self, a_name):
+        """Initialize all dictionaries with a single interface."""
+        if self.get_id_list() is not None:
+            log.error("Cannot create first interface: dictionaries are not empty!")
+            return False
+
+        new_id = self._get_unique_id()
+
+        dict_list = [
+            self.Configdata,
+            self.Configdata_info,
+            self.Configdata_type,
+            self.ReadConfigallids,
+            self.ReadConfigallids_info,
+            self.ReadConfigallids_type,
+            self.InterfaceConfigallids,
+            self.InterfaceConfigallids_info,
+            self.InterfaceConfigallids_type,
+        ]
+
+        for ddd in dict_list:
+            ddd["interfaceId"] = [new_id]
+            ddd["interfaceName"] = [a_name]
+
+        # Add required commands with empty values
+        for cmd in self.Required_actions:
+            self.Configdata.setdefault(cmd, [""])
+        for cmd in self.Required_read:
+            self.ReadConfigallids.setdefault(cmd, [""])
+        for cmd in self.Required_interface:
+            self.InterfaceConfigallids.setdefault(cmd, [""])
+
+        return True
+
+    def get_id_list(self):
+        """Returns the first encounter of intefaceId list in any of 9 dictionaries"""
+        for d in (
+            self.Configdata,
+            self.Configdata_info,
+            self.Configdata_type,
+            self.ReadConfigallids,
+            self.ReadConfigallids_info,
+            self.ReadConfigallids_type,
+            self.InterfaceConfigallids,
+            self.InterfaceConfigallids_info,
+            self.InterfaceConfigallids_type,
+        ):
+            ids = d.get("interfaceId")
+            if ids is not None:
+                return ids
+        return None
+
+
+    def add_interface(self,a_name,clone_id=None):
+        """Adds an interface to existing interfaces. If there are no interfaces will create a new one with minimum required commands empty.
+
+        Args:
+            a_name (str): Name of new interface
+            clone_id (any, optional): Adds a new interface cloned from the id. If None adds a new empty inteface. Defaults to None.
+        Returns: 
+            bool: True if added an interface.
+        """
+        id_list=self.get_id_list()
+        if id_list is None:
+            return self._create_non_existing_interface(a_name)
+        else:
+            if clone_id is None or clone_id not in id_list:
+                return self._create_empty_interface(a_name)
+            elif clone_id is not None and clone_id in id_list:
+                return self._clone_interface(a_name,clone_id)
+        return False
+    
+    def remove_interface(self,an_id):
+        """Removes interface from dictionaries
+
+        Args:
+            an_id (any): id to remove
+
+        Returns:
+            bool: True if interface was removed
+        """
+        id_list = self.get_id_list()
+        if id_list is None or an_id not in id_list:
+            return False
+
+        index = id_list.index(an_id)
+
+        dict_list = [
+            self.Configdata,
+            self.Configdata_info,
+            self.Configdata_type,
+            self.ReadConfigallids,
+            self.ReadConfigallids_info,
+            self.ReadConfigallids_type,
+            self.InterfaceConfigallids,
+            self.InterfaceConfigallids_info,
+            self.InterfaceConfigallids_type,
+        ]
+
+        for d in dict_list:
+            for cmd, values in d.items():
+                if isinstance(values, list) and len(values) > index:
+                    values.pop(index)
+        return True
+
+            
+    def _clone_interface(self, a_name, clone_id):
+        """Makes a clone of interface
+
+        Args:
+            a_name (str): New name 
+            clone_id (any): id of interface to be cloned
+        """
+
+        id_list = self.get_id_list()
+        if id_list is None:
+            return self._create_non_existing_interface(a_name)
+
+        if clone_id not in id_list:
+            return False
+
+        clone_index = id_list.index(clone_id)
+        new_id = self._get_unique_id()
+
+        dict_list = [
+            self.Configdata,
+            self.Configdata_info,
+            self.Configdata_type,
+            self.ReadConfigallids,
+            self.ReadConfigallids_info,
+            self.ReadConfigallids_type,
+            self.InterfaceConfigallids,
+            self.InterfaceConfigallids_info,
+            self.InterfaceConfigallids_type,
+        ]
+
+        for d in dict_list:
+            for cmd, values in d.items():
+                if cmd == "interfaceId":
+                    values.append(new_id)
+                elif cmd == "interfaceName":
+                    values.append(a_name)
+                else:
+                    values.append(values[clone_index])
+
+        return True
+    
+    def _create_empty_interface(self, a_name):
+        """Creates an empty interface based on existing commands of other interfaces.
+
+        Args:
+            a_name (str): Name of interface
+
+        Returns:
+            bool: True if interface was created
+        """
+        id_list = self.get_id_list()
+        if id_list is None:
+            return self._create_non_existing_interface(a_name)
+
+        new_id = self._get_unique_id()
+
+        dict_list = [
+            self.Configdata,
+            self.Configdata_info,
+            self.Configdata_type,
+            self.ReadConfigallids,
+            self.ReadConfigallids_info,
+            self.ReadConfigallids_type,
+            self.InterfaceConfigallids,
+            self.InterfaceConfigallids_info,
+            self.InterfaceConfigallids_type,
+        ]
+
+        for d in dict_list:
+            for cmd, values in d.items():
+                if not isinstance(values, list):
+                    continue  # skip non-list entries (should not happen but safe)
+
+                if cmd == "interfaceId":
+                    values.append(new_id)
+                elif cmd == "interfaceName":
+                    values.append(a_name)
+                else:
+                    values.append("")  # empty value for new interface
+
+        return True
+
+    def get_section_subtype_of_command(self, command) -> tuple:
+        """
+        Returns the (section, subtype) where a command is found.
+        If not found, returns (None, None).
+        """
+
+        mapping = [
+            (self.Configdata,              "actions",  "format"),
+            (self.Configdata_info,         "actions",  "info"),
+            (self.Configdata_type,         "actions",  "type"),
+            (self.ReadConfigallids,        "read",     "format"),
+            (self.ReadConfigallids_info,   "read",     "info"),
+            (self.ReadConfigallids_type,   "read",     "type"),
+            (self.InterfaceConfigallids,   "behavior", "format"),
+            (self.InterfaceConfigallids_info,"behavior","info"),
+            (self.InterfaceConfigallids_type,"behavior","type"),
+        ]
+
+        for a_dict, section, subtype in mapping:
+            if command in a_dict:
+                return section, subtype
+
+        return None, None
+
+    
+    @staticmethod
+    def _get_subtype_from_command(command):
+        """Gets the sutype in accordance to the command
+
+        Args:
+            command (str): command
+
+        Returns:
+            str: 'format', 'info', 'type'
+        """
+        if "_info" in command:
+            return "info"
+        elif "_type" in command:
+            return "type"
+        return "format"
+    
+    
+    def _add_command(self, section:str, subtype:str, command:any,
+                 values_list:list, filename:str=None, log_value:bool=False):
+        """Adds a command to the specific dictionary for all interfaces.
+
+        Args:
+            section (str): 'actions', 'read', 'behavior'
+            subtype (str): 'format', 'info', 'type'
+            command (any): the command key
+            values_list (list): list of values
+            filename (str, optional): if given will save to yaml file. Defaults to None.
+            log_value (bool, optional): log print the changes. Defaults to False.
+
+        Returns:
+            bool: command was added
+        """
+        id_list = self.get_id_list()
+        if id_list is None:
+            log.error("Can't create commands without an interface!")
+            return False
+
+        num_int = len(id_list)
+        if len(values_list) != num_int:
+            log.error(f"Number of interfaces ({num_int}) does not match values ({len(values_list)})!")
+            return False
+
+        # Update all values
+        for an_id, new_value in zip(id_list, values_list):
+            self._update_value(section, subtype, command, an_id, new_value, None, log_value)
+
+        # Save once
+        if filename:
+            self.save_all_configs_to_yaml(filename)
+
+        return True
+    
+    def _remove_command(self, command:any, filename:str=None, log_value:bool=False):
+        """
+        Removes a command from whichever dictionary it belongs to.
+        
+        Args:
+            section (str): 'actions', 'read', 'behavior'
+            subtype (str): 'format', 'info', 'type'
+            command (any): the command key
+            filename (str, optional): if given will save to yaml file. Defaults to None.
+            log_value (bool, optional): log print the changes. Defaults to False.
+
+        Returns:
+            bool: command was removed
+        """
+
+        section, subtype = self.get_section_subtype_of_command(command)
+        if not section:
+            return False
+
+        mapping = {
+            "actions": {
+                "format": self.Configdata,
+                "info": self.Configdata_info,
+                "type": self.Configdata_type
+            },
+            "read": {
+                "format": self.ReadConfigallids,
+                "info": self.ReadConfigallids_info,
+                "type": self.ReadConfigallids_type
+            },
+            "behavior": {
+                "format": self.InterfaceConfigallids,
+                "info": self.InterfaceConfigallids_info,
+                "type": self.InterfaceConfigallids_type
+            }
+        }
+        target_dict = mapping[section][subtype]
+        if command in target_dict:
+            del target_dict[command]
+
+            if log_value:
+                log.info(f"Removed command '{command}' from {section}.{subtype}")
+
+            if filename:
+                self.save_all_configs_to_yaml(filename)
+
             return True
-        except:    
-            configfile=None 
-            pass
-        if configfile==None:
-            self.filename='config/defaultConfig.cccfg'
-            self.Interfacefilename='config/defaultConfig.iccfg'    
-            self.Readfilename='config/defaultConfig.rccfg'   
+
+        return False
+    
+    def _update_value(self, section:str, subtype:str, command:any, an_id:any,
+                  new_value:any, filename:str=None, log_value:bool=False):
+        """
+        Add or update the value of a specific command in the target dictionary.
+        
+        Args:
+            section (str): 'actions', 'read', 'behavior'
+            subtype (str): 'format', 'info', 'type'
+            command (any): the command key
+            an_id (any): id of interface
+            new_value (any): replacement or new value
+            filename (str, optional): if given will save to yaml file. Defaults to None.
+            log_value (bool, optional): log print the changes. Defaults to False.
+        """
+
+        # Select dictionary
+        mapping = {
+            "actions": {
+                "format": self.Configdata,
+                "info": self.Configdata_info,
+                "type": self.Configdata_type
+            },
+            "read": {
+                "format": self.ReadConfigallids,
+                "info": self.ReadConfigallids_info,
+                "type": self.ReadConfigallids_type
+            },
+            "behavior": {
+                "format": self.InterfaceConfigallids,
+                "info": self.InterfaceConfigallids_info,
+                "type": self.InterfaceConfigallids_type
+            }
+        }
+
+        target_dict = mapping[section][subtype]
+        index = self.get_interface_column_from_id(an_id)
+
+        # Update existing command
+        if command in target_dict:
+            old_value = target_dict[command][index]
+            target_dict[command][index] = new_value
+
+            if log_value:
+                log.info(f"Replaced {command}({an_id})={old_value} with {new_value}")
+
+        # Create new command
+        else:
+            num_cols = self.get_number_of_interfaces(self.Configdata)
+            new_list = ['' for _ in range(num_cols)]
+            new_list[index] = new_value
+            target_dict[command] = new_list
+
+            if log_value:
+                log.info(f"Added {command}({an_id})={new_value}")
+
+        # Save YAML if requested
+        if filename:
+            self.save_all_configs_to_yaml(filename)
+                 
+
+    def check_yaml_config(
+        self, actions, read, behavior,
+        required_actions=None, required_read=None, required_behavior=None,
+        log_check=True
+    ):
+        if log_check:
+            log.info("Checking information:")
+
+        # Basic presence checks
+        if actions is None:
+            self._logcheck("No action commands available!", log_check, 'error')
+            return False
+        if read is None:
+            self._logcheck("No reading commands available!", log_check, 'error')
+            return False
+        if behavior is None:
+            self._logcheck("No behavior commands available!", log_check, 'error')
+            return False
+
+        # Check interface count consistency across subtypes
+        for subtype in ["format", "info", "type"]:
+            a_num = self.get_number_of_interfaces(actions.get(subtype, {}))
+            r_num = self.get_number_of_interfaces(read.get(subtype, {}))
+            b_num = self.get_number_of_interfaces(behavior.get(subtype, {}))
+
+            if not (a_num == r_num == b_num):
+                self._logcheck(
+                    f"Number of interfaces for subtype '{subtype}' mismatch: "
+                    f"actions({a_num}), read({r_num}), behavior({b_num})",
+                    log_check, 'error'
+                )
+                return False
+
+        # Use the interface count from the "format" subtype
+        num_int = self.get_number_of_interfaces(actions.get("format", {}))
+
+        # Validate each section
+        self._logcheck("Checking actions dictionary:", log_check, 'info')
+        a_ok = self._do_data_checks(actions, num_int, required_actions)
+
+        self._logcheck("Checking read dictionary:", log_check, 'info')
+        r_ok = self._do_data_checks(read, num_int, required_read)
+
+        self._logcheck("Checking behavior dictionary:", log_check, 'info')
+        b_ok = self._do_data_checks(behavior, num_int, required_behavior)
+
+        return a_ok and r_ok and b_ok
+
+
+    
+    def _do_data_checks(self, data, num_int, required):
+        """Perform validation checks for all subtypes inside a section."""
+        ok = True
+
+        for subtype in ["format", "info", "type"]:
+            subdict = data.get(subtype, {})
+
+            # Missing or invalid subtype dictionary
+            if not isinstance(subdict, dict): 
+                log.error(f"Missing or invalid subtype '{subtype}' dictionary!") 
+                return False
+
+            ok &= self.check_num_actions_in_data(subdict)
+            ok &= self.check_id_in_data(subdict, num_int)
+            ok &= self.check_number_formats_in_data(subdict)
+
+            # Required commands only apply to "format"
+            if subtype == "format":
+                ok &= self.check_req_actions_are_in_data(required, subdict)
+
+        return ok
+
+
+
+    def _logcheck(self,msg:str,logcheck=True,logtype='info'):
+        """logger helper function
+        """
+        if logcheck:
+            if logtype=='info':
+                log.info(msg)
+            elif logtype=='warning':
+                log.warning(msg)   
+            elif logtype=='error':
+                log.error(msg)
+            elif logtype=='debug':
+                log.error(msg) 
+            elif logtype=='print':
+                print(msg)    
+
+    def set_yaml_file(self,yaml_file:str=None)->bool:
+        """Checks for existance of the file , if deos not exist will try to set the default file
+
+        Args:
+            yaml_file (str, optional): Filename. Defaults to None.
+
+        Returns:
+            bool: True if a configuration file exists.
+        """
+        default_yaml=os.path.join(config_path,'default_config.yml')
+        if yaml_file is None:
+            yaml_file=default_yaml
+        if os.path.exists(yaml_file):
+            self.yaml_filename=yaml_file
+            return True
+        if os.path.exists(default_yaml):
+            self.yaml_filename=default_yaml
+            log.info("Default configuration set!")
             return True
         log.error("No configuration files available!")    
-        return False    
-        
-
-
-    def Set_Interfacefilename(self,filename):
-        self.Interfacefilename=filename
+        return False   
     
-    def Set_Readfilename(self,filename):
-        self.Readfilename=filename
-    
-    def Set_new_Interface(self,interface_id,Forcerefresh=False):
-        if self.id!=interface_id or Forcerefresh==True:
-            self.Set_id(interface_id)        
-            self.Setup_Command_Handler(False) #don't log checking
-            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
+    def set_new_interface(self,interface_id,force_refresh=False):
+        """Sets a new interface with interface id if id is different than actual used id.
 
+        Args:
+            interface_id (any): id of interface to set
+            force_refresh (bool, optional): reloads even if the id is same (makes load refresh). Defaults to False.
+        """
+        if self.id!=interface_id or force_refresh:
+            self.set_id(interface_id)    
+            if self.set_yaml_file(self.yaml_filename):
+                if self.load_and_set_config_from_yaml(self.yaml_filename,True,True):
+                    self._set_actual_interface_dictionaries()
     
-    def Set_id(self,selected_interface_id):
-        self.id=str(selected_interface_id) #equivalent to is_tinyg
+    def set_id(self,selected_interface_id):
+        """Sets new Id and refreshes Actual dictionaries
+
+        Args:
+            selected_interface_id (any): id to select
+        """
+        id_list=self.get_id_list()
+        if id_list is None:
+            return
+        if selected_interface_id in id_list:
+            self.id=str(selected_interface_id) 
+            self._set_actual_interface_dictionaries()
     
     def join_datasets(self,data1,txtext1,data2,txtext2):
         datajoined={}
@@ -120,34 +660,54 @@ class Command_Handler:
             datajoined.update({iii+txtext1:data1[iii]})
         return datajoined    
 
-    def Setup_Command_Handler(self,log_check=True):        
-        fileok=self.Check_command_config_file_Content(self.filename,self.Required_actions,logcheck=log_check)
-        #open file .config
-        if fileok==False:
-            log.error('Configuration File contains Errors! Configuration Will not be loaded!')
-            self.Configdata={}
-            self.Configdata_info={}
-            self.Configdata_type={}
-            self.Actual_Interface_Formats={}
-            self.Actual_Interface_FInfo={}
-            self.Actual_Interface_FTypes={}
-            self.Num_interfaces=0
-            return 
-        self.Configdata=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=0)
-        self.Configdata_info=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=1)
-        self.Configdata_type=self.Load_command_config_from_file(filename=self.filename,Logopen=log_check,typeofload=2)
-        #read configurations
-        #get number of configurations from interfaceId
+    def _set_actual_interface_dictionaries(self):
+        """Sets self.id to Actual interface dictionaries"""
         self.Num_interfaces=self.get_number_of_interfaces(self.Configdata)
-        #get action dictionary of selected Id {'action'=stringformat}                
-        self.Actual_Interface_Formats={}
-        if self.Check_id_in_Config(self.id)==True:
-            self.Actual_Interface_Formats=self.get_interface_config(self.Configdata,self.id)
-            self.Actual_Interface_FInfo=self.get_interface_config(self.Configdata_info,self.id)
-            self.Actual_Interface_FTypes=self.get_interface_config(self.Configdata_type,self.id)
 
+        self.Actual_Interface_Formats=self.get_interface_config(self.Configdata,self.id)
+        self.Actual_Interface_FInfo=self.get_interface_config(self.Configdata_info,self.id)
+        self.Actual_Interface_FTypes=self.get_interface_config(self.Configdata_type,self.id)
+
+        self.Int_Config=self.get_interface_config(self.InterfaceConfigallids,self.id)
+        self.Int_Config_info=self.get_interface_config(self.InterfaceConfigallids_info,self.id)                    
+        self.Int_Config_type=self.get_interface_config(self.InterfaceConfigallids_type,self.id)
+
+        self.Read_Config=self.get_interface_config(self.ReadConfigallids,self.id)
+        self.Read_Config_info=self.get_interface_config(self.ReadConfigallids_info,self.id)
+        self.Read_Config_type=self.get_interface_config(self.ReadConfigallids_type,self.id)
     
-    def Check_id_in_Config(self,id):
+    def _clear_actual_interface_dictionaries(self):
+        """Clears the actual interface dictionaries"""
+        self.Num_interfaces=0
+
+        self.Actual_Interface_Formats={}
+        self.Actual_Interface_FInfo={}
+        self.Actual_Interface_FTypes={}
+
+        self.Int_Config={}
+        self.Int_Config_info={}                    
+        self.Int_Config_type={}
+
+        self.Read_Config={}
+        self.Read_Config_info={}
+        self.Read_Config_type={}
+    
+    def _clear_data_dictionaries(self):
+        """Clears all ids dictionaries
+        """
+        self.Configdata = {}
+        self.Configdata_info = {}
+        self.Configdata_type = {}
+
+        self.ReadConfigallids = {}
+        self.ReadConfigallids_info = {}
+        self.ReadConfigallids_type = {}
+
+        self.InterfaceConfigallids = {}
+        self.InterfaceConfigallids_info = {}
+        self.InterfaceConfigallids_type = {}
+        
+    def check_id_in_Config(self,id):
         try:
             isok=False
             newid=str(id)
@@ -156,7 +716,7 @@ class Command_Handler:
             if newid in idlist:
                 isok=True
             if newid==self.id and isok==False:
-                self.Set_id(idlist[0])
+                self.set_id(idlist[0])
                 log.error('None existing Id changed to ', self.id)
                 isok=True
         except Exception as e:
@@ -166,7 +726,7 @@ class Command_Handler:
             pass    
         return isok
     
-    def Check_id_in_dataConfig(self,data,id):
+    def check_id_in_data_config(self,data,id):
         '''
         checks id but does not revert if error found
         '''
@@ -186,189 +746,223 @@ class Command_Handler:
     
 
     def get_number_of_interfaces(self,data):
+        """ Gets the amount of interfaces from 'interfaceId' key in data"""
         try:
             idlist=data['interfaceId']
-        except Exception as e:
-            log.error(e)
-            log.error('Number interfaces')
-            idlist=[]
-            pass
-        sss=0    
-        for ddd in idlist:            
-            sss=sss+1
-        return sss    
-    
-            
+            if isinstance(idlist,(list,tuple)):
+                return len(idlist)
+            else:  
+                return 1
+        except (TypeError,ValueError,KeyError) as eee:
+            log.error(f'Undefined Number of interfaces: {eee}')
+            return 0 
 
-    def Get_action_format_from_id(self,data,action,interface_id):
-        try:
-            aclist=data[action]
-            idcol=self.Get_interface_column_from_id(data,interface_id)            
-            if idcol!=None:                
-                return aclist[idcol]
-        except Exception as e:
-            #log.error(e)   
-            #print(data,action,interface_id)
-            #log.error('action format from id')         
-            pass        
+    def get_action_format_from_id(self, data, action, interface_id):
+        """
+        Retrieve the value of a specific command (action) for a given interface ID.
+
+        This function looks up:
+        - the command name (`action`) inside the subtype dictionary `data`
+        - the column index corresponding to `interface_id`
+        - and returns the value stored at that column
+
+        Args:
+            data (dict): A subtype dictionary (e.g., actions["format"]).
+            action (str): The command name to retrieve.
+            interface_id (any): The interface ID whose value should be returned.
+
+        Returns:
+            any or None:
+                The value stored for the given action and interface ID,
+                or None if the action does not exist, the ID is not found,
+                or the data is malformed.
+        """
+        if not isinstance(data, dict):
+            return None
+
+        # Command must exist
+        aclist = data.get(action)
+        if not isinstance(aclist, list):
+            return None
+
+        # Find the column for this interface ID
+        idcol = self.get_interface_column_from_id(data, interface_id)
+        if idcol is None:
+            return None
+
+        # Ensure index is valid
+        if idcol < 0 or idcol >= len(aclist):
+            return None
+
+        return aclist[idcol]
+
+
+    def get_interface_column_from_id(self, data, interface_id) -> int:
+        """
+        Return the column index corresponding to the given interface ID.
+
+        Args:
+            data (dict): A dictionary containing an 'interfaceId' list.
+            interface_id (any): The ID to search for.
+
+        Returns:
+            int: The index of the interface ID, or None if not found.
+        """
+        if not isinstance(data, dict):
+            log.error("get_interface_column_from_id: data is not a dictionary")
+            return None
+
+        id_list = data.get("interfaceId")
+        if not isinstance(id_list, list):
+            log.error("get_interface_column_from_id: 'interfaceId' is missing or not a list")
+            return None
+
+        target = str(interface_id)
+
+        for index, an_id in enumerate(id_list):
+            if str(an_id) == target:
+                return index
+
+        # Not found
         return None
 
-    def Get_interface_column_from_id(self,data,interface_id):        
-        try:
-            idlist=data['interfaceId']
-        except Exception as e:
-            log.error(e)
-            log.error('interface column from id')
-            idlist=[]
-            pass
-        ccc=0
-        for iii in idlist:
-            if iii==str(interface_id):
-                return ccc
-            ccc=ccc+1
-        return None
+        
 
-    def get_interface_config(self,data,interface_id):
-        alist=[]
+    def get_interface_config(self,data:dict,interface_id)->dict:
+        """Returns the dictionary with the data for specific interface id"""
         dataint={}    
-        Colnum=self.Get_interface_column_from_id(data,interface_id) 
-        Numinter=self.get_number_of_interfaces(data)
-        if Colnum!=None and  Colnum<=Numinter:  
-            for ddd in data:
-                alist=data[ddd]        
-                dataint[ddd]=alist[Colnum]
-                #print(dataint[ddd])
+        col_num=self.get_interface_column_from_id(data,interface_id) 
+        num_inter=self.get_number_of_interfaces(data)
+        if col_num != None and col_num<num_inter:  
+            for key,value in data.items():
+                alist=value        
+                dataint[key]=alist[col_num]
         return dataint       
         
     def get_number_of_actions(self):
-        return self.Get_Number_of_Actual_Interface_Formats()
+        """Number of commands in action dictionary"""
+        return self.get_number_of_actions_in_data(self.Actual_Interface_Formats)
 
-    def get_number_of_actions_in_Data(self,data):
-        Num=0
-        for jjj in data:
-            #print(jjj)
-            Num=Num+1
-        return Num    
+    def get_number_of_actions_in_data(self,data:dict):
+        """Number of commands in data dictionary"""
+        if isinstance(data,dict):
+            return len(list(data.keys()))    
 
-    def Get_Number_of_Actual_Interface_Formats(self,cri=0):
-        Num=0        
-        aset=self.Actual_Interface_Formats
+    def get_number_of_actual_interface_formats(self,cri=0):
+        """Number of actions=0, read=1, behavior=2 commands in actual interface"""
         if cri==1:
-            aset=self.Read_Config
+            return self.get_number_of_actions_in_data(self.Read_Config)
         if cri==2:
-            aset=self.Int_Config    
-        for jjj in aset:
-            #print(jjj)
-            Num=Num+1
-        return Num    
+            return self.get_number_of_actions_in_data(self.Int_Config)    
+        return self.get_number_of_actions_in_data(self.Actual_Interface_Formats)    
 
-    def Load_command_config_from_file(self,filename=None,Logopen=False,typeofload=0):      
-        '''
-        typeofload=-1 loads all
-        typeofload=0 loads actions
-        typeofload=1 loads info
-        typeofload=2 loads type
-        ''' 
-        if filename is None: 
-            filename=self.filename
-        data={}
-        if filename is not None:            
-            if Logopen==True:
-                log.info('Opening:'+filename)
-            try:                
-                with open(filename, 'r') as yourFile:
-                    #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
-                    linelist=yourFile.readlines() #makes list of lines  
-                data=self.Get_Command_Config_Data_From_List(linelist,typeofload)     
-                #if typeofload==1:
-                #    print(data)                                           
-                yourFile.close()                
-            except Exception as e:
-                log.error(e)
-                log.info("Command Configuration File could not be read!")
-        return data        
+    # def Load_command_config_from_file(self,filename=None,Logopen=False,typeofload=0):      
+    #     '''
+    #     typeofload=-1 loads all
+    #     typeofload=0 loads actions
+    #     typeofload=1 loads info
+    #     typeofload=2 loads type
+    #     ''' 
+    #     if filename is None: 
+    #         filename=self.filename
+    #     data={}
+    #     if filename is not None:            
+    #         if Logopen==True:
+    #             log.info('Opening:'+filename)
+    #         try:                
+    #             with open(filename, 'r') as yourFile:
+    #                 #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
+    #                 linelist=yourFile.readlines() #makes list of lines  
+    #             data=self.Get_Command_Config_Data_From_List(linelist,typeofload)     
+    #             #if typeofload==1:
+    #             #    print(data)                                           
+    #             yourFile.close()                
+    #         except Exception as e:
+    #             log.error(e)
+    #             log.info("Command Configuration File could not be read!")
+    #     return data        
     
-    def Get_Command_Config_Data_From_List(self,linelist,typeofload=0):
-        data={}
-        '''
-        interfaceId in any typeofload
+    # def Get_Command_Config_Data_From_List(self,linelist,typeofload=0):
+    #     data={}
+    #     '''
+    #     interfaceId in any typeofload
 
-        typeofload=-1 loads all
-        typeofload=0 loads actions
-        typeofload=1 loads info (except interfaceId)
-        typeofload=2 loads type (except interfaceId)
-        '''
-        for line in linelist:
-            #log.info(line)          
-            Nomismatch=self.Check_one_Parenthesees(line,IniP='<',EndP='>')  
-            lastchar=''
-            actionname=''
-            item=''
-            lineinfolist=[]
-            countnum=0
-            regextxt=''
-            isregex=False
-            for achar in line:
-                if achar=='#' and countnum==0:                    
-                    break
-                if achar=='r' and lastchar=='<':
-                   regextxt=='r'
-                if achar=="'" and lastchar=='r' and isregex==False:
-                    isregex=True
-                    regextxt=regextxt+achar
-                elif achar=="'" and isregex==True:
-                    isregex=False    
+    #     typeofload=-1 loads all
+    #     typeofload=0 loads actions
+    #     typeofload=1 loads info (except interfaceId)
+    #     typeofload=2 loads type (except interfaceId)
+    #     '''
+    #     for line in linelist:
+    #         #log.info(line)          
+    #         Nomismatch=self.check_one_Parenthesees(line,IniP='<',EndP='>')  
+    #         lastchar=''
+    #         actionname=''
+    #         item=''
+    #         lineinfolist=[]
+    #         countnum=0
+    #         regextxt=''
+    #         isregex=False
+    #         for achar in line:
+    #             if achar=='#' and countnum==0:                    
+    #                 break
+    #             if achar=='r' and lastchar=='<':
+    #                regextxt=='r'
+    #             if achar=="'" and lastchar=='r' and isregex==False:
+    #                 isregex=True
+    #                 regextxt=regextxt+achar
+    #             elif achar=="'" and isregex==True:
+    #                 isregex=False    
                 
-                if (achar =='<' or achar=='>') and isregex==True:
-                    Nomismatch=True
-                    #item=item+achar
-                if achar =='<' and isregex==False:
-                    #print(countnum)
-                    item=''
-                    countnum=countnum+1
-                elif achar=='>' and isregex==False:
-                    lastchar=achar    
-                    if countnum==1:
-                        actionname=item
-                    else:
-                        lineinfolist.append(item)
-                elif achar=='_' and lastchar=='>':
-                    lastchar=achar 
-                else:    
-                    item=item+achar
-                lastchar=achar                       
-            if actionname!='': 
-                if Nomismatch==False:
-                    log.info('Parenthesees <> Mismatch in:'+actionname)
-                #log.info('action:'+actionname)   
-                #print(lineinfolist)
-                isinfo=False
-                istype=False
-                isid=False
-                if '_info' in actionname:
-                    isinfo=True
-                if '_type' in actionname:
-                    istype=True    
-                if 'interfaceId' == actionname:                     
-                    isid=True   
-                if 'interfaceId_info' == actionname or 'interfaceId_type' == actionname:    
-                    isid=True
-                if isid==True:
-                    data.update({actionname:list(lineinfolist)})
-                else:            
-                    if typeofload==-1: # loads all
-                        data.update({actionname:list(lineinfolist)})     
-                    if typeofload==0 and isinfo==False and istype==False: # loads actions
-                        data.update({actionname:list(lineinfolist)})                             
-                    if typeofload==1 and isinfo==True and istype==False: # loads info                                               
-                        if 'interfaceId' not in actionname:                                     
-                            actionname=actionname.replace('_info','')
-                            data.update({actionname:list(lineinfolist)})
-                    if typeofload==2 and isinfo==False and istype==True: # loads type
-                        if 'interfaceId' not in actionname:                                                                 
-                            actionname=actionname.replace('_type','')
-                            data.update({actionname:list(lineinfolist)})                                     
-        return data    
+    #             if (achar =='<' or achar=='>') and isregex==True:
+    #                 Nomismatch=True
+    #                 #item=item+achar
+    #             if achar =='<' and isregex==False:
+    #                 #print(countnum)
+    #                 item=''
+    #                 countnum=countnum+1
+    #             elif achar=='>' and isregex==False:
+    #                 lastchar=achar    
+    #                 if countnum==1:
+    #                     actionname=item
+    #                 else:
+    #                     lineinfolist.append(item)
+    #             elif achar=='_' and lastchar=='>':
+    #                 lastchar=achar 
+    #             else:    
+    #                 item=item+achar
+    #             lastchar=achar                       
+    #         if actionname!='': 
+    #             if Nomismatch==False:
+    #                 log.info('Parenthesees <> Mismatch in:'+actionname)
+    #             #log.info('action:'+actionname)   
+    #             #print(lineinfolist)
+    #             isinfo=False
+    #             istype=False
+    #             isid=False
+    #             if '_info' in actionname:
+    #                 isinfo=True
+    #             if '_type' in actionname:
+    #                 istype=True    
+    #             if 'interfaceId' == actionname:                     
+    #                 isid=True   
+    #             if 'interfaceId_info' == actionname or 'interfaceId_type' == actionname:    
+    #                 isid=True
+    #             if isid==True:
+    #                 data.update({actionname:list(lineinfolist)})
+    #             else:            
+    #                 if typeofload==-1: # loads all
+    #                     data.update({actionname:list(lineinfolist)})     
+    #                 if typeofload==0 and isinfo==False and istype==False: # loads actions
+    #                     data.update({actionname:list(lineinfolist)})                             
+    #                 if typeofload==1 and isinfo==True and istype==False: # loads info                                               
+    #                     if 'interfaceId' not in actionname:                                     
+    #                         actionname=actionname.replace('_info','')
+    #                         data.update({actionname:list(lineinfolist)})
+    #                 if typeofload==2 and isinfo==False and istype==True: # loads type
+    #                     if 'interfaceId' not in actionname:                                                                 
+    #                         actionname=actionname.replace('_type','')
+    #                         data.update({actionname:list(lineinfolist)})                                     
+    #     return data    
 
     def getGformatforAction(self,action):
         ActionFormat=None
@@ -382,9 +976,9 @@ class Command_Handler:
         ActionFormat=None
         try:       
             formatlist=data[action]              
-            if self.Check_id_in_dataConfig(data,id)==True:   
-                idcol=self.Get_interface_column_from_id(data,id)
-                if idcol!=None:
+            if self.check_id_in_data_config(data,id)==True:   
+                idcol=self.get_interface_column_from_id(data,id)
+                if idcol is not None:
                     ActionFormat=formatlist[idcol]
         except:
             pass
@@ -394,9 +988,9 @@ class Command_Handler:
         ActionFormat=None
         try:       
             formatlist=self.Configdata[action]  
-            if self.Check_id_in_Config(id)==True:   
-                idcol=self.Get_interface_column_from_id(self.Configdata,id)
-                if idcol!=None:
+            if self.check_id_in_Config(id)==True:   
+                idcol=self.get_interface_column_from_id(self.Configdata,id)
+                if idcol is not None:
                     ActionFormat=formatlist[idcol]
         except:
             pass
@@ -406,9 +1000,9 @@ class Command_Handler:
         ActionFormat=None
         try:       
             formatlist=self.ReadConfigallids[action]  
-            if self.Check_id_in_Config(id)==True:   
-                idcol=self.Get_interface_column_from_id(self.ReadConfigallids,id)
-                if idcol!=None:
+            if self.check_id_in_Config(id)==True:   
+                idcol=self.get_interface_column_from_id(self.ReadConfigallids,id)
+                if idcol is not None:
                     ActionFormat=formatlist[idcol]
         except:
             pass
@@ -418,9 +1012,9 @@ class Command_Handler:
         ActionFormat=None
         try:       
             formatlist=self.InterfaceConfigallids[action]  
-            if self.Check_id_in_Config(id)==True:   
-                idcol=self.Get_interface_column_from_id(self.InterfaceConfigallids,id)
-                if idcol!=None:
+            if self.check_id_in_Config(id)==True:   
+                idcol=self.get_interface_column_from_id(self.InterfaceConfigallids,id)
+                if idcol is not None:
                     ActionFormat=formatlist[idcol]
         except:
             pass
@@ -441,35 +1035,6 @@ class Command_Handler:
     
     def getListofInterfaceactions(self,exceptlist=[]):        
         return self.getListofAnyactionsindata(self.Int_Config,exceptlist)                             
-        
-
-    def Split_text(self,separator,line):
-        alist=[]
-        count=0
-        try:                                      
-            mf =re.split(separator,line)                               
-            x=re.findall(separator,line)
-        except:
-            mf = None
-            
-        try:
-            if mf is not None:                  
-                for item in mf:                                   
-                    #print("Inside vector->"+str(item))
-                    alist.append(item)
-                    #count=count+1
-                if x is not None:
-                    count=len(x)     
-            else:
-                alist.append(line)
-        except Exception as e:            
-            log.error(e)  
-            log.error('split text')                      
-            alist=[]
-            pass
-        return alist,count                   
-
-    
 
     def num_groups(self,match):
         if match is not None:
@@ -492,55 +1057,6 @@ class Command_Handler:
             return ppp[0] #separate first
         else:
             return regex_sep
-    
-    def get_list_in_between_txt(self,txt,inis,ends):
-        alist=[]
-        astr=''
-        doappend=False
-        count=0
-        for achar in txt:
-            if achar==ends and inis!=ends:
-                doappend=False
-            if achar==inis and inis!=ends:
-                doappend=True
-                count=count+1
-            if inis==ends and achar==ends:
-                doappend= not doappend   
-            if doappend==True:
-                if achar!=inis and achar!=ends:
-                    astr=astr+achar    
-            if  doappend==False and count>=1:
-                alist.append(astr)
-                astr=''
-                count=0
-
-        return alist        
-
-    def Format_which_Inside_Parenthesees(self,aFormat,IniP=r'\[',EndP=r'\]'):
-        aFormat=str(aFormat)
-        try:
-            alist=[]
-            Inisep=self.get_text_split_separatorfromregex(IniP)
-            Endsep=self.get_text_split_separatorfromregex(EndP)
-            #print(Inisep+'hola'+Endsep)
-            txtlist,Nopini=self.Split_text(IniP,aFormat) 
-            txtlist,Nopend=self.Split_text(EndP,aFormat) 
-            #print(Nopini,Nopend)
-            if Nopini!=Nopend:
-                log.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
-                #Nopini=0
-            #else:    
-            #    if Nopini>0:    
-            txt=str(aFormat)                             
-            alist=self.get_list_in_between_txt(txt,Inisep,Endsep)    
-            Nopini=len(alist)              
-        except Exception as e:            
-            log.error(e)     
-            log.error('Inside Parentheses')                        
-            alist=[]
-            Nopini=0
-            pass            
-        return alist,Nopini
     
     def Format_Get_optionlist_parameterlist(self,aFormat):
         aFormat=str(aFormat)
@@ -596,9 +1112,9 @@ class Command_Handler:
                 beflistop,Numbefopt=self.Format_which_Inside_Parenthesees(before)
                 aftlistop,Numaftopt=self.Format_which_Inside_Parenthesees(after)
                 varlistb,Numspecimain=self.Format_which_Inside_Parenthesees(beflistop[Numbefopt-1],r'\{',r'\}')
-                Isonlistb=self.Check_all_Parameters_are_in_list(varlistb,Parameters)
+                Isonlistb=self.check_all_Parameters_are_in_list(varlistb,Parameters)
                 varlista,Numspecimain=self.Format_which_Inside_Parenthesees(aftlistop[0],r'\{',r'\}')
-                Isonlista=self.Check_all_Parameters_are_in_list(varlista,Parameters) 
+                Isonlista=self.check_all_Parameters_are_in_list(varlista,Parameters) 
                 if Isonlistb==False and Isonlista==False:
                     if '&&' not in beflistop[Numbefopt-1]:
                         before=before.replace('['+beflistop[Numbefopt-1]+']','')
@@ -648,11 +1164,11 @@ class Command_Handler:
                     if action in var: #action==var: 
                         vlist,Numv=self.Format_which_Inside_Parenthesees(var,r'\(',r'\)') 
                         if Numv>0:                        
-                            fff=self.Get_action_format_from_id(self.Configdata,action,vlist[0])
+                            fff=self.get_action_format_from_id(self.Configdata,action,vlist[0])
                             #print('here1:'+str(fff))
                         else:
                             #print(action)
-                            fff=self.Get_action_format_from_id(self.Configdata,action,self.id)    
+                            fff=self.get_action_format_from_id(self.Configdata,action,self.id)    
                             #print('here2:'+str(fff))
                         if fff is not None:    
                             if 'char(' in fff:
@@ -671,7 +1187,7 @@ class Command_Handler:
         if self.Is_action_in_Config(action)==True:
             aFormat=self.getGformatforAction(action)
             #print(aFormat)  
-            paramok=self.Check_Parameters_for_Action(action,Parameters)
+            paramok=self.check_Parameters_for_Action(action,Parameters)
             #print('Paramok=',paramok)
             if paramok==True or Parammustok==False:
                 Gcode=self.Get_code(aFormat,Parameters)
@@ -685,7 +1201,7 @@ class Command_Handler:
         if self.Is_action_in_Config(action)==True:
             aFormat=self.getGformatforActionid(action,anId)
             #print(aFormat)  
-            paramok=self.Check_Parameters_for_Action(action,Parameters)
+            paramok=self.check_Parameters_for_Action(action,Parameters)
             #print('Paramok=',paramok)
             if paramok==True or Parammustok==False:
                 Gcode=self.Get_code(aFormat,Parameters)
@@ -705,7 +1221,7 @@ class Command_Handler:
                     aFormat=self.getGformatforActionid(action,anId)
                     #print(aFormat)  
                     Parameters=actionparamsfound[action]
-                    paramok=self.Check_Parameters_for_Action(action,Parameters,anId)
+                    paramok=self.check_Parameters_for_Action(action,Parameters,anId)
                     #print('Paramok=',paramok)
                     if paramok==False and Parammustok==True:
                         log.warning('Wrong Parameters for ID:'+anId+' action:'+action)
@@ -734,8 +1250,8 @@ class Command_Handler:
                 MCommand=self.Format_Get_main_Command(newFormat,Numoptions)
                 varlist,Numspecimain=self.Format_which_Inside_Parenthesees(MCommand,r'\{',r'\}') #in []                        
                 astr=MCommand
-                #areallparams=self.Check_all_Parameters_are_in_list(varlist,Parameters,True)   #Log when missing parameter in main
-                areallparams=self.Check_all_Parameters_are_in_list(varlist,Parameters)   
+                #areallparams=self.check_all_Parameters_are_in_list(varlist,Parameters,True)   #Log when missing parameter in main
+                areallparams=self.check_all_Parameters_are_in_list(varlist,Parameters)   
                 if areallparams==True:
                     params=self.Get_only_the_Parameters_in_list(varlist,Parameters)
                     if Numspecimain>0:
@@ -756,7 +1272,7 @@ class Command_Handler:
                             minnumoptions=1
                 for option in optionslist:                
                     varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
-                    isoptparam=self.Check_all_Parameters_are_in_list(varoptlist,Parameters)
+                    isoptparam=self.check_all_Parameters_are_in_list(varoptlist,Parameters)
                     optstr=''
                     if isoptparam==True:                
                         params=self.Get_only_the_Parameters_in_list(varoptlist,Parameters)                
@@ -786,7 +1302,7 @@ class Command_Handler:
             pass        
         return The_code    
 
-    def Check_all_Parameters_are_in_list(self,varlist,Parameters,elog=False):
+    def check_all_Parameters_are_in_list(self,varlist,Parameters,elog=False):
         isinparams=True
         for var in varlist:
             isinparams=False                
@@ -826,7 +1342,7 @@ class Command_Handler:
         if self.Is_action_in_Config(action)==False:
             log.error('action missing to get needed Parameters!')
             return Params
-        aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
+        aFormat=self.get_action_format_from_id(self.Configdata,action,interface_id)
         Params=self.Get_Parameters_Needed_for_Format(aFormat) 
         return Params
 
@@ -864,7 +1380,7 @@ class Command_Handler:
         else:
             return False    
 
-    def Check_Parameters_for_Action(self,action,Parameters,anId=None):   
+    def check_Parameters_for_Action(self,action,Parameters,anId=None):   
         if anId==None:
             anId=self.id
         if self.Is_action_in_Config(action)==False:
@@ -897,7 +1413,7 @@ class Command_Handler:
             return True
         return False
     
-    def Check_Parameters_for_Format(self,aFormat,Parameters):     
+    def check_Parameters_for_Format(self,aFormat,Parameters):     
         #print('Format checking...')      
         RequiredParams=self.Get_Parameters_Needed_for_Format(aFormat)     
         minimum_required=0
@@ -927,256 +1443,142 @@ class Command_Handler:
             return True
         return False
 
-    def Check_command_config_file_Content(self,filename,Reqactions,Checkstrickt=False,logcheck=True):
-        #filename=self.filename        
-        data={}
-        if filename is not None:            
-            if logcheck==True:
-                log.info('Checking configuration in:'+filename)
-            try:                
-                with open(filename, 'r') as yourFile:
-                    #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
-                    linelist=yourFile.readlines() #makes list of lines  
-                data=self.Get_Command_Config_Data_From_List(linelist,typeofload=-1)                                                
-                yourFile.close()
-            except Exception as e:
-                log.error(e)
-                log.info("File"+filename+" could not be Checked!")
-                pass        
-            achk=self.Check_num_actions_in_Data(data)
-            if logcheck==True:    
-                log.info('\t-Minimum Amount Check Passed:'+str(achk))                      
-            if achk==False:
-                return False      
-            
-            achk=self.Check_id_in_Data(data,1)
-            if logcheck==True:
-                log.info('\t-Id Check Passed:'+str(achk))    
-            if achk==False:
-                return False      
-            
-            
-            achk=self.Check_number_Formats_in_Data(data)
-            if logcheck==True:
-                log.info('\t-Amount of Formats Check Passed:'+str(achk))    
-            if achk==False:
-                return False      
-            
-            
-            achk=self.Check_Req_actions_are_in_Data(Reqactions,data)
-            if logcheck==True:
-                log.info('\t-Required actions Check Passed:'+str(achk))    
-            if achk==False:
-                return False                  
+    def check_number_formats_in_data(self, data):
+        """
+        Ensure that every command in the subtype dictionary has a value list
+        matching the number of interfaces.
 
-            achk=self.Check_Parenthesees_in_all_Formats(data)
-            if logcheck==True:
-                log.info('\t-Parenthesees Check Passed:'+str(achk)) 
-            if achk==False and Checkstrickt==True:
-                return False   
+        Args:
+            data (dict): A subtype dictionary.
 
-            return True
-                
-        log.error('No file to Check')    
-        return False
+        Returns:
+            bool: True if all commands have correct list lengths, False otherwise.
+        """
+        num_inter = self.get_number_of_interfaces(data)
+        if num_inter is None or num_inter == 0:
+            return True  # nothing to validate
 
-    def Check_id_in_Data(self,data,min_interfaces=1):                    
-        try:
-            idlist=data['interfaceId']
-            idlistfound=True            
-        except Exception as e:
-            #log.error(e)
-            log.error("No 'interfaceId' defined in configuration File!")
-            idlistfound=False            
-            pass
-        if idlistfound==True:
-            Numinter=self.get_number_of_interfaces(data)
-            if Numinter<min_interfaces or Numinter==None:
-                log.error('At least '+str(min_interfaces)+ " interfaces must be defined in 'interfaceId' ")
-                return False  
-            compidlist=[]      
-            for ids in idlist:
-                if ids in compidlist:
-                    log.error('Repeated id '+str(ids)+ " in 'interfaceId'. Unique id is required!")
-                    return False  
-                else:
-                    compidlist.append(ids)                         
+        ok = True
+        for key, values in data.items():
+            if not isinstance(values, list):
+                log.error(f"Command '{key}' has invalid value type (expected list).")
+                ok = False
+                continue
+
+            if len(values) < num_inter:
+                missing = num_inter - len(values)
+                log.error(f"Command '{key}' is missing {missing} interface value(s).")
+                ok = False
+
+        return ok
+
+    def check_id_in_data(self, data, min_interfaces=1):
+        """Validate the 'interfaceId' list inside a subtype dictionary."""
+
+        idlist = data.get("interfaceId")
+        if idlist is None:
+            log.error("No 'interfaceId' defined in configuration file!")
+            return False
+
+        num_inter = self.get_number_of_interfaces(data)
+        if num_inter is None or num_inter < min_interfaces:
+            log.error(f"At least {min_interfaces} interfaces must be defined in 'interfaceId'")
+            return False
+
+        seen = set()
+        for ids in idlist:
+            if ids in seen:
+                log.error(f"Repeated id {ids} in 'interfaceId'. Unique id is required!")
+                return False
+            seen.add(ids)
+
         return True
 
-    def Check_num_actions_in_Data(self,data):                    
-        numactions=self.get_number_of_actions_in_Data(data)
+    def check_num_actions_in_data(self,data):                    
+        numactions=self.get_number_of_actions_in_data(data)
         if numactions<1:
             log.error('No actions found in File!')
             return False
         return True    
 
-    def Check_Req_actions_are_in_Data(self,Reqactions,data):
-        allok=True
-        for reqa in Reqactions:
-            if reqa not in data:
-                log.error('Missing required action:' + str(reqa))
-                allok=False
-        return allok        
-   
-    def Check_number_Formats_in_Data(self,data):                
-        Numinter=self.get_number_of_interfaces(data)
-        allok=True
-        if Numinter!=None and Numinter>0:  
-            for ddd in data:
-                alist=data[ddd]
-                intfound=len(alist)        
-                if Numinter>intfound:
-                    log.error('Missing ' +str(Numinter-intfound) +' interface(s) on action: '+ddd)
-                    allok=False
-        return allok            
-    def Nums_Parenthesees(self,txt,IniP,EndP):
-        
-        txtlist,Nopini=self.Split_text(IniP,txt) 
-        txtlist,Nopend=self.Split_text(EndP,txt) 
-        #print(Nopini,Nopend)
-        return [Nopini,Nopend]
+    def check_req_actions_are_in_data(self, required, data):
+        """
+        Verify that all required commands exist in the 'format' subtype dictionary.
 
-    def Check_one_Parenthesees(self,aFormat,IniP=r'\[',EndP=r'\]',logerr=True):
-        aFormat=str(aFormat)
-        try:            
-            Inisep=self.get_text_split_separatorfromregex(IniP)
-            Endsep=self.get_text_split_separatorfromregex(EndP)
-            
-            [Nopini,Nopend]=self.Nums_Parenthesees(aFormat,IniP,EndP)
-            
-            if Nopini!=Nopend:
-                if logerr==True:
-                    log.error('Bad Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
-                return False
+        Args:
+            required (list or None): List of required command names.
+            data (dict): The 'format' subtype dictionary.
+
+        Returns:
+            bool: True if all required commands are present, False otherwise.
+        """
+        if required is None:
             return True
-        except:
-            log.error('Bad Parenthesees Format '+Inisep+' '+Endsep+' in <'+aFormat+'>')
-            pass
-        return False
-    
-    def Check_entangled_Parenthesees(self,txt,logerr=False):
-        p1list,Nump1=self.Format_which_Inside_Parenthesees(txt,r'\{',r'\}')  
-        [Np1ini,Np1end]=self.Nums_Parenthesees(txt,r'\{',r'\}')
-        [Np2ini,Np2end]=self.Nums_Parenthesees(txt,r'\[',r'\]')
-        [Np3ini,Np3end]=self.Nums_Parenthesees(txt,r'\(',r'\)')
-        if Np1ini==Np1end and Np2ini==Np2end and Np3ini==Np3end:
-            if Np1ini==0 and Np2ini==0 and Np3ini==0:
-                return True
-            elif Np1ini>0 and Np2ini==0 and Np3ini==0:
-                return True    
-            elif Np1ini==0 and Np2ini>0 and Np3ini==0:
-                return True
-            elif Np1ini==0 and Np2ini==0 and Np3ini>0:
-                return True    
-            elif Np1ini>0 and Np2ini>0:
-                p1list,Nump1=self.Format_which_Inside_Parenthesees(txt,r'\{',r'\}') 
-                for ppp1 in p1list:
-                    #print('+1 depth')
-                    if txt!=ppp1:
-                        isok=self.Check_entangled_Parenthesees(ppp1,False)
-                        
-                    if isok == False:
-                        return False
-            elif Np2ini>0 and Np3ini>0:
-                p2list,Nump2=self.Format_which_Inside_Parenthesees(txt,r'\[',r'\]') 
-                for ppp2 in p2list:
-                    #print('+2 depth')
-                    if txt!=ppp2:
-                        isok=self.Check_entangled_Parenthesees(ppp2,False)
 
-                    if isok == False:
-                        return False        
-                return True    
-            elif Np1ini>0 and Np3ini>0:
-                p3list,Nump3=self.Format_which_Inside_Parenthesees(txt,r'\(',r'\)') 
-                for ppp3 in p3list:
-                    if txt!=ppp3:
-                        isok=self.Check_entangled_Parenthesees(ppp3,False)
-
-                    if isok == False:
-                        return False        
-                return True                    
-        else:
-            if logerr==True:
-                log.error('Different amounts of opening and closing Parenthesees')
+        if not isinstance(data, dict):
+            log.error("Invalid data structure while checking required commands.")
             return False
 
-        for p1 in p1list:
-            p2list,Nump2=self.Format_which_Inside_Parenthesees(p1,r'\[',r'\]') 
-            p3list,Nump3=self.Format_which_Inside_Parenthesees(p1,r'\(',r'\)') 
-            for p2 in p2list:
-                p2check=self.Check_one_Parenthesees(p2,IniP=r'\(',EndP=r'\)',logerr=False)
-            for p3 in p3list:
-                p3check=self.Check_one_Parenthesees(p3,IniP=r'\(',EndP=r'\)',logerr=False)    
+        ok = True
+        for cmd in required:
+            if cmd not in data:
+                log.error(f"Missing required command: {cmd}")
+                ok = False
+
+        return ok
         
-
-    def Check_Parenthesees_in_all_Formats(self,data):
-        allok=True
-        for ddd in data:
-            alist=data[ddd]
-            for aFor in alist:
-                P1=self.Check_one_Parenthesees(aFor,IniP=r'\[',EndP=r'\]',logerr=False)
-                if P1==False:
-                    log.error('Parenthesees Mismatch "[ ]" in action: '+ddd+ ' Format <'+ aFor+'>')
-                    allok=False
-                P2=self.Check_one_Parenthesees(aFor,IniP=r'\(',EndP=r'\)',logerr=False)
-                if P2==False:
-                    log.error('Parenthesees Mismatch "( )" in action: '+ddd+ ' Format <'+ aFor+'>')
-                    allok=False
-                P3=self.Check_one_Parenthesees(aFor,IniP=r'\{',EndP=r'\}',logerr=False)
-                if P3==False:
-                    log.error('Parenthesees Mismatch "{ }" in action: '+ddd+ ' Format <'+ aFor+'>')
-                    allok=False
-        if allok==True:
-            for ddd in data:
-                alist=data[ddd]
-                for aFor in alist:
-                    Pe=self.Check_entangled_Parenthesees(aFor,logerr=False)            
-                    if Pe==False:
-                        log.error('Parenthesees Entangled {[( }]) in action: '+ddd+ ' Format <'+ aFor+'>')
-                        allok=False
-
-        return allok
     
-    def Check_Parenthesees_in_one_Format(self,aFormat):
-        allok=True
-        aFor=str(aFormat)
-        P1=self.Check_one_Parenthesees(aFor,IniP=r'\[',EndP=r'\]',logerr=False)
-        if P1==False:
-            log.error('Parenthesees Mismatch "[ ]" in Format <'+ aFor+'>')
-            allok=False
-        P2=self.Check_one_Parenthesees(aFor,IniP=r'\(',EndP=r'\)',logerr=False)
-        if P2==False:
-            log.error('Parenthesees Mismatch "( )" in Format <'+ aFor+'>')
-            allok=False
-        P3=self.Check_one_Parenthesees(aFor,IniP=r'\{',EndP=r'\}',logerr=False)
-        if P3==False:
-            log.error('Parenthesees Mismatch "{ }" in Format <'+ aFor+'>')
-            allok=False
-        if allok==True:
-            Pe=self.Check_entangled_Parenthesees(aFor,logerr=False)            
-            if Pe==False:
-                log.error('Parenthesees Entangled {[( }]) in Format <'+ aFor+'>')
-                allok=False
+    def check_num_actions_in_data(self, data):
+        """
+        Ensure that the subtype dictionary contains at least one command.
 
-        return allok
-    def Check_id_match_configs(self,data1,data2):
-        isok=True
-        try:
-            d1list=data1['interfaceId']
-            d2list=data2['interfaceId']
-            if len(d1list)!=len(d2list):
-                log.error('interfaceId with different amount of items!')    
-                return False
-            for l1 in d1list:
-                if l1 not in d2list:
-                    log.error('id '+str(l1) +' Not found in one interfaceId configurations!')    
-                    return False    
-        except:
-            log.error('No interfaceId found!')    
-            isok=False
-            pass
-        return isok
+        Args:
+            data (dict): A subtype dictionary (format/info/type).
+
+        Returns:
+            bool: True if at least one command exists, False otherwise.
+        """
+        if not isinstance(data, dict):
+            log.error("Invalid data structure: expected a dictionary.")
+            return False
+
+        num_actions = self.get_number_of_actions_in_data(data)
+        if num_actions < 1:
+            log.error("No commands found in this subtype dictionary.")
+            return False
+
+        return True
+
+    
+    def check_id_match_configs(self, data1, data2):
+        """
+        Verify that two subtype dictionaries have matching 'interfaceId' lists.
+
+        Args:
+            data1 (dict): First subtype dictionary.
+            data2 (dict): Second subtype dictionary.
+
+        Returns:
+            bool: True if both contain identical interfaceId lists, False otherwise.
+        """
+        id1 = data1.get("interfaceId")
+        id2 = data2.get("interfaceId")
+
+        if id1 is None or id2 is None:
+            log.error("Missing 'interfaceId' in one or both subtype dictionaries.")
+            return False
+
+        if len(id1) != len(id2):
+            log.error("Mismatch in number of interface IDs between configurations.")
+            return False
+
+        # Check that all IDs match (order does not matter)
+        if set(id1) != set(id2):
+            log.error("Interface ID sets do not match between configurations.")
+            return False
+
+        return True
+
 
     def fill_parameters(self,parnamelist,parvallist):
         numpar=len(parnamelist)
@@ -1297,7 +1699,7 @@ class Command_Handler:
         foundcodeslist=[]  
         foundactionslist=[]  
         for action in allactions:
-            aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)
+            aFormat=self.get_action_format_from_id(self.Configdata,action,interface_id)
             aFormat=self.Format_replace_actions(aFormat)
             ParamsNeed=self.Get_Parameters_Needed_for_Format(aFormat)
             Maincmd=self.Format_Get_main_Command(aFormat)
@@ -1348,7 +1750,7 @@ class Command_Handler:
         actionparamsfound={}
         for action in actionlist:
             Params={}
-            aFormat=self.Get_action_format_from_id(self.Configdata,action,interface_id)                        
+            aFormat=self.get_action_format_from_id(self.Configdata,action,interface_id)                        
             #ParamsNeeded=self.Get_Parameters_Needed_for_action(action,interface_id)    
             aFormat=self.Add_Id_to_actionFormat(aFormat,interface_id)
             P_opread=self.get_regex_codes_to_find_parameters(aFormat)   
@@ -1472,16 +1874,16 @@ class Command_Handler:
         else:
             return False    
                  
-    def Check_Format(self,aFormat,Parameters={}): 
+    def check_Format(self,aFormat,Parameters={}): 
         '''
         Checks parenthesees and if there is parameters the required parameters
         ''' 
         #print('check start')      
-        isok= self.Check_Parenthesees_in_one_Format(aFormat)
+        isok= self.check_Parenthesees_in_one_Format(aFormat)
         #print(isok,len(Parameters),Parameters)
         if isok==True and len(Parameters)>0 :
             #print('checking parameters')
-            isok=self.Check_Parameters_for_Format(aFormat,Parameters)                 
+            isok=self.check_Parameters_for_Format(aFormat,Parameters)                 
         return isok
 
     def get_all_info_from_Format(self,aFormat):
@@ -1511,7 +1913,7 @@ class Command_Handler:
             optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)
             
         else:
-            isok=self.Check_Format(aFormat)
+            isok=self.check_Format(aFormat)
             if isok==False:
                 log.error('Bad Format Entangled Parenthesees')
                 return All_data
@@ -1627,249 +2029,320 @@ class Command_Handler:
         ParamRead.update({'__success__':success_})  #-1 No regex format, 0 No matches in format, # of matches found          
         return ParamRead
 
-    def replace_action_format_in_file(self,filename,anaction,aFormat,anid,data,Logopen=False):
-        replaced=False
-        if filename is None: 
-            filename=self.filename
-        if anaction =='':
-            return replaced            
-        if filename is not None:              
-            # Does a list of files, and
-            # redirects STDOUT to the file in question
-            oldline, newline=self.get_new_line_old_line_for_action(data,anaction,aFormat,anid)
-            #print(oldline, newline)
-            if Logopen==True:
-                log.info('Opening:'+filename+'to change a format!')
-            try:     
-                for line in fileinput.input(filename, inplace = 1): 
-                    if oldline in line:
-                        line=line.replace(oldline,newline)
-                    print(line, end='')                    #here prints inside file
-                fileinput.close()                 
-                replaced=True
-            except Exception as e:
-                log.error(e)
-                log.info("Action could not be replaced on File!")
-        if replaced==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
-            self.Setup_Command_Handler(False) #don't log checking
-            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
-            
-        return replaced
+    def replace_action_format_in_file(self, filename, anaction, a_new_value, anid, data, log_value=False):
+        """
+        Replace the value of an existing command for a specific interface ID.
 
-    def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid,typeofload=0):
-        idlist=data['interfaceId']
-        #oldFormat=self.Get_action_format_from_id(data,anaction,anid)       
-        if anaction == None or anaction == '':
-            return '','' 
-        newFormat=aFormat
-        oldline='<'+anaction+'>'
-        newline='<'+anaction+'>'        
-        if typeofload!=-1:
-            if '_info' in anaction:
-                anaction=anaction.replace('_info','')
-            if '_type' in anaction:
-                anaction=anaction.replace('_type','')    
-        for ids in idlist:        
-            oldFormat=self.Get_action_format_from_id(data,anaction,ids)   
-            if oldFormat==None:
-                oldFormat=''             
-            if str(ids) == str(anid):
-                oldline=oldline+'_<'+oldFormat+'>'
-                newline=newline+'_<'+newFormat+'>'                
-            else:
-                oldline=oldline+'_<'+oldFormat+'>'
-                newline=newline+'_<'+oldFormat+'>'
-        return oldline, newline
+        This function:
+        - Locates the section/subtype where the command already exists
+        - Updates only that specific value
+        - Saves the YAML file if filename is provided
 
-    def create_empty_action_in_file(self,filename,anaction,Logopen=False):
-        created=False
-        if filename is None: 
-            filename=self.filename
-        if anaction =='':
-            return created            
-        if filename is not None:              
-            # Does a list of files, and
-            # redirects STDOUT to the file in question
-            newline=self.get_new_line_for_action(anaction)                
-            if Logopen==True:
-                log.info('Opening:'+filename+' to create empty action!')
-            try:     
-                with open(filename, "a") as myfile:
-                    myfile.write(newline)  
-                myfile.close()              
-                created=True
-            except Exception as e:
-                log.error(e)
-                log.info("Action could not be append on File!")
-                pass
-        if created==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
-            self.Setup_Command_Handler(False) #don't log checking
-            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
-        return created    
+        Args:
+            filename (str): YAML file path. If None, uses self.yaml_filename.
+            anaction (str): Command name to update.
+            a_new_value (any): New value to assign.
+            anid (any): Interface ID whose column should be updated.
+            data (dict): Unused (kept for backward compatibility).
+            log_value (bool): If True, logs the replacement.
 
-    def get_new_line_for_action(self,anaction):
-        numint=self.Num_interfaces        
-        newFormat=''        
-        newline='<'+anaction+'>'
-        for interfacess in range(numint): 
-            newline=newline+'_<'+newFormat+'>'     
-        newline=newline+'\n'
-        return newline
+        Returns:
+            bool: True if replaced, False otherwise.
+        """
+        replaced = False
+
+        if filename is None:
+            filename = self.yaml_filename
+
+        if any(x is None for x in (a_new_value, anaction, anid)):
+            return replaced
+
+        if anaction == "":
+            return replaced
+
+        section, subtype = self.get_section_subtype_of_command(anaction)
+        if not section or not subtype:
+            if log_value:
+                log.error(f"Command {anaction} does not exist!")
+            return replaced
+
+        self._update_value(section, subtype, anaction, anid, a_new_value, filename, log_value)
+        return True
     
-    def delete_action_in_file(self,filename,anaction,data,Logopen=False):
-        isdel=False
-        if filename is None: 
-            filename=self.filename
-        if anaction =='':
-            return isdel            
-        if filename is not None:              
-            oldline, newline=self.get_new_line_old_line_for_action(data,anaction,'',self.id)
-            #print(oldline, newline)
-            if Logopen==True:
-                log.info('Opening:'+filename+' to delete action!')
-            try:     
-                for line in fileinput.input(filename, inplace = 1): 
-                    if oldline not in line:
-                        print(line, end='')                    #here prints inside file
-                fileinput.close()                 
-                isdel=True
-            except Exception as e:
-                log.error(e)
-                log.info("Action could not be deleted on File!")
-                pass
-        if isdel==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
-            self.Setup_Command_Handler(False) #don't log checking
-            self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
         
-        return isdel
-        
-    def Init_Read_Interface_Configurations(self,Reqactions_ic={'interfaceId'},Reqactions_ir={'interfaceId'},Logcheck=False): 
-        self.Required_read=Reqactions_ir   
-        self.Required_interface=Reqactions_ic
-        try:            
-            isok=self.Check_command_config_file_Content(self.Interfacefilename,Reqactions_ic,False,Logcheck)
-            if isok==True:
-                self.InterfaceConfigallids=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=0)
-                self.InterfaceConfigallids_info=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=1)                
-                self.InterfaceConfigallids_type=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=2)
-                isok=self.Check_id_match_configs(self.Configdata,self.InterfaceConfigallids)
-                #print(isok)
-                if isok==True:
-                    self.Int_Config=self.get_interface_config(self.InterfaceConfigallids,self.id)
-                    self.Int_Config_info=self.get_interface_config(self.InterfaceConfigallids_info,self.id)                    
-                    self.Int_Config_type=self.get_interface_config(self.InterfaceConfigallids_type,self.id)
-                    #print(self.Int_Config)
-                    #print(self.Int_Config_info)
-            if isok==False:
-                self.Int_Config={}
-                self.Int_Config_info={}
-                self.Int_Config_type={}
-        except:
-            self.InterfaceConfigallids={}  
-            self.InterfaceConfigallids_info={}  
-            self.InterfaceConfigallids_type={}  
-            isok=False                               
-            pass        
-        isokic=isok
-        
-        try:            
-            isok=self.Check_command_config_file_Content(self.Readfilename,Reqactions_ir,False,Logcheck)
-            if isok==True:
-                self.ReadConfigallids=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=0)
-                self.ReadConfigallids_info=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=1)
-                self.ReadConfigallids_type=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=2)
-                isok=self.Check_id_match_configs(self.Configdata,self.ReadConfigallids)
-                if isok==True:
-                    self.Read_Config=self.get_interface_config(self.ReadConfigallids,self.id)
-                    self.Read_Config_info=self.get_interface_config(self.ReadConfigallids_info,self.id)
-                    self.Read_Config_type=self.get_interface_config(self.ReadConfigallids_type,self.id)
-            if isok==False:
-                self.Read_Config={}
-                self.Read_Config_info={}
-                self.Read_Config_type={}
-        except:
-            self.ReadConfigallids={}   
-            self.ReadConfigallids_info={} 
-            self.ReadConfigallids_type={} 
-            isok=False         
-            pass
-        isokrc=isok
-        return isokrc,isokic
-    
-    def create_new_interface_in_file(self,filename,anid,data,dorefresh,Logopen=False,newname='New Interface',cloneid=None):
-        createdint=False
-        if filename is None: 
-            return False
-        #print('--------------------------------------------------')   
-        #print(filename)            
-        if filename is not None:                          
-            if Logopen==True:
-                log.info('Opening:'+filename+'to create an interface!')
-            try:     
-                for line in fileinput.input(filename, inplace = 1): 
-                    onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
-                    for action in onedata:
-                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'',self.id,typeofload=-1) #-1-> do not replace _info or _type
-                        newline=oldline    
-                        if action !='':
-                            #log.info(action+'->'+newline)                                  
-                            if 'interfaceId' == action: 
-                                newline=newline+'_<'+str(anid)+'>'
-                            elif 'interfaceName' == action:
-                                newline=newline+'_<'+str(newname)+'>'    
-                            else:      
-                                if cloneid is not None:                                    
-                                    aFormat=self.getGformatforActiondataid(data,action,self.id)
-                                else:
-                                    aFormat=''                                        
-                                newline=newline+'_<'+aFormat+'>'                        
-                            line=line.replace(oldline,newline)
-                    # Does a list of files, and
-                    # redirects STDOUT to the file in question    
-                    print(line, end='')                    #here prints inside file
-                fileinput.close()                 
-                createdint=True
-            except Exception as e:
-                log.error(e)
-                log.info("Interface could not be created on File!")
-        #only refresh if the 3 files have the new interface        
-        if dorefresh==True:
-            if createdint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
-                self.Setup_Command_Handler(False) #don't log checking
-                self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
-                
-        return createdint
 
-    def delete_interface_in_file(self,filename,anid,data,dorefresh,Logopen=False):
-        deletedint=False
-        if filename is None: 
+    # def get_new_line_old_line_for_action(self,data,anaction,aFormat,anid,typeofload=0):
+    #     idlist=data['interfaceId']
+    #     #oldFormat=self.get_action_format_from_id(data,anaction,anid)       
+    #     if anaction == None or anaction == '':
+    #         return '','' 
+    #     newFormat=aFormat
+    #     oldline='<'+anaction+'>'
+    #     newline='<'+anaction+'>'        
+    #     if typeofload!=-1:
+    #         if '_info' in anaction:
+    #             anaction=anaction.replace('_info','')
+    #         if '_type' in anaction:
+    #             anaction=anaction.replace('_type','')    
+    #     for ids in idlist:        
+    #         oldFormat=self.get_action_format_from_id(data,anaction,ids)   
+    #         if oldFormat==None:
+    #             oldFormat=''             
+    #         if str(ids) == str(anid):
+    #             oldline=oldline+'_<'+oldFormat+'>'
+    #             newline=newline+'_<'+newFormat+'>'                
+    #         else:
+    #             oldline=oldline+'_<'+oldFormat+'>'
+    #             newline=newline+'_<'+oldFormat+'>'
+    #     return oldline, newline
+
+    def create_action_format_in_file(self, filename, anaction, a_new_value, anid,
+                                 log_value=False, section='actions'):
+        """
+        Create or overwrite a command in the YAML configuration.
+
+        If the command already exists:
+            - It will be overwritten in its original section/subtype.
+        If it does not exist:
+            - The subtype is inferred from the command name.
+            - The command is created in the given section.
+
+        Args:
+            filename (str): YAML file path. If None, uses self.yaml_filename.
+            anaction (str): Command name to create or overwrite.
+            a_new_value (any): Value to assign at the given interface ID.
+            anid (any): Interface ID whose column should be updated.
+            log_value (bool): If True, logs creation/overwrite.
+            section (str): Default section ('actions') for new commands.
+
+        Returns:
+            bool: True if created/overwritten, False otherwise.
+        """
+        replaced = False
+
+        if filename is None:
+            filename = self.yaml_filename
+
+        if any(x is None for x in (a_new_value, anaction, anid)):
+            return replaced
+
+        if anaction == "":
+            return replaced
+
+        old_section, subtype = self.get_section_subtype_of_command(anaction)
+
+        if old_section and subtype:
+            if log_value:
+                log.warning(f"Command {anaction} already exists! Will be overwritten.")
+            section = old_section
+        else:
+            subtype = self._get_subtype_from_command(anaction)
+
+        self._update_value(section, subtype, anaction, anid, a_new_value, filename, log_value)
+        return True
+
+
+    def create_empty_action_in_file(self, filename, anaction, log_value=False, section='actions'):
+        """
+        Create a new command with empty values for all interfaces.
+
+        If the command already exists:
+            - It will be overwritten in its original section/subtype.
+
+        Args:
+            filename (str): YAML file path. If None, uses self.yaml_filename.
+            anaction (str): Command name to create.
+            log_value (bool): If True, logs creation/overwrite.
+            section (str): Default section ('actions') for new commands.
+
+        Returns:
+            bool: True if created, False otherwise.
+        """
+        created = False
+
+        if filename is None:
+            filename = self.yaml_filename
+
+        if anaction == "":
+            return created
+
+        old_section, subtype = self.get_section_subtype_of_command(anaction)
+
+        if old_section and subtype:
+            if log_value:
+                log.warning(f"Command {anaction} already exists! Will be overwritten.")
+            section = old_section
+        else:
+            subtype = self._get_subtype_from_command(anaction)
+
+        # Use the first interface ID for initialization
+        anid = self.get_id_list()[0]
+
+        self._update_value(section, subtype, anaction, anid, '', filename, log_value)
+        return True
+    
+    def delete_action_in_file(self, filename, anaction, data=None, log_value=False):
+        """
+        Delete a command from whichever section/subtype it belongs to.
+
+        Args:
+            filename (str): YAML file path. If None, uses self.yaml_filename.
+            anaction (str): Command name to delete.
+            data (dict): Unused (kept for backward compatibility).
+            log_value (bool): If True, logs deletion.
+
+        Returns:
+            bool: True if deleted, False otherwise.
+        """
+        if filename is None:
+            filename = self.yaml_filename
+
+        if anaction == "":
             return False
-                    
-        if filename is not None:                          
-            if Logopen==True:
-                log.info('Opening:'+filename+'to delete an interface!')
-            try:     
-                for line in fileinput.input(filename, inplace = 1): 
-                    onedata=self.Get_Command_Config_Data_From_List([line],typeofload=-1)
-                    for action in onedata:
-                        oldline, newline=self.get_new_line_old_line_for_action(data,action,'_*_delete_*_',anid,typeofload=-1) #-1 -> not replace _info or _type
-                        newline=newline.replace('_<_*_delete_*_>','')                                      
-                        line=line.replace(oldline,newline)
-                    # Does a list of files, and
-                    # redirects STDOUT to the file in question    
-                    print(line, end='')                    #here prints inside file
-                fileinput.close()                 
-                deletedint=True
-            except Exception as e:
-                log.error(e)
-                log.info("Interface could not be created on File!")
-        #only refresh if the 3 files have the new interface        
-        if dorefresh==True:
-            if deletedint==True and (filename==self.filename or filename==self.Readfilename or filename==self.Interfacefilename):
-                self.Setup_Command_Handler(False) #don't log checking
-                self.Init_Read_Interface_Configurations(Reqactions_ic=self.Required_interface,Reqactions_ir=self.Required_read,Logcheck=False)
-                
-        return deletedint
+
+        return self._remove_command(anaction,filename,log_value)
+        
+
+    # def Init_Read_Interface_Configurations(self,Reqactions_ic={'interfaceId'},Reqactions_ir={'interfaceId'},Logcheck=False): 
+    #     self.Required_read=Reqactions_ir   
+    #     self.Required_interface=Reqactions_ic
+    #     try:            
+    #         isok=self.check_command_config_file_Content(self.Interfacefilename,Reqactions_ic,False,Logcheck)
+    #         if isok==True:
+    #             self.InterfaceConfigallids=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=0)
+    #             self.InterfaceConfigallids_info=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=1)                
+    #             self.InterfaceConfigallids_type=self.Load_command_config_from_file(filename=self.Interfacefilename,Logopen=False,typeofload=2)
+    #             isok=self.check_id_match_configs(self.Configdata,self.InterfaceConfigallids)
+    #             #print(isok)
+    #             if isok==True:
+    #                 self.Int_Config=self.get_interface_config(self.InterfaceConfigallids,self.id)
+    #                 self.Int_Config_info=self.get_interface_config(self.InterfaceConfigallids_info,self.id)                    
+    #                 self.Int_Config_type=self.get_interface_config(self.InterfaceConfigallids_type,self.id)
+    #                 #print(self.Int_Config)
+    #                 #print(self.Int_Config_info)
+    #         if isok==False:
+    #             self.Int_Config={}
+    #             self.Int_Config_info={}
+    #             self.Int_Config_type={}
+    #     except:
+    #         self.InterfaceConfigallids={}  
+    #         self.InterfaceConfigallids_info={}  
+    #         self.InterfaceConfigallids_type={}  
+    #         isok=False                               
+    #         pass        
+    #     isokic=isok
+        
+    #     try:            
+    #         isok=self.check_command_config_file_Content(self.Readfilename,Reqactions_ir,False,Logcheck)
+    #         if isok==True:
+    #             self.ReadConfigallids=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=0)
+    #             self.ReadConfigallids_info=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=1)
+    #             self.ReadConfigallids_type=self.Load_command_config_from_file(filename=self.Readfilename,Logopen=False,typeofload=2)
+    #             isok=self.check_id_match_configs(self.Configdata,self.ReadConfigallids)
+    #             if isok==True:
+    #                 self.Read_Config=self.get_interface_config(self.ReadConfigallids,self.id)
+    #                 self.Read_Config_info=self.get_interface_config(self.ReadConfigallids_info,self.id)
+    #                 self.Read_Config_type=self.get_interface_config(self.ReadConfigallids_type,self.id)
+    #         if isok==False:
+    #             self.Read_Config={}
+    #             self.Read_Config_info={}
+    #             self.Read_Config_type={}
+    #     except:
+    #         self.ReadConfigallids={}   
+    #         self.ReadConfigallids_info={} 
+    #         self.ReadConfigallids_type={} 
+    #         isok=False         
+    #         pass
+    #     isokrc=isok
+    #     return isokrc,isokic
+    
+    def create_new_interface_in_file(self, filename, newname='New Interface', cloneid=None, log_value: bool = True):
+        """
+        Create a new interface and save the updated configuration to a YAML file.
+
+        This function:
+        - Creates a new interface entry, either empty or cloned from an existing one.
+        - Logs the operation if requested.
+        - Saves the updated configuration to the YAML file.
+
+        Args:
+            filename (str): Path to the YAML file. If None, uses self.yaml_filename.
+            newname (str): Name of the new interface. Defaults to 'New Interface'.
+            cloneid (any, optional): If provided, the new interface is cloned from
+                                    the interface with this ID. If None, an empty
+                                    interface is created.
+            log_value (bool): If True, logs the creation process.
+
+        Returns:
+            bool: True if the interface was created and saved, False otherwise.
+        """
+        self._logcheck(f'Creating {newname} interface cloned={cloneid is not None}', log_value, 'info')
+
+        if not self.add_interface(newname, cloneid):
+            return False
+
+        if filename is None:
+            filename = self.yaml_filename
+
+        if filename is not None:
+            self.save_all_configs_to_yaml(filename)
+
+        return True
+
+
+    def get_name_from_id(self, anid):
+        """
+        Retrieve the interface name corresponding to a given interface ID.
+
+        Args:
+            anid (any): The interface ID whose name should be returned.
+
+        Returns:
+            str or None: The name of the interface if found, otherwise None.
+        """
+        id_list = self.get_id_list()
+        if id_list is None:
+            return None
+
+        if anid in id_list:
+            index = self.get_interface_column_from_id(anid)
+            names = self.Configdata.get("interfaceName", [])
+            if isinstance(names, list) and index < len(names):
+                return names[index]
+
+        return None
+
+
+    def delete_interface_in_file(self, filename, anid, log_value: bool = True):
+        """
+        Remove an interface from all configuration dictionaries and save the result.
+
+        This function:
+        - Logs the removal request.
+        - Removes the interface from all internal dictionaries.
+        - Saves the updated configuration to the YAML file.
+
+        Args:
+            filename (str): Path to the YAML file. If None, uses self.yaml_filename.
+            anid (any): The interface ID to remove.
+            log_value (bool): If True, logs the removal process.
+
+        Returns:
+            bool: True if the interface was removed and saved, False otherwise.
+        """
+        self._logcheck(f'Removing {self.get_name_from_id(anid)} interface', log_value, 'info')
+
+        if not self.remove_interface(anid):
+            return False
+
+        if filename is None:
+            filename = self.yaml_filename
+
+        if filename is not None:
+            self.save_all_configs_to_yaml(filename)
+
+        return True
+
     
     def get_info_type_from_id(self,data,action,anid):
         '''
@@ -1900,7 +2373,295 @@ class Command_Handler:
         #print('after:',info)       
         return info        
 
-        
+
+class Parenthesees:
+    """
+    Utility class for validating and analyzing parentheses/brackets/braces
+    in text formats. Supports (), [], {}, and arbitrary/multi-character
+    delimiters via regex.
+    """
+
+    def __init__(self):
+        # Cache for compiled regex patterns (optimization A)
+        self._regex_cache = {}
+
+    def _get_regex(self, pattern):
+        """
+        Get a compiled regex object from cache, compiling if necessary.
+        """
+        if pattern not in self._regex_cache:
+            self._regex_cache[pattern] = re.compile(pattern)
+        return self._regex_cache[pattern]
+
+    def Split_text(self, separator, line):
+        """
+        Split a string using a regex separator and count occurrences.
+
+        Parameters
+        ----------
+        separator : str
+            Regex pattern used to split the text.
+        line : str
+            Input text.
+
+        Returns
+        -------
+        tuple (list, int)
+            - List of split segments.
+            - Number of occurrences of the separator.
+        """
+        try:
+            regex = self._get_regex(separator)
+            parts = regex.split(line)
+            count = len(regex.findall(line))
+            return parts, count
+        except Exception as e:
+            log.error(e)
+            log.error("split text")
+            return [line], 0
+
+    def Nums_Parenthesees(self, txt, IniP, EndP):
+        """
+        Count opening and closing parentheses/brackets/braces.
+
+        Returns
+        -------
+        list [int, int]
+            [number_of_opening, number_of_closing]
+        """
+        _, n_ini = self.Split_text(IniP, txt)
+        _, n_end = self.Split_text(EndP, txt)
+        return [n_ini, n_end]
+
+    def check_one_Parenthesees(self, aFormat, IniP=r'\[', EndP=r'\]', logerr=True):
+        """
+        Check if a specific type of parentheses is balanced.
+
+        Returns
+        -------
+        bool
+            True if balanced, False otherwise.
+        """
+        aFormat = str(aFormat)
+        try:
+            inisep = self.get_text_split_separatorfromregex(IniP)
+            endsep = self.get_text_split_separatorfromregex(EndP)
+
+            n_ini, n_end = self.Nums_Parenthesees(aFormat, IniP, EndP)
+
+            if n_ini != n_end:
+                if logerr:
+                    log.error(f'Bad Format {inisep} {endsep} in <{aFormat}>')
+                return False
+            return True
+
+        except Exception:
+            log.error(f'Bad Parenthesees Format {inisep} {endsep} in <{aFormat}>')
+            return False
+
+    def check_entangled_Parenthesees(self, txt, logerr=False):
+        """
+        Recursively check for correct nesting of {}, [], ().
+
+        Returns
+        -------
+        bool
+            True if nesting is valid, False otherwise.
+        """
+        p1 = self.Nums_Parenthesees(txt, r'\{', r'\}')
+        p2 = self.Nums_Parenthesees(txt, r'\[', r'\]')
+        p3 = self.Nums_Parenthesees(txt, r'\(', r'\)')
+
+        # Basic mismatch
+        if p1[0] != p1[1] or p2[0] != p2[1] or p3[0] != p3[1]:
+            if logerr:
+                log.error("Different amounts of opening and closing Parenthesees")
+            return False
+
+        # No parentheses at all
+        if p1[0] == p2[0] == p3[0] == 0:
+            return True
+
+        # Recursive entanglement checks
+        for ini, end in [(r'\{', r'\}'), (r'\[', r'\]'), (r'\(', r'\)')]:
+            sublist, _ = self.Format_which_Inside_Parenthesees(txt, ini, end)
+            for sub in sublist:
+                if sub != txt:
+                    if not self.check_entangled_Parenthesees(sub, False):
+                        return False
+
+        return True
+
+    def check_Parenthesees_in_all_Formats(self, data):
+        """
+        Validate parentheses for all formats in a dictionary.
+
+        Parameters
+        ----------
+        data : dict
+            { action_name : [format1, format2, ...] }
+
+        Returns
+        -------
+        bool
+            True if all formats are valid.
+        """
+        allok = True
+
+        for action, formats in data.items():
+            for fmt in formats:
+                if not self.check_one_Parenthesees(fmt, r'\[', r'\]', False):
+                    log.error(f'Parenthesees Mismatch "[ ]" in action: {action} Format <{fmt}>')
+                    allok = False
+                if not self.check_one_Parenthesees(fmt, r'\(', r'\)', False):
+                    log.error(f'Parenthesees Mismatch "( )" in action: {action} Format <{fmt}>')
+                    allok = False
+                if not self.check_one_Parenthesees(fmt, r'\{', r'\}', False):
+                    log.error(f'Parenthesees Mismatch "{{ }}" in action: {action} Format <{fmt}>')
+                    allok = False
+
+        if allok:
+            for action, formats in data.items():
+                for fmt in formats:
+                    if not self.check_entangled_Parenthesees(fmt, False):
+                        log.error(f'Parenthesees Entangled {{[( }}]) in action: {action} Format <{fmt}>')
+                        allok = False
+
+        return allok
+
+    def check_Parenthesees_in_one_Format(self, aFormat):
+        """
+        Validate parentheses for a single format string.
+
+        Returns
+        -------
+        bool
+            True if valid.
+        """
+        aFormat = str(aFormat)
+        allok = True
+
+        if not self.check_one_Parenthesees(aFormat, r'\[', r'\]', False):
+            log.error(f'Parenthesees Mismatch "[ ]" in Format <{aFormat}>')
+            allok = False
+        if not self.check_one_Parenthesees(aFormat, r'\(', r'\)', False):
+            log.error(f'Parenthesees Mismatch "( )" in Format <{aFormat}>')
+            allok = False
+        if not self.check_one_Parenthesees(aFormat, r'\{', r'\}', False):
+            log.error(f'Parenthesees Mismatch "{{ }}" in Format <{aFormat}>')
+            allok = False
+
+        if allok:
+            if not self.check_entangled_Parenthesees(aFormat, False):
+                log.error(f'Parenthesees Entangled {{[( }}]) in Format <{aFormat}>')
+                allok = False
+
+        return allok
+
+    def get_text_split_separatorfromregex(self, regex_sep):
+        """
+        Extract the literal character represented by a regex, if it matches
+        one of a small set of known bracket-like characters.
+
+        Returns
+        -------
+        str
+            The literal character if found, otherwise the regex itself.
+        """
+        regex = self._get_regex(regex_sep)
+        found = regex.findall('[({<>})]')
+        return found[0] if found else regex_sep
+
+    def Format_which_Inside_Parenthesees(self, aFormat, IniP=r'\[', EndP=r'\]'):
+        """
+        Extract all substrings inside a specific type of parentheses.
+
+        IniP and EndP are regex patterns; the actual literal delimiters are
+        resolved via get_text_split_separatorfromregex.
+
+        Returns
+        -------
+        tuple (list, int)
+            - List of inner substrings.
+            - Number of such substrings.
+        """
+        aFormat = str(aFormat)
+        try:
+            inisep = self.get_text_split_separatorfromregex(IniP)
+            endsep = self.get_text_split_separatorfromregex(EndP)
+
+            items = self.get_list_in_between_txt(aFormat, inisep, endsep)
+            return items, len(items)
+
+        except Exception as e:
+            log.error(e)
+            log.error("Inside Parentheses")
+            return [], 0
+
+    def get_list_in_between_txt(self, txt:str, inis, ends):
+        """
+        Extract substrings between matching delimiters, supporting
+        multi-character delimiters and nesting (optimization E).
+
+        Parameters
+        ----------
+        txt : str
+            Input text.
+        inis : str
+            Opening delimiter (literal string, not regex).
+        ends : str
+            Closing delimiter (literal string, not regex).
+
+        Returns
+        -------
+        list of str
+            All substrings found inside the given delimiters at depth 1.
+        """
+        alist = []
+        depth = 0
+        i = 0
+        n = len(txt)
+        start = None
+        len_ini = len(inis)
+        len_end = len(ends)
+
+        # If delimiters are identical (rare but possible), we treat them as
+        # toggling regions: inis == ends means "on/off" delimiter.
+        same = (inis == ends)
+
+        while i < n:
+            if not same and txt.startswith(inis, i):
+                depth += 1
+                if depth == 1:
+                    start = i + len_ini
+                i += len_ini
+                continue
+            if not same and txt.startswith(ends, i):
+                if depth > 0:
+                    depth -= 1
+                    if depth == 0 and start is not None:
+                        alist.append(txt[start:i])
+                        start = None
+                i += len_end
+                continue
+
+            if same and txt.startswith(inis, i):
+                # toggle mode
+                if depth == 0:
+                    depth = 1
+                    start = i + len_ini
+                else:
+                    depth = 0
+                    if start is not None:
+                        alist.append(txt[start:i])
+                        start = None
+                i += len_ini
+                continue
+
+            i += 1
+
+        return alist
+     
 
             
 

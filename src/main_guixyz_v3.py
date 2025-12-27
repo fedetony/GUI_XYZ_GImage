@@ -950,7 +950,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             log.info("Changing command handler configuration to id {}".format(newid))             
             self.xyz_thread.CH.id=newid
             self.xyz_thread.CH.Setup_Command_Handler(True)
-            aname=self.xyz_thread.CH.Get_action_format_from_id(self.xyz_thread.CH.Configdata,'interfaceName',self.xyz_thread.CH.id)
+            aname=self.xyz_thread.CH.get_action_format_from_id(self.xyz_thread.CH.Configdata,'interfaceName',self.xyz_thread.CH.id)
             log.info("Command handler configuration {} Set".format(aname))             
 
     def Configuration_Changed_Refresh(self,afilename):

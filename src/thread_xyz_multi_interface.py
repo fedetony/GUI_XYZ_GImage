@@ -22,7 +22,19 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     """
         A thread class to control XYZ machine read/write
     """    
-    def __init__(self, port, baudrate, rx_queue, kill_event,grbl_event_hold,grbl_event_resume,grbl_event_status,grbl_event_softreset,grbl_event_stop,IsRunning_event,grbl_event_running_command,CH):
+    def __init__(self, 
+                 port, 
+                 baudrate, 
+                 rx_queue, 
+                 kill_event,
+                 grbl_event_hold,
+                 grbl_event_resume,
+                 grbl_event_status,
+                 grbl_event_softreset,
+                 grbl_event_stop,
+                 IsRunning_event,
+                 grbl_event_running_command,
+                 CH:class_CH.Command_Handler):
         threading.Thread.__init__(self, name="XYZ M thread")
         self.CH=CH
         self.rx_queue = rx_queue        
@@ -47,10 +59,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.canIuseCH=False  
         self.Set_Required_actions_to_CH(None,None,None)
         try:            
-            isok=self.CH.Check_command_config_file_Content(self.CH.Interfacefilename,self.CH.Required_interface,False,Logcheck)
+            isok=self.CH.check_command_config_file_Content(self.CH.Interfacefilename,self.CH.Required_interface,False,Logcheck)
             if isok==True:
                 self.InterfaceConfigallids=self.CH.Load_command_config_from_file(self.CH.Interfacefilename)
-                isok=self.CH.Check_id_match_configs(self.CH.Configdata,self.InterfaceConfigallids)
+                isok=self.CH.check_id_match_configs(self.CH.Configdata,self.InterfaceConfigallids)
                 if isok==True:                    
                     self.Int_Config=self.CH.get_interface_config(self.InterfaceConfigallids,self.CH.id)
                     self.canIuseCH=True
@@ -67,10 +79,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             
         
         try:            
-            isok=self.CH.Check_command_config_file_Content(self.CH.Readfilename,self.CH.Required_read,False,Logcheck)
+            isok=self.CH.check_command_config_file_Content(self.CH.Readfilename,self.CH.Required_read,False,Logcheck)
             if isok==True:
                 self.ReadConfigallids=self.CH.Load_command_config_from_file(self.CH.Readfilename)
-                isok=self.CH.Check_id_match_configs(self.CH.Configdata,self.ReadConfigallids)
+                isok=self.CH.check_id_match_configs(self.CH.Configdata,self.ReadConfigallids)
                 if isok==True:
                     allRead_Config=self.CH.get_interface_config(self.ReadConfigallids,self.CH.id)
                     #Just use the read items defined in the file or required
@@ -355,13 +367,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             return str(theread)
 
     def get_config_value(self,configaction,anid):
-        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
-        atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,anid)        
+        aFormat=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
+        atype=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,anid)        
         if '*(' in str(atype):
             atype=atype.replace('*(','')
             atype=atype.replace(')','')
             newid=atype
-            atype=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,newid)        
+            atype=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids_type,configaction,newid)        
         #print(atype)
         isok,avalue=self.get_Format_type_to_value(atype,aFormat)
         if isok==True:
@@ -502,7 +514,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     def tease_serial(self,nnn):
         col=nnn % self.CH.Num_interfaces
         idlist=self.CH.Configdata['interfaceId']
-        aFormat=self.CH.Get_action_format_from_id(self.CH.Configdata,'reportBuildInfo',idlist[col])
+        aFormat=self.CH.get_action_format_from_id(self.CH.Configdata,'reportBuildInfo',idlist[col])
         Gcode=self.CH.Get_code(aFormat,{})
         #Gcode,isok=self.CH.Get_Gcode_for_Action('reportBuildInfo('+str(idlist[col])+')',{},True)
         log.info('Teasing...'+Gcode)
@@ -641,7 +653,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             time.sleep(1)    
             pass        
         self.set_selfconfigvalues()
-        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,'beforestartupSequence',self.CH.id)
+        aFormat=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids,'beforestartupSequence',self.CH.id)
         Gcode=self.CH.Get_code(aFormat,{})
         self.port_write(Gcode,True)
         if Gcode!='':
@@ -674,7 +686,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.port_write(Gcode,isok)
         if isok==True and Gcode!='':
             line_r = self.Wait_for_serial_response(0.1,exitcount=100,loginfo=True,teaseini=95)               
-        aFormat=self.CH.Get_action_format_from_id(self.CH.InterfaceConfigallids,'afterstartupSequence',self.CH.id)
+        aFormat=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids,'afterstartupSequence',self.CH.id)
         Gcode=self.CH.Get_code(aFormat,{})
         self.port_write(Gcode,True)
         if Gcode!='':

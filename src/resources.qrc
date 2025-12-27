@@ -1,0 +1,67 @@
+<RCC>
+  <qresource prefix="/">
+    <file>img/Action-lock-pink-icon.png</file>
+    <file>img/Action-lock-silver-icon.png</file>
+    <file>img/Actions-arrow-up-icon.png</file>
+    <file>img/Actions-go-Down-icon.png</file>
+    <file>img/Actions-go-home-icon.png</file>
+    <file>img/Actions-go-Left-icon.png</file>
+    <file>img/Actions-go-next-icon-DiagLD.png</file>
+    <file>img/Actions-go-next-icon-DiagLU.png</file>
+    <file>img/Actions-go-next-icon-DiagRD.png</file>
+    <file>img/Actions-go-next-icon-DiagRU.png</file>
+    <file>img/Actions-go-next-icon.png</file>
+    <file>img/Actions-go-next-view-icon_DiagLD.png</file>
+    <file>img/Actions-go-next-view-icon_DiagLU.png</file>
+    <file>img/Actions-go-next-view-icon_DiagRD.png</file>
+    <file>img/Actions-go-next-view-icon_DiagRU.png</file>
+    <file>img/Actions-go-next-view-icon.png</file>
+    <file>img/Actions-go-next-view-icon_Zdown.png</file>
+    <file>img/Actions-go-next-view-icon_ZUp.png</file>
+    <file>img/Actions-go-Right-icon.png</file>
+    <file>img/Actions-go-Up-icon.png</file>
+    <file>img/Actions-process-stop-icon.png</file>
+    <file>img/Actions-transform-move-icon.png</file>
+    <file>img/Actions-view-refresh-icon.png</file>
+    <file>img/add-icon.png</file>
+    <file>img/Alarm-Tick-icon.png</file>
+    <file>img/all-calls-icon.png</file>
+    <file>img/bin-red-full-icon.png</file>
+    <file>img/Bookmark-Black-Folder-icon.png</file>
+    <file>img/Broken-Link-icon.png</file>
+    <file>img/Burn-icon.png</file>
+    <file>img/Button-Pause-icon.png</file>
+    <file>img/Button-Play-icon.png</file>
+    <file>img/Canvas.png</file>
+    <file>img/Clear-icon.png</file>
+    <file>img/connect-icon.png</file>
+    <file>img/Document-icon.png</file>
+    <file>img/eye-icon.png</file>
+    <file>img/eye-in-a-sky-icon.ico</file>
+    <file>img/eye-in-a-sky-icon.png</file>
+    <file>img/file-system-icon.png</file>
+    <file>img/Floppy-Small-icon.png</file>
+    <file>img/info-icon.png</file>
+    <file>img/Link-icon.png</file>
+    <file>img/Machine.png</file>
+    <file>img/MachinePoint.png</file>
+    <file>img/Map-Marker-Push-Pin-1-Right-Chartreuse-icon.png</file>
+    <file>img/math-minus-icon.png</file>
+    <file>img/Minus-icon.png</file>
+    <file>img/Modify-icon.png</file>
+    <file>img/move-icon.png</file>
+    <file>img/open-file-icon.png</file>
+    <file>img/Perspective-Button-Shutdown-icon.png</file>
+    <file>img/Plus-icon.png</file>
+    <file>img/PreImage.png</file>
+    <file>img/Reset-icon.png</file>
+    <file>img/Save-as-icon.png</file>
+    <file>img/settings-icon.png</file>
+    <file>img/trash-icon.png</file>
+    <file>img/usb-icon.png</file>
+    <file>img/User-Interface-Checked-Checkbox-icon.png</file>
+    <file>img/User-Interface-Unchecked-Checkbox-icon.png</file>
+    <file>img/move-icon (1).png</file>
+  </qresource>
+</RCC>
+
