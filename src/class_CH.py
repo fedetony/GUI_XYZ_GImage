@@ -108,6 +108,9 @@ class Command_Handler:
             bool: True if dictionaries with commands for all interfaces were set.
         """
         actions, read, behavior = self.load_config_from_yaml(filepath)
+        if actions is None or read is None or behavior is None:
+            log.error(f"File {filepath} contains erros, could not be loaded!")
+            return False
         if check_required:
             r_a,r_r,r_b=[self.Required_actions,self.Required_read,self.Required_interface]
         else:
@@ -126,6 +129,7 @@ class Command_Handler:
         self.InterfaceConfigallids = behavior.get("format", {})
         self.InterfaceConfigallids_info = behavior.get("info", {})
         self.InterfaceConfigallids_type = behavior.get("type", {})
+        self.yaml_filename = filepath
         return True
 
     def _get_unique_id(self):
@@ -490,7 +494,7 @@ class Command_Handler:
         }
 
         target_dict = mapping[section][subtype]
-        index = self.get_interface_column_from_id(an_id)
+        index = self.get_interface_column_from_id(target_dict,an_id)
 
         # Update existing command
         if command in target_dict:
@@ -1874,7 +1878,7 @@ class Command_Handler:
         else:
             return False    
                  
-    def check_Format(self,aFormat,Parameters={}): 
+    def check_format(self,aFormat,Parameters={}): 
         '''
         Checks parenthesees and if there is parameters the required parameters
         ''' 
@@ -1913,7 +1917,7 @@ class Command_Handler:
             optionslist,paramlist,minnumoptions=self.Format_Get_optionlist_parameterlist(newFormat)
             
         else:
-            isok=self.check_Format(aFormat)
+            isok=self.check_format(aFormat)
             if isok==False:
                 log.error('Bad Format Entangled Parenthesees')
                 return All_data
@@ -2305,7 +2309,7 @@ class Command_Handler:
             return None
 
         if anid in id_list:
-            index = self.get_interface_column_from_id(anid)
+            index = self.get_interface_column_from_id(self.Configdata,anid)
             names = self.Configdata.get("interfaceName", [])
             if isinstance(names, list) and index < len(names):
                 return names[index]

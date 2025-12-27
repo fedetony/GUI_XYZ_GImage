@@ -424,7 +424,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 newid = str(iii)
                 break    
         
-        to_delete_name=self.CH.get_name_from_id(to_delete_name)
+        to_delete_name=self.CH.get_name_from_id(to_delete_id)
         if self.confirm_delete_interface(to_delete_name):
             self.CH.set_id(newid)
             if self.CH.delete_interface_in_file(self.CH.yaml_filename,to_delete_id,True):
@@ -436,27 +436,10 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         return False
 
     def confirm_delete_interface(self, aname):
-        msg = QtWidgets.QMessageBox()
-        msg.setWindowTitle("Delete Interface")
-        msg.setText(f"To delete '{aname}', type DELETE below:")
-        msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
-
-        # Add buttons
-        msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok |
-                            QtWidgets.QMessageBox.StandardButton.Cancel)
-
-        # Add input field
-        line_edit = QtWidgets.QLineEdit()
-        line_edit.setPlaceholderText("Type DELETE to confirm")
-        msg.layout().addWidget(line_edit, 1, 1)
-
-        result = msg.exec()
-
-        if result == QtWidgets.QMessageBox.StandardButton.Ok:
-            return line_edit.text().strip().upper() == "DELETE"
-
+        dlg = class_File_Dialogs.DeleteConfirmDialog(aname, self)
+        if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            return dlg.confirmed()
         return False
-
     
     def PB_CCD_actionAdd(self):
         isok=self.Do_Test_format()
@@ -876,8 +859,11 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     def Fill_interface_combobox(self):        
         self.DCCui.comboBox_CCD_interface.clear()
         for iii in self.CH.Configdata['interfaceId']:           
-            self.DCCui.comboBox_CCD_interface.addItem(iii)                          
-        index= self.DCCui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
+            self.DCCui.comboBox_CCD_interface.addItem(iii)     
+        try:                         
+            index = self.DCCui.comboBox_CCD_interface.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
+        except TypeError:
+            index = 0
         self.DCCui.comboBox_CCD_interface.setCurrentIndex(index)    
         aname=self.CH.get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DCCui.label_CCD_interfaceName.setText(aname)    
@@ -1230,7 +1216,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 isok=self.fill_actionParameters_Table(aFormat)
                 return isok
             newParameters=self.Replace_Parameter_Values_from_Table(self.Selected_action_dict['Parameters'])  
-            isok=self.CH.Check_Format(aFormat,newParameters)  
+            isok=self.CH.check_format(aFormat,newParameters)  
             if isok==True:
                 Gcode=self.CH.Get_code(aFormat,newParameters)
             #if aFormat is not '' and Gcode is '':
@@ -1266,7 +1252,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.label_CCD_testResult.setText("Evaluated Gcode: ")
         self.DCCui.label_CCD_testResultFormat.setText("Processed Format: ")  
         #Table_NumCols=self.Num_interfaces+1
-        if self.CH.Check_Format(aFormat)==False:
+        if self.CH.check_format(aFormat)==False:
             self.DCCui.label_CCD_testResult.setText("Wrong Parenthesis")
             return isok
         try:    
@@ -1324,7 +1310,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         self.DCCui.label_CCD_testreadResult.setText("Evaluated all Read: ")
         self.DCCui.label_CCD_testreadResultFormat.setText("Evaluated Format read: ")  
         #Table_NumCols=self.Num_interfaces+1
-        if self.CH.Check_Format(aFormat)==False:
+        if self.CH.check_format(aFormat)==False:
             self.DCCui.label_CCD_testreadResult.setText("Wrong Parenthesis")
             return isok
         #print('pass check format')    
@@ -1407,7 +1393,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     def ComboBox_Select_interface(self):
         anid=self.DCCui.comboBox_CCD_interface.currentText()
         if str(anid)!=str(self.CH.id):            
-            self.CH.Set_id(str(anid))
+            self.CH.set_id(str(anid))
             aname=self.CH.get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DCCui.label_CCD_interfaceName.setText(aname)  
             self.Force_CH_refresh_info_From_file(False)            
@@ -1415,8 +1401,9 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
             self.Refresh_after_config_File_change()
     
     def Force_CH_refresh_info_From_file(self,alog):
-        self.CH.Setup_Command_Handler(alog)   #Refresh info in CH 
-        self.CH.Init_Read_Interface_Configurations(self.CH.Required_read,self.CH.Required_interface,alog) 
+        if alog:
+            log.info("Refreshing from file")
+        self.CH.set_new_interface(self.CH.id,force_refresh=True)
     
     def PB_CCD_Set_Preview(self):            
         #print('clicked')

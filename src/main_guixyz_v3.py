@@ -41,6 +41,7 @@ import logging
 import queue
 import threading
 import os
+import resources_rc
 #import atexit
 #import keyboard for keyboard inputs
 

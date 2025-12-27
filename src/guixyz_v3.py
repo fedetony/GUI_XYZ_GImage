@@ -67,7 +67,7 @@ class Ui_MainWindow(object):
         self.label_ConnectedStatus = QtWidgets.QLabel(parent=self.tab_5)
         self.label_ConnectedStatus.setEnabled(True)
         self.label_ConnectedStatus.setText("")
-        self.label_ConnectedStatus.setPixmap(QtGui.QPixmap("img/connect-icon.png"))
+        self.label_ConnectedStatus.setPixmap(QtGui.QPixmap(":/img/connect-icon.png"))
         self.label_ConnectedStatus.setScaledContents(True)
         self.label_ConnectedStatus.setObjectName("label_ConnectedStatus")
         self.formLayout_2.setWidget(0, QtWidgets.QFormLayout.ItemRole.FieldRole, self.label_ConnectedStatus)

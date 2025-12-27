@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import *
+from PyQt6 import QtWidgets, QtGui, QtCore
 
 class Dialogs(QWidget):
     def __init__(self):
@@ -86,3 +87,54 @@ class Dialogs(QWidget):
             return fileName
         else:
             return None
+
+
+
+class DeleteConfirmDialog(QtWidgets.QDialog):
+    def __init__(self, name, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Delete Interface")
+        self.setModal(True)
+
+        # Main layout
+        layout = QtWidgets.QVBoxLayout(self)
+
+        # Horizontal layout for icon + text
+        top_layout = QtWidgets.QHBoxLayout()
+
+        # Warning icon (same as QMessageBox)
+        icon_label = QtWidgets.QLabel()
+        icon = self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MessageBoxWarning)
+        icon_label.setPixmap(icon.pixmap(48, 48))
+        top_layout.addWidget(icon_label)
+
+        # Message text
+        text_label = QtWidgets.QLabel(
+            f"To delete '<b>{name}</b>', type <b>DELETE</b> below:"
+        )
+        text_label.setWordWrap(True)
+        top_layout.addWidget(text_label)
+
+        layout.addLayout(top_layout)
+
+        # Input field
+        self.line_edit = QtWidgets.QLineEdit()
+        self.line_edit.setPlaceholderText("Type DELETE to confirm")
+        self.line_edit.setMinimumWidth(300)
+        self.line_edit.setMinimumHeight(28)
+        layout.addWidget(self.line_edit)
+
+        # OK / Cancel buttons
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok |
+            QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def confirmed(self):
+        """Return True only if user typed DELETE."""
+        return self.line_edit.text().strip().upper() == "DELETE"
+
