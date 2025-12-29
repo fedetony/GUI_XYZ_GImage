@@ -22,14 +22,23 @@ class LoggerManager:
         self.update_thread = None
 
     def attach_gui_handler(self, gui_panel):
-        if self.gui_handler is None:
-            self.gui_handler = ConsolePanelHandler(gui_panel)
-            self.gui_handler.setLevel(logging.DEBUG)
-            self.gui_handler.setFormatter(logging.Formatter(
-                "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
-                "%y-%m-%d %H:%M"
-            ))
-            self.root.addHandler(self.gui_handler)
+        # Create the list the first time
+        if not hasattr(self, "gui_handlers"):
+            self.gui_handlers = []
+
+        # Create a new handler for this GUI panel
+        handler = ConsolePanelHandler(gui_panel)
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%y-%m-%d %H:%M"
+        ))
+
+        # Add to root logger
+        self.root.addHandler(handler)
+
+        # Store it so you can manage/remove later
+        self.gui_handlers.append(handler)
 
     def start_gui_update_thread(self, killer_event):
         if self.update_thread is None:

@@ -3,6 +3,8 @@ from PyQt6 import QtWidgets, QtGui, QtCore
 
 class EmergencyStopDialog(QtWidgets.QDialog):
     closed = QtCore.pyqtSignal()
+    pressed= QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -17,6 +19,10 @@ class EmergencyStopDialog(QtWidgets.QDialog):
         layout.addWidget(self.stop_button)
 
         self.resize(200, 100)
+        self.stop_button.clicked.connect(self.stop_button_pressed)
+    
+    def stop_button_pressed(self):
+        self.pressed.emit()
     
     def closeEvent(self, event):
         self.closed.emit()
