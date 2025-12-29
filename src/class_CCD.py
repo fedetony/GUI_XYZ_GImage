@@ -710,18 +710,11 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
         desfn1=desfn+'.yml'
         desp=self.extract_path(filename)
         filename = os.path.join(desp,desfn1)
-        if os.path.exists(filename):
-            result = QtWidgets.QMessageBox.question(self,
-                    "Confirm action, overwrite file...",
-                    "You are about to overwrite: \n"+filename+"\n"                    
-                    "Are you sure you want to overwrite the file?",
-                    QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No)
-            if result == QtWidgets.QMessageBox.StandardButton.Yes:
-                self.CH.save_all_configs_to_yaml(filename)
-            else:
-                log.info("Command configuration user Cancelled file save!")
-        else:
-            self.CH.save_all_configs_to_yaml(filename)      
+        # Save the file
+        self.CH.save_all_configs_to_yaml(filename)
+        # Set saved file as default
+        self.CH.set_yaml_file(filename)
+        self.Refresh_after_config_File_change()
 
     def PB_CCD_Load_Commands(self):
         filename=self.aDialog.openFileNameDialog(3)   
@@ -1403,7 +1396,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
     def Force_CH_refresh_info_From_file(self,alog):
         if alog:
             log.info("Refreshing from file")
-        self.CH.set_new_interface(self.CH.id,force_refresh=True)
+        self.CH.set_new_interface(self.CH.id,force_refresh=True,log_check=alog)
     
     def PB_CCD_Set_Preview(self):            
         #print('clicked')

@@ -49,6 +49,23 @@ class Command_Handler:
         #     self.Setup_Command_Handler()
         #     self.Init_Read_Interface_Configurations()
 
+    def set_as_default_yaml_file(self,filename,log_check=True):
+        """Checks if file exists and sets it if it does
+
+        Args:
+            filename (str): file to be set
+            log_check (bool, optional): log File setting. Defaults to True.
+
+        Returns:
+            bool: True if file was set.
+        """
+        if os.path.exists(filename):
+            self.yaml_filename=filename
+            self._logcheck(f"File {self.yaml_filename} set as configuration file!",log_check,'info')
+            return True
+        self._logcheck(f"File {filename} does not exist!",log_check,'error')       
+        return False     
+
     def save_all_configs_to_yaml(self,filepath):
         """
         Stores All parallel dictionaries into a single YAML file.
@@ -107,6 +124,7 @@ class Command_Handler:
         Returns:
             bool: True if dictionaries with commands for all interfaces were set.
         """
+        self._logcheck(f"Loading yaml file {filepath}",log_check,'info')
         actions, read, behavior = self.load_config_from_yaml(filepath)
         if actions is None or read is None or behavior is None:
             log.error(f"File {filepath} contains erros, could not be loaded!")
@@ -522,8 +540,22 @@ class Command_Handler:
     def check_yaml_config(
         self, actions, read, behavior,
         required_actions=None, required_read=None, required_behavior=None,
-        log_check=True
+        log_check=False
     ):
+        """Checks the configuration on the yaml file
+
+        Args:
+            actions (dict):actions dictionary
+            read (dict): read dictionary
+            behavior (dict): behavior dictionary
+            required_actions (set, optional): Set of required commands. Defaults to None.
+            required_read (set, optional): Set of required commands. Defaults to None.
+            required_behavior (set, optional): Set of required commands. Defaults to None.
+            log_check (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            bool: True if all checks passed
+        """
         if log_check:
             log.info("Checking information:")
 
@@ -556,20 +588,18 @@ class Command_Handler:
         num_int = self.get_number_of_interfaces(actions.get("format", {}))
 
         # Validate each section
-        self._logcheck("Checking actions dictionary:", log_check, 'info')
-        a_ok = self._do_data_checks(actions, num_int, required_actions)
+        self._logcheck("Checking actions dictionary...", log_check, 'info')
+        a_ok = self._do_data_checks(actions, num_int, required_actions, log_check)
 
-        self._logcheck("Checking read dictionary:", log_check, 'info')
-        r_ok = self._do_data_checks(read, num_int, required_read)
+        self._logcheck("Checking read dictionary...", log_check, 'info')
+        r_ok = self._do_data_checks(read, num_int, required_read, log_check)
 
-        self._logcheck("Checking behavior dictionary:", log_check, 'info')
-        b_ok = self._do_data_checks(behavior, num_int, required_behavior)
+        self._logcheck("Checking behavior dictionary...", log_check, 'info')
+        b_ok = self._do_data_checks(behavior, num_int, required_behavior, log_check)
 
         return a_ok and r_ok and b_ok
 
-
-    
-    def _do_data_checks(self, data, num_int, required):
+    def _do_data_checks(self, data, num_int, required,log_check=False):
         """Perform validation checks for all subtypes inside a section."""
         ok = True
 
@@ -580,18 +610,20 @@ class Command_Handler:
             if not isinstance(subdict, dict): 
                 log.error(f"Missing or invalid subtype '{subtype}' dictionary!") 
                 return False
-
+            
             ok &= self.check_num_actions_in_data(subdict)
+            self._logcheck(f"\tChecking {subtype}: Number of actions\t{str(ok).upper()}", log_check, 'info')
             ok &= self.check_id_in_data(subdict, num_int)
+            self._logcheck(f"\tChecking {subtype}: ID in Data       \t{str(ok).upper()}", log_check, 'info')
             ok &= self.check_number_formats_in_data(subdict)
+            self._logcheck(f"\tChecking {subtype}: Number of formats\t{str(ok).upper()}", log_check, 'info')
 
             # Required commands only apply to "format"
             if subtype == "format":
                 ok &= self.check_req_actions_are_in_data(required, subdict)
+                self._logcheck(f"\tChecking {subtype}: Required actions\t{str(ok).upper()}", log_check, 'info')
 
         return ok
-
-
 
     def _logcheck(self,msg:str,logcheck=True,logtype='info'):
         """logger helper function
@@ -620,17 +652,15 @@ class Command_Handler:
         default_yaml=os.path.join(config_path,'default_config.yml')
         if yaml_file is None:
             yaml_file=default_yaml
-        if os.path.exists(yaml_file):
-            self.yaml_filename=yaml_file
+        if self.set_as_default_yaml_file(yaml_file):
             return True
-        if os.path.exists(default_yaml):
-            self.yaml_filename=default_yaml
+        if self.set_as_default_yaml_file(default_yaml):
             log.info("Default configuration set!")
             return True
         log.error("No configuration files available!")    
         return False   
     
-    def set_new_interface(self,interface_id,force_refresh=False):
+    def set_new_interface(self,interface_id,force_refresh=False,log_check=True):
         """Sets a new interface with interface id if id is different than actual used id.
 
         Args:
@@ -640,7 +670,7 @@ class Command_Handler:
         if self.id!=interface_id or force_refresh:
             self.set_id(interface_id)    
             if self.set_yaml_file(self.yaml_filename):
-                if self.load_and_set_config_from_yaml(self.yaml_filename,True,True):
+                if self.load_and_set_config_from_yaml(self.yaml_filename,True,log_check):
                     self._set_actual_interface_dictionaries()
     
     def set_id(self,selected_interface_id):

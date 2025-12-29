@@ -23,6 +23,7 @@ import ast #read dictionaries
 import GuiXYZ_TTD 
 import class_File_Dialogs
 import class_CCD
+import class_CH
 import thread_queueStream
 
 log = logging.getLogger(__name__)
@@ -35,9 +36,13 @@ log.addHandler(ahandler)
 
 class IdentifyID(threading.Thread):
     """
-        A thread class to do the translation process
+        A thread class to Identify the code for translation
     """
-    def __init__(self, CH, qstream, kill_event,File_Type_from,loglines=True):
+    def __init__(self, CH:class_CH.Command_Handler, 
+                 qstream:thread_queueStream.queueStream, 
+                 kill_event:threading.Event,
+                 File_Type_from:str,
+                 loglines:bool=True):
         threading.Thread.__init__(self, name="Identify thread")        
         self.killer_event = kill_event
         self.CH=CH
@@ -155,7 +160,11 @@ class DoTranslation(threading.Thread):
     """
         A thread class to do the translation process
     """
-    def __init__(self, CH, qstream, kill_event,File_info,loglines=True):
+    def __init__(self, CH:class_CH.Command_Handler, 
+                 qstream:thread_queueStream.queueStream, 
+                 kill_event:threading.Event,
+                 File_info:dict,
+                 loglines=True):
         threading.Thread.__init__(self, name="Translate thread")        
         self.killer_event = kill_event
         self.CH=CH
@@ -445,7 +454,7 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
     def Fill_Labels(self):
         if self.File_Type_from is not None:
             self.DTTui.label_TTD_File_from_Type.setText(self.File_Type_from)
-            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.File_ID_from)
+            aname=self.CH.get_action_format_from_id(self.CH.Configdata,'interfaceName',self.File_ID_from)
             self.DTTui.label_TTD_File_from_ID.setText('ID'+str(self.File_ID_from)+' '+aname)
 
 
@@ -462,10 +471,13 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
     def Fill_interface_combobox(self):        
         self.DTTui.comboBox_TTD_ID_Code.clear()
         for iii in self.CH.Configdata['interfaceId']:           
-            self.DTTui.comboBox_TTD_ID_Code.addItem(iii)                          
-        index= self.DTTui.comboBox_TTD_ID_Code.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
+            self.DTTui.comboBox_TTD_ID_Code.addItem(iii)   
+        try:                       
+            index = self.DTTui.comboBox_TTD_ID_Code.findText(self.CH.id,QtCore.Qt.MatchFlag.MatchFixedString)
+        except TypeError:
+            index = 0
         self.DTTui.comboBox_TTD_ID_Code.setCurrentIndex(index)    
-        aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+        aname=self.CH.get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
         self.DTTui.label_TTD_ID_to_Name.setText(aname)
         self.Selected_ID_to=self.CH.id
         
@@ -473,8 +485,8 @@ class TranslateToolDialog(QWidget,GuiXYZ_TTD.Ui_Dialog_TTD):
     def ComboBox_Select_IDto(self):
         anid=self.DTTui.comboBox_TTD_ID_Code.currentText()
         if str(anid)!=str(self.CH.id):            
-            self.CH.Set_id(str(anid))
-            aname=self.CH.Get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
+            self.CH.set_id(str(anid))
+            aname=self.CH.get_action_format_from_id(self.CH.Configdata,'interfaceName',self.CH.id)
             self.DTTui.label_TTD_ID_to_Name.setText(aname)             
             self.Selected_ID_to=self.CH.id             
 
