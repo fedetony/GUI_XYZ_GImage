@@ -105,6 +105,7 @@ import class_TTD
 import class_File_Dialogs
 import class_ST
 import class_helper_dialogs
+import class_serial_terminal
 
 #print(log.__dict__)
 
@@ -314,6 +315,9 @@ class MyWindow(QtWidgets.QMainWindow):
         # Set Emergency Button Dialog
         self.emergencystopDialog = class_helper_dialogs.EmergencyStopDialog(self)
 
+        # Set serial terminal
+        self.serialterminalDialog = class_serial_terminal.SerialTerminalDialog(self)
+
         # Setup the rest
         self.setupUi2(self)
         
@@ -356,7 +360,10 @@ class MyWindow(QtWidgets.QMainWindow):
                 self.emergencystopDialog.close()
             except Exception as e:
                 pass
-            
+            try:
+                self.serialterminalDialog.close()
+            except Exception as e:
+                pass
             self.killer_event.set()            
             event.accept()
 
@@ -365,13 +372,13 @@ class MyWindow(QtWidgets.QMainWindow):
         # Add view menu
         self.menuView = QtWidgets.QMenu("View", self)
         self.menuView.setObjectName("menuView")
-        self.action_log = QtGui.QAction("Show Log Window", self)
         # Insert menu in position 2
         actions = self.ui.menubar.actions() 
         self.ui.menubar.insertMenu(actions[2], self.menuView)
-        # self.ui.menubar.addMenu(self.menuView)
-        self.action_log.setShortcut("F12")
+        # ------------- Log Window -------------
+        # self.action_log = QtGui.QAction("Show Log Window", self)
         self.action_log = QtGui.QAction("Log Window", self, checkable=True)
+        self.action_log.setShortcut("F12")
         def toggle_logDialog(checked):
             if checked:
                 self.logDialog.show()
@@ -381,10 +388,10 @@ class MyWindow(QtWidgets.QMainWindow):
         self.menuView.addAction(self.action_log)
         # Connect the close event to uncheck in view menu
         self.logDialog.closed.connect(lambda: self.action_log.setChecked(False))
-
-        self.action_emergency_stop = QtGui.QAction("Emergency Stop", self)
-        self.action_emergency_stop.setShortcut("F11")
+        # ------------- Emergency stop button -------------
+        # self.action_emergency_stop = QtGui.QAction("Emergency Stop", self)
         self.action_emergency_stop = QtGui.QAction("Emergency Stop Button", self, checkable=True)
+        self.action_emergency_stop.setShortcut("F11")
         def toggle_emergencyDialog(checked):
             if checked:
                 self.emergencystopDialog.show()
@@ -394,7 +401,20 @@ class MyWindow(QtWidgets.QMainWindow):
         self.menuView.addAction(self.action_emergency_stop)
         # Connect the close event to uncheck in view menu
         self.emergencystopDialog.closed.connect(lambda: self.action_emergency_stop.setChecked(False))
-        
+        # ------------- Serial Terminal -------------
+        self.action_terminal = QtGui.QAction("Serial Terminal", self, checkable=True)
+        self.action_terminal.setShortcut("F10")
+        def toggle_terminal(checked):
+            if checked:
+                self.serialterminalDialog.show()
+            else:
+                self.serialterminalDialog.hide()
+
+        self.action_terminal.toggled.connect(toggle_terminal)
+        self.menuView.addAction(self.action_terminal)
+        # Connect the close event to uncheck in view menu
+        self.serialterminalDialog.finished.connect(lambda: self.action_terminal.setChecked(False))
+
         # Open log window at startup
         self.action_log.setChecked(True) 
         self.logDialog.show()
@@ -423,14 +443,17 @@ class MyWindow(QtWidgets.QMainWindow):
         # Uses objects loaded from guixyz_v3.py
         
         icon10 = QtGui.QIcon()
-        icon10.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Pause-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        # icon10.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Pause-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon10.addPixmap(QtGui.QPixmap(":/img/Button-Pause-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         #-------------------------------------------------------
         self.Icon_pause=icon10
         icon10a = QtGui.QIcon()
-        icon10a.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Play-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        # icon10a.addPixmap(QtGui.QPixmap(os.path.join(img_path,"Button-Play-icon.png")), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon10a.addPixmap(QtGui.QPixmap(":/img/Button-Play-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.Icon_start=icon10a
         windowicon = QtGui.QIcon()
-        self.iconMainpixmap=QtGui.QPixmap(os.path.join(img_path,"eye-in-a-sky-icon.png"))
+        # self.iconMainpixmap=QtGui.QPixmap(os.path.join(img_path,"eye-in-a-sky-icon.png"))
+        self.iconMainpixmap=QtGui.QPixmap(":/img/eye-in-a-sky-icon.png")
         windowicon.addPixmap(self.iconMainpixmap, QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.iconMain=windowicon
         MainWindow.setWindowIcon(windowicon)
@@ -444,29 +467,25 @@ class MyWindow(QtWidgets.QMainWindow):
         self.plaintextEdit_GcodeScript.blockCountChanged[int].connect(self.Set_from_to_Spinbox)
         self.plaintextEdit_GcodeScript.updateRequest.connect(self.Update_Highlights_Spinbox)
         
-        #
+        
         #Combobox Fill
-        self.ui.comboBox_ConnSpeed.addItem("9600")
-        self.ui.comboBox_ConnSpeed.addItem("14400")
-        self.ui.comboBox_ConnSpeed.addItem("19200")
-        self.ui.comboBox_ConnSpeed.addItem("28800")
-        self.ui.comboBox_ConnSpeed.addItem("38400")
-        self.ui.comboBox_ConnSpeed.addItem("57600")
-        self.ui.comboBox_ConnSpeed.addItem("91600")
-        self.ui.comboBox_ConnSpeed.addItem("115200")
-        self.ui.comboBox_ConnSpeed.addItem("250000")     
-
+        # baudrates = [ "9600", "14400", "19200", "28800", "38400", "57600", "91600", "115200", "250000" ] 
+        # self.ui.comboBox_ConnSpeed.addItems(baudrates)
+        supported_baudrates = serial.Serial.BAUDRATES 
+        # pyserial built‑in list 
+        self.ui.comboBox_ConnSpeed.addItems([str(b) for b in supported_baudrates])
+        
         #Set default
         self.COMBaudRate="115200"
-        index= self.ui.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFlag.MatchFixedString)
-        self.ui.comboBox_ConnSpeed.setCurrentIndex(index)
+        # index= self.ui.comboBox_ConnSpeed.findText(self.COMBaudRate,QtCore.Qt.MatchFlag.MatchFixedString)
+        # self.ui.comboBox_ConnSpeed.setCurrentIndex(index)
+        index = self.ui.comboBox_ConnSpeed.findText(self.COMBaudRate) 
+        if index >= 0: 
+            self.ui.comboBox_ConnSpeed.setCurrentIndex(index)
 
-        self.ui.comboBox_GcodeStreamType.addItem("0")
-        self.ui.comboBox_GcodeStreamType.addItem("1")
-        self.ui.comboBox_GcodeStreamType.addItem("2")
-        self.ui.comboBox_GcodeStreamType.addItem("3")
-        self.ui.comboBox_GcodeStreamType.addItem("4")
-        self.ui.comboBox_GcodeStreamType.addItem("5")
+        stream_types = [ "0", "1", "2", "3", "4", "5"] 
+        self.ui.comboBox_GcodeStreamType.addItems(stream_types)
+        
         typeofstream='''typeofstream=0 Wait until each Command returns finish signal to send next one.(Slow) 
 typeofstream=1 Send all to machine and dont wait for response. 
 typeofstream=2 Send a number of lines and count the returns.
@@ -1260,8 +1279,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         
         if filename is not None:
             log.info('Opening:'+filename)
-            try:    
-                            
+            try:      
                 self.G_Image.open_image(filename)                                
                 self.Show_Image_Preview()
                 self.PB_Set_Changes_Image_Config()
