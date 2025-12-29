@@ -742,6 +742,14 @@ class Command_Handler:
         self.InterfaceConfigallids_type = {}
         
     def check_id_in_Config(self,id):
+        """Check if id is in self.Configdata actions dictionary. 
+
+        Args:
+            id (any): id to check
+
+        Returns:
+            bool: True if id found or a default id was set. False if there is errors. 
+        """
         try:
             isok=False
             newid=str(id)
@@ -749,21 +757,25 @@ class Command_Handler:
             #print(idlist,' Desired id->',newid)
             if newid in idlist:
                 isok=True
-            if newid==self.id and isok==False:
+            if newid == self.id:
                 self.set_id(idlist[0])
-                log.error('None existing Id changed to ', self.id)
+                log.error(f'A None existing Id was detected, changed to {self.id}' )
                 isok=True
         except Exception as e:
-            log.error(e)
-            log.error('Invalid Machine Id!!!!!')
+            log.error(f'Invalid Machine Id: {e}')
             isok=False
-            pass    
         return isok
     
     def check_id_in_data_config(self,data,id):
-        '''
-        checks id but does not revert if error found
-        '''
+        """Checks if id is contained in the 'interfaceId' key in data
+
+        Args:
+            data (dict): data dictionary with 'interfaceId'
+            id (any): id being checked
+
+        Returns:
+            bool: True if id in data.
+        """
         try:
             isok=False
             newid=str(id)
@@ -772,13 +784,10 @@ class Command_Handler:
             if newid in idlist:
                 isok=True            
         except Exception as e:
-            log.error(e)
-            log.error('Id in data error!!!!!')
+            log.error(f'Error checking if id is contained in data: {e}')
             isok=False
-            pass    
         return isok
     
-
     def get_number_of_interfaces(self,data):
         """ Gets the amount of interfaces from 'interfaceId' key in data"""
         try:
@@ -860,8 +869,6 @@ class Command_Handler:
         # Not found
         return None
 
-        
-
     def get_interface_config(self,data:dict,interface_id)->dict:
         """Returns the dictionary with the data for specific interface id"""
         dataint={}    
@@ -889,114 +896,6 @@ class Command_Handler:
         if cri==2:
             return self.get_number_of_actions_in_data(self.Int_Config)    
         return self.get_number_of_actions_in_data(self.Actual_Interface_Formats)    
-
-    # def Load_command_config_from_file(self,filename=None,Logopen=False,typeofload=0):      
-    #     '''
-    #     typeofload=-1 loads all
-    #     typeofload=0 loads actions
-    #     typeofload=1 loads info
-    #     typeofload=2 loads type
-    #     ''' 
-    #     if filename is None: 
-    #         filename=self.filename
-    #     data={}
-    #     if filename is not None:            
-    #         if Logopen==True:
-    #             log.info('Opening:'+filename)
-    #         try:                
-    #             with open(filename, 'r') as yourFile:
-    #                 #self.plaintextEdit_GcodeScript.setText(yourFile.read())        #textedit
-    #                 linelist=yourFile.readlines() #makes list of lines  
-    #             data=self.Get_Command_Config_Data_From_List(linelist,typeofload)     
-    #             #if typeofload==1:
-    #             #    print(data)                                           
-    #             yourFile.close()                
-    #         except Exception as e:
-    #             log.error(e)
-    #             log.info("Command Configuration File could not be read!")
-    #     return data        
-    
-    # def Get_Command_Config_Data_From_List(self,linelist,typeofload=0):
-    #     data={}
-    #     '''
-    #     interfaceId in any typeofload
-
-    #     typeofload=-1 loads all
-    #     typeofload=0 loads actions
-    #     typeofload=1 loads info (except interfaceId)
-    #     typeofload=2 loads type (except interfaceId)
-    #     '''
-    #     for line in linelist:
-    #         #log.info(line)          
-    #         Nomismatch=self.check_one_Parenthesees(line,IniP='<',EndP='>')  
-    #         lastchar=''
-    #         actionname=''
-    #         item=''
-    #         lineinfolist=[]
-    #         countnum=0
-    #         regextxt=''
-    #         isregex=False
-    #         for achar in line:
-    #             if achar=='#' and countnum==0:                    
-    #                 break
-    #             if achar=='r' and lastchar=='<':
-    #                regextxt=='r'
-    #             if achar=="'" and lastchar=='r' and isregex==False:
-    #                 isregex=True
-    #                 regextxt=regextxt+achar
-    #             elif achar=="'" and isregex==True:
-    #                 isregex=False    
-                
-    #             if (achar =='<' or achar=='>') and isregex==True:
-    #                 Nomismatch=True
-    #                 #item=item+achar
-    #             if achar =='<' and isregex==False:
-    #                 #print(countnum)
-    #                 item=''
-    #                 countnum=countnum+1
-    #             elif achar=='>' and isregex==False:
-    #                 lastchar=achar    
-    #                 if countnum==1:
-    #                     actionname=item
-    #                 else:
-    #                     lineinfolist.append(item)
-    #             elif achar=='_' and lastchar=='>':
-    #                 lastchar=achar 
-    #             else:    
-    #                 item=item+achar
-    #             lastchar=achar                       
-    #         if actionname!='': 
-    #             if Nomismatch==False:
-    #                 log.info('Parenthesees <> Mismatch in:'+actionname)
-    #             #log.info('action:'+actionname)   
-    #             #print(lineinfolist)
-    #             isinfo=False
-    #             istype=False
-    #             isid=False
-    #             if '_info' in actionname:
-    #                 isinfo=True
-    #             if '_type' in actionname:
-    #                 istype=True    
-    #             if 'interfaceId' == actionname:                     
-    #                 isid=True   
-    #             if 'interfaceId_info' == actionname or 'interfaceId_type' == actionname:    
-    #                 isid=True
-    #             if isid==True:
-    #                 data.update({actionname:list(lineinfolist)})
-    #             else:            
-    #                 if typeofload==-1: # loads all
-    #                     data.update({actionname:list(lineinfolist)})     
-    #                 if typeofload==0 and isinfo==False and istype==False: # loads actions
-    #                     data.update({actionname:list(lineinfolist)})                             
-    #                 if typeofload==1 and isinfo==True and istype==False: # loads info                                               
-    #                     if 'interfaceId' not in actionname:                                     
-    #                         actionname=actionname.replace('_info','')
-    #                         data.update({actionname:list(lineinfolist)})
-    #                 if typeofload==2 and isinfo==False and istype==True: # loads type
-    #                     if 'interfaceId' not in actionname:                                                                 
-    #                         actionname=actionname.replace('_type','')
-    #                         data.update({actionname:list(lineinfolist)})                                     
-    #     return data    
 
     def getGformatforAction(self,action):
         ActionFormat=None
@@ -1095,10 +994,10 @@ class Command_Handler:
     def Format_Get_optionlist_parameterlist(self,aFormat):
         aFormat=str(aFormat)
         minnumoptions=0
-        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat)
+        optionslist,Numoptions=self.parenth.Format_which_Inside_Parenthesees(aFormat)
         for option in optionslist:
             if '&&' in option:
-                minvaluelist,Numminval=self.Format_which_Inside_Parenthesees(option,r'\(',r'\)') #in [] 
+                minvaluelist,Numminval=self.parenth.Format_which_Inside_Parenthesees(option,r'\(',r'\)') #in [] 
                 minop=option
                 if Numminval>0:
                     minnumoptions=int(minvaluelist[0])
@@ -1106,7 +1005,7 @@ class Command_Handler:
                     minnumoptions=1
         paramlist=[]            
         for option in optionslist:                
-            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
+            varoptlist,Numspeciopt=self.parenth.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
             for jjj in varoptlist: 
                 paramlist.append(jjj)    
         # remove &&(#) option
@@ -1120,7 +1019,7 @@ class Command_Handler:
 
     def Format_Get_main_Command(self,aFormat,Numoptions=None):
         if Numoptions==None:
-            optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat)
+            optionslist,Numoptions=self.parenth.Format_which_Inside_Parenthesees(aFormat)
         if Numoptions==0:
             return aFormat
         else:
@@ -1143,11 +1042,11 @@ class Command_Handler:
                     after='['+split1[1]
                 else:
                     break                        
-                beflistop,Numbefopt=self.Format_which_Inside_Parenthesees(before)
-                aftlistop,Numaftopt=self.Format_which_Inside_Parenthesees(after)
-                varlistb,Numspecimain=self.Format_which_Inside_Parenthesees(beflistop[Numbefopt-1],r'\{',r'\}')
+                beflistop,Numbefopt=self.parenth.Format_which_Inside_Parenthesees(before)
+                aftlistop,Numaftopt=self.parenth.Format_which_Inside_Parenthesees(after)
+                varlistb,Numspecimain=self.parenth.Format_which_Inside_Parenthesees(beflistop[Numbefopt-1],r'\{',r'\}')
                 Isonlistb=self.check_all_Parameters_are_in_list(varlistb,Parameters)
-                varlista,Numspecimain=self.Format_which_Inside_Parenthesees(aftlistop[0],r'\{',r'\}')
+                varlista,Numspecimain=self.parenth.Format_which_Inside_Parenthesees(aftlistop[0],r'\{',r'\}')
                 Isonlista=self.check_all_Parameters_are_in_list(varlista,Parameters) 
                 if Isonlistb==False and Isonlista==False:
                     if '&&' not in beflistop[Numbefopt-1]:
@@ -1170,13 +1069,13 @@ class Command_Handler:
     
     def Format_replace_actions(self,aFormat):
         aFormat=str(aFormat)
-        varlist,Numvars=self.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}') 
+        varlist,Numvars=self.parenth.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}') 
         action_list=self.getListofActions()
         newFormat=aFormat
         try:
             for var in varlist:
                 if 'char(' in var:
-                    vlist,Numv=self.Format_which_Inside_Parenthesees(var,r'\(',r'\)')                     
+                    vlist,Numv=self.parenth.Format_which_Inside_Parenthesees(var,r'\(',r'\)')                     
                     try:
                         if Numv>0:
                             valstr=vlist[0]
@@ -1196,7 +1095,7 @@ class Command_Handler:
                         newFormat=newFormat.replace('{'+var+'}',fff)    
                 for action in action_list:                    
                     if action in var: #action==var: 
-                        vlist,Numv=self.Format_which_Inside_Parenthesees(var,r'\(',r'\)') 
+                        vlist,Numv=self.parenth.Format_which_Inside_Parenthesees(var,r'\(',r'\)') 
                         if Numv>0:                        
                             fff=self.get_action_format_from_id(self.Configdata,action,vlist[0])
                             #print('here1:'+str(fff))
@@ -1279,10 +1178,10 @@ class Command_Handler:
             while Numvarleft>0:            
                 newFormat=self.Format_replace_actions(newFormat)
                 newFormat=self.Format_select_options_ored_parameters(newFormat,Parameters)        
-                optionslist,Numoptions=self.Format_which_Inside_Parenthesees(newFormat)
+                optionslist,Numoptions=self.parenth.Format_which_Inside_Parenthesees(newFormat)
                 The_code=''
                 MCommand=self.Format_Get_main_Command(newFormat,Numoptions)
-                varlist,Numspecimain=self.Format_which_Inside_Parenthesees(MCommand,r'\{',r'\}') #in []                        
+                varlist,Numspecimain=self.parenth.Format_which_Inside_Parenthesees(MCommand,r'\{',r'\}') #in []                        
                 astr=MCommand
                 #areallparams=self.check_all_Parameters_are_in_list(varlist,Parameters,True)   #Log when missing parameter in main
                 areallparams=self.check_all_Parameters_are_in_list(varlist,Parameters)   
@@ -1298,14 +1197,14 @@ class Command_Handler:
                 minop=None
                 for option in optionslist:
                     if '&&' in option:
-                        minvaluelist,Numminval=self.Format_which_Inside_Parenthesees(option,r'\(',r'\)') #in [] 
+                        minvaluelist,Numminval=self.parenth.Format_which_Inside_Parenthesees(option,r'\(',r'\)') #in [] 
                         minop=option
                         if Numminval>0:
                             minnumoptions=int(minvaluelist[0])
                         else:
                             minnumoptions=1
                 for option in optionslist:                
-                    varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
+                    varoptlist,Numspeciopt=self.parenth.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in [] 
                     isoptparam=self.check_all_Parameters_are_in_list(varoptlist,Parameters)
                     optstr=''
                     if isoptparam==True:                
@@ -1318,7 +1217,7 @@ class Command_Handler:
                         if countnumoptions>=minnumoptions:
                             The_code=The_code.replace('['+minop+']','')                                    
                     The_code=The_code.replace('['+option+']',optstr)            
-                varcode,Numvarleft=self.Format_which_Inside_Parenthesees(The_code,r'\{',r'\}')            
+                varcode,Numvarleft=self.parenth.Format_which_Inside_Parenthesees(The_code,r'\{',r'\}')            
                 #log.info('Required '+ str(minnumoptions)+' Option parameters, '+str(countnumoptions)+' found!')  
                 #self.countnumoptions=countnumoptions      
                 #if Numvarleft>0:            
@@ -1393,7 +1292,7 @@ class Command_Handler:
             if count>20:
                 aFormat=newFormat
         #print(newFormat)        
-        allvarlist,Numallvar=self.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}')          
+        allvarlist,Numallvar=self.parenth.Format_which_Inside_Parenthesees(newFormat,r'\{',r'\}')          
         opvarlist,atleast=self.Get_option_list(newFormat)
 
         for avar in allvarlist:
@@ -1424,7 +1323,7 @@ class Command_Handler:
         minimum_oprequired=0
         for reqParam in RequiredParams:
             if '&&' in RequiredParams[reqParam]:
-                oplistmin,Numopmin=self.Format_which_Inside_Parenthesees(RequiredParams[reqParam],r'\(',r'\)') 
+                oplistmin,Numopmin=self.parenth.Format_which_Inside_Parenthesees(RequiredParams[reqParam],r'\(',r'\)') 
                 for opjjj in oplistmin:
                         minimum_oprequired=int(opjjj)             
             if 'required' in RequiredParams[reqParam]:           
@@ -1454,7 +1353,7 @@ class Command_Handler:
         minimum_oprequired=0
         for reqParam in RequiredParams:
             if '&&' in RequiredParams[reqParam]:
-                oplistmin,Numopmin=self.Format_which_Inside_Parenthesees(RequiredParams[reqParam],r'\(',r'\)') 
+                oplistmin,Numopmin=self.parenth.Format_which_Inside_Parenthesees(RequiredParams[reqParam],r'\(',r'\)') 
                 for opjjj in oplistmin:
                         minimum_oprequired=int(opjjj)             
             if 'required' in RequiredParams[reqParam]:           
@@ -1528,7 +1427,8 @@ class Command_Handler:
 
         return True
 
-    def check_num_actions_in_data(self,data):                    
+    def check_num_actions_in_data(self,data):  
+        """ Check the number of actions is greater than 1"""                  
         numactions=self.get_number_of_actions_in_data(data)
         if numactions<1:
             log.error('No actions found in File!')
@@ -1649,7 +1549,7 @@ class Command_Handler:
 
     def Get_option_list(self,aFormat):
         aFormat=str(aFormat)
-        optionslist,Numoptions=self.Format_which_Inside_Parenthesees(aFormat) #in []
+        optionslist,Numoptions=self.parenth.Format_which_Inside_Parenthesees(aFormat) #in []
         opvarlist=[]        
         atleast=[]                
         addatleast=False
@@ -1657,7 +1557,7 @@ class Command_Handler:
             if '&&' in option:
                 addatleast=True   
                 optxt=option
-            varoptlist,Numspeciopt=self.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in []             
+            varoptlist,Numspeciopt=self.parenth.Format_which_Inside_Parenthesees(option,r'\{',r'\}') #in []             
             for opjjj in varoptlist:                
                 if addatleast==True:       
                     atleast.append([opjjj,optxt])                   
@@ -1760,12 +1660,12 @@ class Command_Handler:
         {action(xx)}->{action(id)}
         Returns the format.
         '''
-        varalist,Numa=self.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}')             
+        varalist,Numa=self.parenth.Format_which_Inside_Parenthesees(aFormat,r'\{',r'\}')             
         if Numa>0:
             actionlist=self.getListofActions(['interfaceId','interfaceName'])            
             for actpar in varalist:
                 if 'char(' not in actpar:
-                    plist,Nump=self.Format_which_Inside_Parenthesees(actpar,r'\(',r'\)')
+                    plist,Nump=self.parenth.Format_which_Inside_Parenthesees(actpar,r'\(',r'\)')
                     if Nump>0:                                         
                         #actpars=actpar.replace('('+plist[0]+')','('+str(anId)+')')
                         actpare=actpar.replace('('+plist[0]+')','')
@@ -1930,7 +1830,7 @@ class Command_Handler:
         isregex=False
         if "r'" in aFormat:
             #rlist=self.get_list_in_between_txt(aFormat,"'","'")
-            #p2list,Nump2=self.Format_which_Inside_Parenthesees(p1,r"r\'",r'\]')
+            #p2list,Nump2=self.parenth.Format_which_Inside_Parenthesees(p1,r"r\'",r'\]')
             rm=re.search("r'(.*)'",aFormat)
             try:                
                 regexcmd=rm.group(1)

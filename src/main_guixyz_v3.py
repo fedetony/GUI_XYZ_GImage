@@ -106,6 +106,7 @@ import class_File_Dialogs
 import class_ST
 import class_helper_dialogs
 import class_serial_terminal
+import class_visualizer
 
 #print(log.__dict__)
 
@@ -318,6 +319,9 @@ class MyWindow(QtWidgets.QMainWindow):
         # Set serial terminal
         self.serialterminalDialog = class_serial_terminal.SerialTerminalDialog(self)
 
+        # Set Visualizer dialog
+        self.visualizerDialog = class_visualizer.GCodeVisualizerDialog(self)
+
         # Setup the rest
         self.setupUi2(self)
         
@@ -362,6 +366,10 @@ class MyWindow(QtWidgets.QMainWindow):
                 pass
             try:
                 self.serialterminalDialog.close()
+            except Exception as e:
+                pass
+            try:
+                self.visualizerDialog.close()
             except Exception as e:
                 pass
             self.killer_event.set()            
@@ -413,7 +421,22 @@ class MyWindow(QtWidgets.QMainWindow):
         self.action_terminal.toggled.connect(toggle_terminal)
         self.menuView.addAction(self.action_terminal)
         # Connect the close event to uncheck in view menu
-        self.serialterminalDialog.finished.connect(lambda: self.action_terminal.setChecked(False))
+        self.serialterminalDialog.closed.connect(lambda: self.action_terminal.setChecked(False))
+        # ------------- Visualizer -------------
+        self.action_visualize = QtGui.QAction("Visualizer", self, checkable=True)
+        self.action_visualize.setShortcut("F9")
+        def toggle_visualizer(checked):
+            if checked:
+                self.visualizerDialog.show()
+            else:
+                self.visualizerDialog.hide()
+
+        self.action_visualize.toggled.connect(toggle_visualizer)
+        self.menuView.addAction(self.action_visualize)
+        # Connect the close event to uncheck in view menu
+        self.visualizerDialog.closed.connect(lambda: self.action_visualize.setChecked(False))
+
+
 
         # Open log window at startup
         self.action_log.setChecked(True) 

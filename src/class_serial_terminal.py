@@ -34,6 +34,8 @@ class SerialReader(QtCore.QThread):
         self.wait()
 
 class SerialTerminalDialog(QtWidgets.QDialog):
+    closed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -186,4 +188,5 @@ class SerialTerminalDialog(QtWidgets.QDialog):
 
     def closeEvent(self, event):
         self.disconnect_serial()
+        self.closed.emit()
         super().closeEvent(event)
