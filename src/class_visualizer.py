@@ -28,7 +28,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.setWindowTitle("G‑code Visualizer")
         self.resize(1100, 700)
 
-        # Variables
+        # -------------------------
+        # Internal data
+        # -------------------------
+        self.motions = []   # list of Motion objects
+        self.svg_item = None
         self.dynamic_items = []
         self.static_items = []
         # Simulation
@@ -39,11 +43,15 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.job_xmax=333
         self.job_ymin=-333
         self.job_ymax=333
+        self.svg_height = 666
+        maxlevel=9999
+        self.layer_overlay={"grid":maxlevel-3,"frame":maxlevel-2,"rulers":maxlevel-1,"axes":maxlevel-1,"render_svg":-3333,"toolhead":maxlevel}
         self.sim_running = False
         self.sim_timer = QtCore.QTimer()
         self.sim_timer.setInterval(30)  # 30ms per step (~33 FPS)
         self.sim_timer.timeout.connect(self.sim_step_forward)
-
+        self.stream_running=False
+        self.executed_count=0
 
         # -------------------------
         # Toolbar
@@ -91,6 +99,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.scene = QtWidgets.QGraphicsScene()
         # self.view = QtWidgets.QGraphicsView(self.scene)
         self.view = GraphicsView(self.scene)
+        # Set Y axis towards up
+        self.view.setTransform(QtGui.QTransform(1, 0, 0, -1, 0, 0))
 
         self.view.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform)
 
@@ -207,15 +217,31 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         
         self.ruler_toggle = QtWidgets.QCheckBox("Rulers")
         self.ruler_toggle.setChecked(True)
+
+        self.axes_toggle = QtWidgets.QCheckBox("Axes")
+        self.axes_toggle.setChecked(True)
         
         # Add to toolbar
         self.grid_toolbar.addWidget(self.grid_toggle)
         self.grid_toolbar.addWidget(self.grid_slider)
         self.grid_toolbar.addWidget(self.frame_toggle)
         self.grid_toolbar.addWidget(self.ruler_toggle)
+        self.grid_toolbar.addWidget(self.axes_toggle)
         #Add to top layout
         top_toolbar_layout.addWidget(self.grid_toolbar)
 
+        # -------------------------
+        # Progress bars
+        # -------------------------
+        # When connecting to stream
+        # self.buffer_progress = QProgressBar()
+        # self.buffer_progress.setRange(0, len(self.motions))
+        # self.buffer_progress.setValue(0)
+        self.job_progress = QProgressBar()
+        self.job_progress.setRange(0, len(self.motions))
+        
+        progressbar_layout = QtWidgets.QVBoxLayout()
+        progressbar_layout.addWidget(self.job_progress)
 
         # -------------------------
         # Main Layout
@@ -227,43 +253,42 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         layout.addLayout(top_toolbar_layout)
         layout.addLayout(splitter_layout)
         layout.addWidget(self.sim_toolbar)
+        layout.addLayout(progressbar_layout) 
         layout.addLayout(status_layout)   
         
-
-
-        # -------------------------
-        # Internal data
-        # -------------------------
-        self.motions = []   # list of Motion objects
-        self.svg_item = None
-
-        # -------------------------
-        # Toolhead object
-        # -------------------------
-        self.tool_dot = self.scene.addEllipse(-1, -1, 2, 2,
-                                      QtGui.QPen(QtCore.Qt.GlobalColor.black),
-                                      QtGui.QBrush(QtCore.Qt.GlobalColor.red))
-        self.tool_dot.setZValue(1000)
-        
-
         # Connect actions
         self.render_actions_connect()
+
+
+    # when streaming for buffer
+    # def send_next_line(self):
+    #     line = self.gcode_lines[self.send_index]
+    #     self.serial.write(line.encode() + b"\n")
+
+    #     self.send_index += 1
+    #     self.buffer_progress.setValue(self.send_index)
+
 
     def load_motions(self, motions):
         self.last_x = 0
         self.last_y = 0
         self.motions = motions
         # Clear dynamic items only
-        self.clear_scene(clear_all=False)
+        # Clear EVERYTHING (static + dynamic) 
+        self.clear_scene(clear_all=True)
         # -------------------------
         # Job Box, Grid, axes, Rulers
         # -------------------------
+        self.add_toolhead()
         self.add_job_box()
+        self.add_work_box()
         self.add_grid()
         self.add_axes()
         self.add_rulers()
         # Draw full static toolpath
         self.render_svg()
+        # Set scene borders after generating the items
+        self.scene.setSceneRect(self.scene.itemsBoundingRect())
         # Build table
         self.populate_table()
         # Build layers (IMPORTANT)
@@ -278,7 +303,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Reset simulation index
         self.sim_index = 0
         self.redraw_sim_position()
-    
+        # Set progress bar
+        self.update_job_progressbar(self.sim_index,end=self.sim_end_spin.value(),start=self.sim_start_spin.value())
+
     def compute_bounds(self):
         xs = []
         ys = []
@@ -340,9 +367,13 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.grid_slider.valueChanged.connect(self.update_grid_spacing)
         self.frame_toggle.stateChanged.connect(self.toggle_frame)
         self.ruler_toggle.stateChanged.connect(self.toggle_rulers)
+        self.axes_toggle.stateChanged.connect(self.toggle_axes)
 
     def fit_view(self):
-        self.view.fitInView(self.job_box, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        pxmin, pymin, pxmax, pymax = self.bounds_padded(0.2)
+        self.view.fitInView(QtCore.QRectF(pxmin, pymin, pxmax - pxmin, pymax - pymin),
+                            QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        # self.view.fitInView(self.job_box, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
 
 
     def on_table_selection(self):
@@ -395,6 +426,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     def get_job_bounds(self):
         """Returns job's xmin, ymin, xmax, ymax"""
         return self.job_xmin, self.job_ymin, self.job_xmax, self.job_ymax
+    
+    def add_toolhead(self):
+        self.tool_dot = self.scene.addEllipse(-1, -1, 2, 2,
+                                      QtGui.QPen(QtCore.Qt.GlobalColor.black),
+                                      QtGui.QBrush(QtCore.Qt.GlobalColor.red))
+        self.tool_dot.setZValue(self.layer_overlay["toolhead"])
 
     def add_job_box(self):
         xmin, ymin, xmax, ymax = self.compute_bounds()
@@ -403,23 +440,33 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.job_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
         self.scene.addItem(self.job_box)
         self.static_items.append(self.job_box)
-        self.job_box.setZValue(-3333)
+        self.job_box.setZValue(self.layer_overlay["frame"])
         self.job_xmin=xmin
         self.job_xmax=xmax
         self.job_ymin=ymin
         self.job_ymax=ymax
+        self.svg_height=ymax - ymin
+    
+    def add_work_box(self):
+        xmin, ymin, xmax, ymax = self.bounds_padded(padding_per=0.2)
+        self.work_box = QtWidgets.QGraphicsRectItem(QtCore.QRectF(xmin, ymin, xmax - xmin, ymax - ymin))
+        self.work_box.setPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen))  
+        self.work_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+        self.scene.addItem(self.work_box)
+        self.static_items.append(self.work_box)
+        self.work_box.setZValue(self.layer_overlay["frame"])
 
     def add_grid(self):
         # Expand by 20%
-        pxmin,pymin,pxmax,pymax=self.bounds_padded(padding_per=0.2)
+        pxmin,pymin,pxmax,pymax=self.bounds_padded(padding_per=0.0)
 
         self.grid = GridItem(
             pxmin,pymin,pxmax,pymax,
             spacing=1.0,
-            bold_every=10
+            bold_every=5
         )
         self.scene.addItem(self.grid)
-        self.grid.setZValue(-1000)
+        self.grid.setZValue(self.layer_overlay["grid"])
         self.static_items.append(self.grid)
 
     def add_axes(self):
@@ -427,15 +474,15 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         pxmin,pymin,pxmax,pymax=self.bounds_padded(padding_per=0.2)
 
         self.axes = AxisItem(pxmin,pymin,pxmax,pymax)
-        self.axes.setZValue(-900)
+        self.axes.setZValue(self.layer_overlay["axes"])
         self.scene.addItem(self.axes)
         self.static_items.append(self.axes)
 
     def add_rulers(self):
-        # Expand by 20% Same grid size
-        pxmin,pymin,pxmax,pymax=self.bounds_padded(padding_per=0.2)
+        # Rulers against the job box
+        pxmin,pymin,pxmax,pymax=self.bounds_padded(padding_per=0.0)
         self.ruler = RulerItem(pxmin,pymin,pxmax,pymax)
-        self.ruler.setZValue(-800)
+        self.ruler.setZValue(self.layer_overlay["rulers"])
         self.scene.addItem(self.ruler)
         self.static_items.append(self.ruler)
 
@@ -449,7 +496,6 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         with open(path, "r") as f:
             lines = f.readlines()
-
         motions = self.parse_to_motions(lines)
         self.load_motions(motions)
 
@@ -463,6 +509,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             # Clear EVERYTHING
             self.scene.clear()
             self.static_items.clear()
+            self.dynamic_items.clear()
+            self.svg_item = None
 
     
     # --------------------------- Parser ---------------------------------
@@ -514,7 +562,6 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                 path_cmds.append(f"A {r} {r} 0 0 {sweep} {x} {y}")
 
             last_x, last_y = x, y
-
         # FINAL SVG WITH CORRECT VIEWBOX 
         svg = f""" <svg xmlns="http://www.w3.org/2000/svg" 
                     version="1.1" 
@@ -524,6 +571,20 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                         stroke-width="0.5" 
                         fill="none" /> 
                 </svg> """
+        # svg = f"""
+        #     <svg xmlns="http://www.w3.org/2000/svg"
+        #         version="1.1"
+        #         viewBox="{xmin} {ymin} {width} {height}">
+
+        #         <g transform="scale(1,-1) translate(0, {-height})">
+        #             <path d="{' '.join(path_cmds)}"
+        #                 stroke="black"
+        #                 stroke-width="0.5"
+        #                 fill="none" />
+        #         </g>
+
+        #     </svg>
+        #     """
         return svg
 
     def render_svg(self):
@@ -531,7 +592,10 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Later: convert motions → SVG → QGraphicsSvgItem
         if not self.motions:
             return
-
+        # Remove old SVG item if it exists
+        if self.svg_item is not None:
+            self.scene.removeItem(self.svg_item)
+            self.svg_item = None
         svg = self.motions_to_svg(self.motions)
         svg_bytes = svg.encode("utf-8")
 
@@ -541,9 +605,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         item = QtSvgWidgets.QGraphicsSvgItem()
         
         item.setSharedRenderer(renderer)
-
+        item.setZValue(self.layer_overlay["render_svg"])
         self.scene.addItem(item)
+        
         self.view.fitInView(self.scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        # Store reference
+        self.svg_item = item
 
 
     @staticmethod
@@ -682,20 +749,24 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                 color = QtGui.QColor.fromHsv( int((1 - power / 255) * 240), # hue 
                                             255, 255 ) 
                 pen.setColor(color)
-
+        # y0 = self.svg_height - self.last_y
+        # y1 = self.svg_height - y
         # Linear move
         if m.type in ("rapid", "linear"):
+            # self.scene.addLine(self.last_x, y0, x, y1, pen)
             self.scene.addLine(self.last_x, self.last_y, x, y, pen)
 
         # Arc move
         elif m.type in ("arc_cw", "arc_ccw"):
             # Approximate arc with polyline (simple and fast)
+            # self.draw_arc_segment(self.last_x, y0, x, y1, m, pen)
             self.draw_arc_segment(self.last_x, self.last_y, x, y, m, pen)
 
         self.last_x = x
         self.last_y = y
 
         #Update toolhead
+        # self.tool_dot.setRect(x - 1, y1 - 1, 2, 2)
         self.tool_dot.setRect(x - 1, y - 1, 2, 2)
         self.tool_label.setText(f"Tool: X={x:.2f} Y={y:.2f}")
 
@@ -779,13 +850,17 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             pen.setColor(QtGui.QColor("#ff0000"))
 
         # Linear moves
+        yf0 = self.svg_height - y0 
+        yf1 = self.svg_height - y1 
         if m.type in ("rapid", "linear"):
             line = self.scene.addLine(QtCore.QLineF(x0, y0, x1, y1), pen)
+            # line = self.scene.addLine(QtCore.QLineF(x0, yf0, x1, yf1), pen)
             self.dynamic_items.append(line)
 
         # Arc moves
         elif m.type in ("arc_cw", "arc_ccw"):
             self.draw_arc_segment(x0, y0, x1, y1, m, pen)
+            # self.draw_arc_segment(x0, yf0, x1, yf1, m, pen)
 
         # Update last position for simulation
         self.last_x = x1
@@ -906,9 +981,13 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Move toolhead dot
         x = m.x if m.x is not None else self.last_x
         y = m.y if m.y is not None else self.last_y
+        # y_flipped = self.svg_height - y
+
+        # self.tool_dot.setRect(x - 1, y_flipped - 1, 2, 2)
         self.tool_dot.setRect(x - 1, y - 1, 2, 2)
 
         # Update labels
+        # self.tool_label.setText(f"Tool: X={x:.2f} Y={y_flipped:.2f}")
         self.tool_label.setText(f"Tool: X={x:.2f} Y={y:.2f}")
 
         # Highlight table row
@@ -917,7 +996,18 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         # Optionally center view on toolhead
         if self.center_check.isChecked():
+            # self.view.centerOn(x, y_flipped)
             self.view.centerOn(x, y)
+
+        # Update progress bar
+        self.update_job_progressbar(self.sim_index,end=self.sim_end_spin.value(),start=self.sim_start_spin.value())    
+
+    def update_job_progressbar(self, position, end, start=0):
+        total = max(0, end - start)
+        progress = max(0, position - start)
+
+        self.job_progress.setRange(0, total)
+        self.job_progress.setValue(progress)
 
     #------------------------ Layers -------------------
 
@@ -996,7 +1086,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def update_grid_spacing(self, value):
         if self.grid:
-            self.grid.spacing = value
+            self.grid.density = 1 + (value * 0.1)
             self.grid.update()
 
     def toggle_frame(self, state):
@@ -1006,7 +1096,10 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     def toggle_rulers(self, state):
         if self.ruler:
             self.ruler.setVisible(bool(state))
-
+    
+    def toggle_axes(self, state):
+        if self.axes:
+            self.axes.setVisible(bool(state))
 
     def closeEvent(self, event):
         self.closed.emit()
@@ -1034,6 +1127,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 class GridItem(QtWidgets.QGraphicsItem):
     def __init__(self, xmin, ymin, xmax, ymax, spacing=1.0, bold_every=10):
         super().__init__()
+        self.density = 1.0   # default (no change)
         self.xmin = xmin
         self.ymin = ymin
         self.xmax = xmax
@@ -1060,29 +1154,52 @@ class GridItem(QtWidgets.QGraphicsItem):
         top    = rect.top()
         bottom = rect.bottom()
 
+        scale = painter.worldTransform().m11()
+        # Adaptive base spacing
+        if scale < 0.2:
+            base_minor = 50
+        elif scale < 0.5:
+            base_minor = 10
+        else:
+            base_minor = 5
+
+        # Apply density
+        minor = base_minor * self.density
+        major = minor * self.bold_every
+
         # Normalize bounds
         if left > right:
             left, right = right, left
         if top > bottom:
             top, bottom = bottom, top
 
-        # Vertical lines
-        x = left
-        while x <= right:
-            idx = int((x - left) / self.spacing)
-            pen = self.bold_pen if (idx % self.bold_every == 0) else self.thin_pen
-            painter.setPen(pen)
-            painter.drawLine(QtCore.QPointF(x, top), QtCore.QPointF(x, bottom))
-            x += self.spacing
+        # -------------------------
+        # Vertical grid lines
+        # -------------------------
+        x = int(self.xmin - (self.xmin % minor))
+        while x <= self.xmax:
+            if x % major == 0:
+                painter.setPen(self.bold_pen)
+            else:
+                painter.setPen(self.thin_pen)
 
-        # Horizontal lines
-        y = top
-        while y <= bottom:
-            idx = int((y - top) / self.spacing)
-            pen = self.bold_pen if (idx % self.bold_every == 0) else self.thin_pen
-            painter.setPen(pen)
+            painter.drawLine(QtCore.QPointF(x, top), QtCore.QPointF(x, bottom))
+            x += minor
+
+        # -------------------------
+        # Horizontal grid lines
+        # -------------------------
+        y = int(self.ymin - (self.ymin % minor))
+        while y <= self.ymax:
+            if y % major == 0:
+                painter.setPen(self.bold_pen)
+            else:
+                painter.setPen(self.thin_pen)
+
             painter.drawLine(QtCore.QPointF(left, y), QtCore.QPointF(right, y))
-            y += self.spacing
+            y += minor
+
+
 
 
 class AxisItem(QtWidgets.QGraphicsItem):
@@ -1119,41 +1236,86 @@ class RulerItem(QtWidgets.QGraphicsItem):
         self.ymax = ymax
 
     def boundingRect(self):
-        return QtCore.QRectF(self.xmin, self.ymin,
-                             self.xmax - self.xmin,
-                             self.ymax - self.ymin)
+        xmin = min(self.xmin, self.xmax)
+        xmax = max(self.xmin, self.xmax)
+        ymin = min(self.ymin, self.ymax)
+        ymax = max(self.ymin, self.ymax)
+
+        pad = 200  # generous padding so ticks + text are never clipped
+        return QtCore.QRectF(
+            xmin - pad,
+            ymin - pad,
+            (xmax - xmin) + 2*pad,
+            (ymax - ymin) + 2*pad
+        )
 
     def paint(self, painter, option, widget):
-        painter.setPen(QtGui.QPen(QtGui.QColor(80, 80, 80), 0))
-        tick = 10
+        scale = painter.worldTransform().m11()
+
+        # Adaptive tick spacing
+        if scale < 0.2:
+            major = 100
+            minor = 50
+        elif scale < 0.5:
+            major = 50
+            minor = 10
+        else:
+            major = 10
+            minor = 5
+
+        tick_small = 8
+        tick_big = 15
+
+        pen = QtGui.QPen(QtGui.QColor(80, 80, 80))
+        pen.setWidthF(0)
+        painter.setPen(pen)
 
         # -------------------------
         # X-axis ruler (top edge)
         # -------------------------
         y_top = self.ymin
-        for x in range(int(self.xmin), int(self.xmax) + 1, 10):
-            # small tick
-            painter.drawLine(QtCore.QPointF(x, y_top),
-                             QtCore.QPointF(x, y_top + tick))
 
-            # label every 50 units
-            if x % 50 == 0:
-                painter.drawText(QtCore.QPointF(x + 2, y_top + 3 * tick), str(x))
+        x = int(self.xmin)
+        while x <= self.xmax:
+            if x % major == 0:
+                painter.drawLine(QtCore.QPointF(x, y_top),
+                                QtCore.QPointF(x, y_top + tick_big))
+
+                # Draw label in screen space
+                self.transform_matrix(painter,x, y_top, str(x))
+
+            elif x % minor == 0:
+                painter.drawLine(QtCore.QPointF(x, y_top),
+                                QtCore.QPointF(x, y_top + tick_small))
+
+            x += minor
 
         # -------------------------
         # Y-axis ruler (left edge)
         # -------------------------
         x_left = self.xmin
-        for y in range(int(self.ymin), int(self.ymax) + 1, 10):
-            # small tick
-            painter.drawLine(QtCore.QPointF(x_left, y),
-                             QtCore.QPointF(x_left + tick, y))
 
-            # label every 50 units
-            if y % 50 == 0:
-                painter.drawText(QtCore.QPointF(x_left + 2 * tick, y + 3), str(y))
+        y = int(self.ymin)
+        while y <= self.ymax:
+            if y % major == 0:
+                painter.drawLine(QtCore.QPointF(x_left, y),
+                                QtCore.QPointF(x_left + tick_big, y))
+                self.transform_matrix(painter,x_left, y, str(y))
 
+            elif y % minor == 0:
+                painter.drawLine(QtCore.QPointF(x_left, y),
+                                QtCore.QPointF(x_left + tick_small, y))
 
-
+            y += minor
     
+    def transform_matrix(self, painter, x, y, label):
+        # 1. Compute screen coords BEFORE disabling world matrix
+        screen_pt = painter.worldTransform().map(QtCore.QPointF(x, y))
+
+        # 2. Draw text in screen space
+        painter.save()
+        painter.setWorldMatrixEnabled(False)
+        painter.drawText(QtCore.QPointF(screen_pt.x() + 4, screen_pt.y() - 4), label)
+        painter.restore()
+
 
