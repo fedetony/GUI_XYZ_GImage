@@ -1,0 +1,46 @@
+{
+  "vectorize": {
+    "compatible_tools": ["pen", "laser", "cutter", "extruder"],
+    "parameters": {
+      "line_speed": 2000,
+      "arc_fitting": true,
+      "fill_patterns": ["none", "hatch", "crosshatch", "spiral"]
+    }
+  },
+
+  "laser_engrave": {
+    "compatible_tools": ["laser"],
+    "parameters": {
+      "power_mode": "analog",
+      "min_power": 10,
+      "max_power": 255,
+      "speed": 3000
+    }
+  },
+
+  "laser_cut": {
+    "compatible_tools": ["laser"],
+    "parameters": {
+      "power_mode": "digital",
+      "on_power": 255,
+      "off_power": 0,
+      "speed": 1500
+    }
+  },
+
+  "lineing": {
+    "compatible_tools": ["pen", "extruder"],
+    "parameters": {
+      "stroke_density": 1.0,
+      "randomness": 0.1
+    }
+  },
+
+  "stipple": {
+    "compatible_tools": ["pen"],
+    "parameters": {
+      "dot_density": 0.5,
+      "randomness": 0.2
+    }
+  }
+}

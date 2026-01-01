@@ -39,6 +39,16 @@ class LoggerManager:
 
         # Store it so you can manage/remove later
         self.gui_handlers.append(handler)
+    
+    def attach_signaltracker_handler(self, signal_tracker):
+        handler = SignalTrackerHandler(signal_tracker)
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] (%(name)s) %(message)s",
+            "%y-%m-%d %H:%M"
+        ))
+
+        self.root.addHandler(handler)
 
     def start_gui_update_thread(self, killer_event):
         if self.update_thread is None:
@@ -101,6 +111,23 @@ class ConsolePanelHandler(logging.Handler):
         self.parent.write_GUI_Log(self.format(record))
         #self.ui.write_GUI_Log(self.format(record))
         #self.textedit.append(self.format(record))
+
+class SignalTrackerHandler(logging.Handler):
+    def __init__(self, signal_tracker:class_ST.SignalTracker):
+        super().__init__()
+        self.ST = signal_tracker
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            logger_name = record.name
+            level = record.levelname.lower()
+
+            # Emit to Qt safely
+            self.ST.log_to_main.emit(msg, logger_name, level)
+
+        except Exception:
+            self.handleError(record)
 
 class ToFileLogger:
     def __init__(self, name):

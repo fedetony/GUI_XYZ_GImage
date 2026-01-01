@@ -1,0 +1,41 @@
+{
+  "laser_2axis": {
+    "name": "Laser 2‑Axis",
+    "axes": ["X", "Y"],
+    "supports_z": false,
+    "supports_e": false,
+    "max_speed": 5000,
+    "home_command": "G28",
+    "units": "mm"
+  },
+
+  "cnc_6axis": {
+    "name": "CNC 6‑Axis",
+    "axes": ["X", "Y", "Z", "A", "B", "C"],
+    "supports_z": true,
+    "supports_e": false,
+    "max_speed": 3000,
+    "home_command": "G28",
+    "units": "mm"
+  },
+
+  "drawing_bot": {
+    "name": "Drawing Bot",
+    "axes": ["X", "Y", "Z"],
+    "supports_z": true,
+    "supports_e": false,
+    "z_retract_default": 3.0,
+    "home_command": "G28",
+    "units": "mm"
+  },
+
+  "3d_printer": {
+    "name": "3D Printer",
+    "axes": ["X", "Y", "Z", "E"],
+    "supports_z": true,
+    "supports_e": true,
+    "extruder_temp": 200,
+    "home_command": "G28",
+    "units": "mm"
+  }
+}

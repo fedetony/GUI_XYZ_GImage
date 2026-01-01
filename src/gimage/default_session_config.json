@@ -1,0 +1,17 @@
+{
+  "machine": "drawing_bot",
+  "tool": "pen",
+  "technique": "vectorize",
+
+  "image": {
+    "path": "input.png",
+    "width": 200,
+    "height": 200,
+    "resolution": 0.5,
+    "position": [10, 10]
+  },
+
+  "output": {
+    "gcode_path": "output.gcode"
+  }
+}

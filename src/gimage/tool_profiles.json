@@ -1,0 +1,34 @@
+{
+  "laser": {
+    "type": "laser",
+    "parameters": {
+      "max_power": 255,
+      "min_power": 0,
+      "focus_height": 0.0
+    }
+  },
+
+  "pen": {
+    "type": "pen",
+    "parameters": {
+      "z_touch": 0.0,
+      "z_retract": 3.0
+    }
+  },
+
+  "cutter": {
+    "type": "cutter",
+    "parameters": {
+      "z_cut_depth": -1.0,
+      "z_safe": 3.0
+    }
+  },
+
+  "extruder": {
+    "type": "extruder",
+    "parameters": {
+      "extrusion_rate": 0.05,
+      "retraction": 1.0
+    }
+  }
+}

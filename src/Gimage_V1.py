@@ -1576,11 +1576,240 @@ class Image_Gcode_Stream(threading.Thread):
                     Lcode += self.tool_up()
 
         return Lcode
+    
+    def generate_gcode_arcs(self, color_segments, Resolution, Process_rate):
+        Lcode = ""
+
+        for color, shapes in color_segments.items():
+            for shape in shapes:
+                for sub in shape:
+                    if not sub:
+                        continue
+
+                    # move to start of first segment
+                    first_seg = sub[0]
+                    _, start, *rest = first_seg
+                    (x0, y0) = start
+                    px, py = self.Transform_pixel_coordinates_to_image_coordinates(x0, y0, Resolution)
+                    Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                    Lcode += self.tool_down()
+
+                    for seg in sub:
+                        if seg[0] == "line":
+                            _, s, e = seg
+                            (xe, ye) = e
+                            px, py = self.Transform_pixel_coordinates_to_image_coordinates(xe, ye, Resolution)
+                            Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                        else:  # arc
+                            _, s, e, center, cw = seg
+                            (xe, ye) = e
+                            (sx, sy) = s
+                            (cx, cy) = center
+                            # transform points first, then recalc center offsets in machine coords if needed
+                            mx1, my1 = self.Transform_pixel_coordinates_to_image_coordinates(sx, sy, Resolution)
+                            mx2, my2 = self.Transform_pixel_coordinates_to_image_coordinates(xe, ye, Resolution)
+                            mcx, mcy = self.Transform_pixel_coordinates_to_image_coordinates(cx, cy, Resolution)
+                            I = mcx - mx1
+                            J = mcy - my1
+                            cmd = "G2" if cw else "G3"
+                            Lcode += f"{cmd} X{mx2:.3f} Y{my2:.3f} I{I:.3f} J{J:.3f} F{Process_rate}\n"
+
+                    Lcode += self.tool_up()
+
+        return Lcode
+
+class Arcs:
+    @staticmethod
+    def circle_from_3_points(p1, p2, p3, eps=1e-7):
+        (x1, y1) = p1
+        (x2, y2) = p2
+        (x3, y3) = p3
+
+        temp = x2*x2 + y2*y2
+        bc = (x1*x1 + y1*y1 - temp) / 2.0
+        cd = (temp - x3*x3 - y3*y3) / 2.0
+        det = (x1 - x2)*(y2 - y3) - (x2 - x3)*(y1 - y2)
+
+        if abs(det) < eps:
+            return None  # collinear or nearly
+
+        cx = (bc*(y2 - y3) - cd*(y1 - y2)) / det
+        cy = ((x1 - x2)*cd - (x2 - x3)*bc) / det
+        r = ((x1 - cx)**2 + (y1 - cy)**2)**0.5
+        return (cx, cy, r)
+    
+    @staticmethod
+    def max_radial_error(points, cx, cy, r):
+        max_err = 0.0
+        for (x, y) in points:
+            d = ((x - cx)**2 + (y - cy)**2)**0.5
+            err = abs(d - r)
+            if err > max_err:
+                max_err = err
+        return max_err
+    
+    @staticmethod
+    def arc_direction(p1, p2, p3):
+        # sign of z-component of cross product (p1->p2) × (p2->p3)
+        (x1, y1) = p1
+        (x2, y2) = p2
+        (x3, y3) = p3
+        cross = (x2 - x1)*(y3 - y2) - (y2 - y1)*(x3 - x2)
+        # cross < 0 → CW (G2), cross > 0 → CCW (G3)
+        return True if cross < 0 else False
+    
+    def fit_arcs_on_polyline(self, points, max_error=0.2, max_angle=np.pi*1.5):
+        segments = []
+        i = 0
+        n = len(points)
+
+        while i < n - 1:
+            # try to start an arc at i
+            if i + 2 < n:
+                p1, p2, p3 = points[i], points[i+1], points[i+2]
+                circle = self.circle_from_3_points(p1, p2, p3)
+                if circle is not None:
+                    cx, cy, r = circle
+                    # try to extend arc
+                    j = i + 3
+                    last_good = i + 2
+                    while j < n:
+                        run = points[i:j+1]
+                        err = self.max_radial_error(run, cx, cy, r)
+                        if err > max_error:
+                            break
+                        last_good = j
+                        j += 1
+
+                    start = points[i]
+                    end = points[last_good]
+                    # direction from 3 sample points
+                    cw = self.arc_direction(points[i], points[i+1], points[last_good])
+
+                    segments.append(("arc", start, end, (cx, cy), cw))
+                    i = last_good
+                    continue
+
+            # fallback: straight line
+            start = points[i]
+            end = points[i+1]
+            segments.append(("line", start, end))
+            i += 1
+
+        return segments
+    
+    def subshape_to_points(self, sub):
+        return [sub[0][0]] + [e[1] for e in sub]
+
+    def fit_arcs_in_shapes(self, shapes, max_error=0.2):
+        new_shapes = []
+        for shape in shapes:
+            new_subs = []
+            for sub in shape:
+                if not sub:
+                    continue
+                pts = self.subshape_to_points(sub)
+                segs = self.fit_arcs_on_polyline(pts, max_error=max_error)
+                new_subs.append(segs)  # now this subshape is list of ("line"/"arc", ...)
+            if new_subs:
+                new_shapes.append(new_subs)
+        return new_shapes
+
+    def g2_g3_from_arc(self, start, end, center, cw, feed=None):
+        (x1, y1) = start
+        (x2, y2) = end
+        (cx, cy) = center
+        I = cx - x1
+        J = cy - y1
+        cmd = "G2" if cw else "G3"
+        line = f"{cmd} X{x2:.3f} Y{y2:.3f} I{I:.3f} J{J:.3f}"
+        if feed is not None:
+            line += f" F{feed:.1f}"
+        return line + "\n"
+
+    
+
+
+import math
+
+class Fillpatterns:
+    @staticmethod
+    def rotate_point(p, angle):
+        x, y = p
+        c, s = math.cos(angle), math.sin(angle)
+        return (x*c - y*s, x*s + y*c)
+
+    def rotate_polygon(self, poly, angle):
+        return [self.rotate_point(p, angle) for p in poly]
+
+    def hatch_fill_polygon(self, poly, spacing=5.0, angle_deg=0.0):
+        angle = math.radians(angle_deg)
+        poly_r = self.rotate_polygon(poly, -angle)  # rotate opposite so hatching is horizontal
+
+        ys = [p[1] for p in poly_r]
+        y_min, y_max = min(ys), max(ys)
+
+        paths = []
+        y = y_min - (y_min % spacing)
+
+        while y <= y_max:
+            # find intersections of horizontal line y with polygon edges
+            xints = []
+            for i in range(len(poly_r)):
+                x1, y1 = poly_r[i]
+                x2, y2 = poly_r[(i+1) % len(poly_r)]
+                if (y1 <= y < y2) or (y2 <= y < y1):
+                    if y2 != y1:
+                        t = (y - y1) / (y2 - y1)
+                        x = x1 + t*(x2 - x1)
+                        xints.append(x)
+            xints.sort()
+            # group into segments
+            for i in range(0, len(xints), 2):
+                if i+1 >= len(xints):
+                    break
+                x_start, x_end = xints[i], xints[i+1]
+                # build a simple 2-point line
+                p1 = (x_start, y)
+                p2 = (x_end, y)
+                # rotate back to original orientation
+                p1r = self.rotate_point(p1, angle)
+                p2r = self.rotate_point(p2, angle)
+                paths.append([p1r, p2r])
+            y += spacing
+
+        return paths
+
+    def crosshatch_fill_polygon(self,poly, spacing=5.0, angle_deg=0.0):
+        paths1 = self.hatch_fill_polygon(poly, spacing, angle_deg)
+        paths2 = self.hatch_fill_polygon(poly, spacing, angle_deg + 90.0)
+        return paths1 + paths2
+    
+    def spiralish_fill_polygon(self, poly, spacing=5.0, turns=5):
+        paths = []
+        base_angle = 0.0
+        for i in range(turns):
+            angle = base_angle + (i * (360.0 / turns))
+            cur_spacing = spacing * (1.0 + i * 0.1)
+            paths.extend(self.hatch_fill_polygon(poly, cur_spacing, angle))
+        return paths
+    
+    def polygon_to_hatch_shapes(self, contour_pts, spacing=5.0, angle=0.0):
+        poly = [tuple(p) for p in contour_pts]
+        paths = self.hatch_fill_polygon(poly, spacing, angle)
+        shapes = []
+        for path in paths:
+            if len(path) < 2:
+                continue
+            edges = [(path[i], path[i+1]) for i in range(len(path)-1)]
+            shapes.append([edges])  # one sub-shape
+        return shapes
+
 
         
 
 
-    
+        
 
             
 

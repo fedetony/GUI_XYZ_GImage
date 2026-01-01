@@ -107,6 +107,7 @@ import class_ST
 import class_helper_dialogs
 import class_serial_terminal
 import class_visualizer
+import class_gimage_dialog
 
 #print(log.__dict__)
 
@@ -321,9 +322,21 @@ class MyWindow(QtWidgets.QMainWindow):
 
         # Set Visualizer dialog
         self.visualizerDialog = class_visualizer.GCodeVisualizerDialog(self)
+   
+        #Set Gimage dialog
+        self.gimageDialog = class_gimage_dialog.GimageGcodeGenerator(self)
 
         # Setup the rest
         self.setupUi2(self)
+
+        # create Signal Tracker
+        self.ST=class_ST.SignalTracker()        
+        LM.attach_signaltracker_handler(self.ST)
+        # Start tracking all loggers
+        self.ST.log_to_main.connect(self.on_log_from_anywhere)
+        
+        self.connect_signal_tracker()
+
         
 
     def closeEvent(self,event):
@@ -371,6 +384,10 @@ class MyWindow(QtWidgets.QMainWindow):
             try:
                 self.visualizerDialog.close()
             except Exception as e:
+                pass
+            try:
+                self.gimageDialog.close()
+            except:
                 pass
             self.killer_event.set()            
             event.accept()
@@ -435,9 +452,20 @@ class MyWindow(QtWidgets.QMainWindow):
         self.menuView.addAction(self.action_visualize)
         # Connect the close event to uncheck in view menu
         self.visualizerDialog.closed.connect(lambda: self.action_visualize.setChecked(False))
+        # ------------- Gimage -------------
+        self.action_gimage = QtGui.QAction("Gimage Gcode-Generator", self, checkable=True)
+        self.action_gimage.setShortcut("F8")
+        def toggle_gimage(checked):
+            if checked:
+                self.gimageDialog.show()
+            else:
+                self.gimageDialog.hide()
 
-
-
+        self.action_gimage.toggled.connect(toggle_gimage)
+        self.menuView.addAction(self.action_gimage)
+        # Connect the close event to uncheck in view menu
+        self.gimageDialog.closed.connect(lambda: self.action_gimage.setChecked(False))
+        
         # Open log window at startup
         self.action_log.setChecked(True) 
         self.logDialog.show()
@@ -563,15 +591,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         #--------------connect logger class
         #self.LH_T.ST.log_update.connect(self.poll_log_queue) 
         self.set_view_menu()
-        #------------create signal tracker class
-        self.ST=class_ST.SignalTracker()
-        self.ST.enable_bHOLD.connect(self.Enable_HOLD_Button)
-        self.ST.enable_bSTOP.connect(self.Enable_STOP_Button)
-        self.ST.timer_change[str].connect(self.ui.label_time.setText)
-        self.ST.enable_isSTREAMING.connect(self.Enable_STREAMING)
-        self.ST.data_change[dict].connect(self.Data_Change_Actualize)
-        self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
-        self.ST.stream_info_change.connect(self.Stream_Info_Update)    
+          
         # Move splitters
         # Vertical
         sizes = [1, 0]   # top expanded, bottom collapsed
@@ -579,7 +599,41 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         self.ui.splitter.setSizes(sizes)
         # Horizontal sizes = [0, 1] # left collapsed, right expanded 
         # self.ui.splitter.setSizes(sizes)
+    
+    def connect_signal_tracker(self):
+        """
+        Connect signal Tracker, must be done after all classes are created 
+        """    
+        self.ST.enable_bHOLD.connect(self.Enable_HOLD_Button)
+        self.ST.enable_bSTOP.connect(self.Enable_STOP_Button)
+        self.ST.timer_change[str].connect(self.ui.label_time.setText)
+        self.ST.enable_isSTREAMING.connect(self.Enable_STREAMING)
+        self.ST.data_change[dict].connect(self.Data_Change_Actualize)
+        self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
+        self.ST.stream_info_change.connect(self.Stream_Info_Update)  
 
+
+    @QtCore.pyqtSlot(str, str, str)
+    def on_log_from_anywhere(self, msg, logger_name, level):
+        """logger helper function with class_ST"""
+        # Prefix message with logger name
+        if logger_name:
+            msg = f"({logger_name}) {msg}"
+
+        # Get the correct logger
+        logger = logging.getLogger(logger_name)
+
+        # Dispatch to correct log level
+        if level == 'info':
+            logger.info(msg)
+        elif level == 'warning':
+            logger.warning(msg)
+        elif level == 'error':
+            logger.error(msg)
+        elif level == 'debug':
+            logger.debug(msg)
+        elif level == 'print':
+            print(msg)
         
     def Spinbox_val_change_from(self,val):
         numlines=self.plaintextEdit_GcodeScript.blockCount() #self.ui.spinBox_Stream_Linefrom.maximum()        
