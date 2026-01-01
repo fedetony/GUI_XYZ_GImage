@@ -365,10 +365,11 @@ class ResizeToolDialog(QWidget,GuiXYZ_RTD.Ui_Dialog_RTD):
         qim = ImageQt(im)
         self.the_pixmap=QtGui.QPixmap.fromImage(qim)        
         self.DRui.label_RTD_Image.setPixmap(self.the_pixmap.scaled(
-                    self.DRui.label_RTD_Image.size(), QtCore.Qt.KeepAspectRatio,
-                    QtCore.Qt.SmoothTransformation))       
+                    self.DRui.label_RTD_Image.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation))       
         self.IsRTDim=True      
         self.Put_Frame()
+        
     def Set_Machine_Point_label(self):         
         try:
             MGeo=self.DRui.label_RTD_Machine.geometry()

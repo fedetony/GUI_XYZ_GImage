@@ -8,7 +8,20 @@ import operator
 from collections import deque
 from io import StringIO
 import threading
+import numpy as np
+from collections import defaultdict
+import os
+import cv2 # opencv pip install opencv-python-headless or pip install opencv-python with imshow
+import copy
 
+#from Scipy.ndimage import label
+EPSILON = 0 #0.05 # RDP resolution 
+DIRS = np.array([
+        [0, 1],
+        [1, 0],
+        [0, -1],
+        [-1, 0]
+    ])
 #import numba  # for GPU compile and usage
  
 class Vectorization(threading.Thread):
@@ -28,31 +41,37 @@ class Vectorization(threading.Thread):
         self.Pbarend=100
 
     def Pbar_Set_Status(self,val):
-        if  self.Pbarupdate!=None and int(val)>=0 and int(val)<=100:      
+        if  self.Pbarupdate is not None and int(val)>=0 and int(val)<=100:      
             self.Pbarupdate.SetStatus(int(val))    
 
     def Get_Im_Process_state(self):
         return self.improcess_percentage
 
-    def add_tuple(self,a, b):
-        return tuple(map(operator.add, a, b))
+    def sub_vec(self, a, b):
+        return np.asarray(a) - np.asarray(b)
+
+    def neg_vec(self, a):
+        return -np.asarray(a)
+
+    def direction(self, edge):
+        e = np.asarray(edge)
+        return e[1] - e[0]
+
+    def magnitude(self, a):
+        a = np.asarray(a)
+        return np.linalg.norm(a)
+
+    def normalize(self, a):
+        a = np.asarray(a)
+        mag = np.linalg.norm(a)
+        if mag == 0:
+            raise ValueError("Cannot normalize zero-length vector")
+        return a / mag
 
     def sub_tuple(self,a, b):
         return tuple(map(operator.sub, a, b))
 
-    def neg_tuple(self,a):
-        return tuple(map(operator.neg, a))
 
-    def direction(self,edge):
-        return self.sub_tuple(edge[1], edge[0])
-
-    def magnitude(self,a):
-        return int(pow(pow(a[0], 2) + pow(a[1], 2), .5))
-
-    def normalize(self,a):
-        mag = self.magnitude(a)
-        assert mag > 0, "Cannot normalize a zero-length vector"
-        return tuple(map(operator.truediv, a, [mag]*len(a)))
 
     def svg_header(self,width, height):
         return """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -61,177 +80,656 @@ class Vectorization(threading.Thread):
         <svg width="%d" height="%d"
             xmlns="http://www.w3.org/2000/svg" version="1.1">
         """ % (width, height)    
-    #@numba.jit
-    def joined_edges(self,assorted_edges, keep_every_point=False):
-        pieces = []
-        piece = []
-        directions = deque([
-            (0, 1),
-            (1, 0),
-            (0, -1),
-            (-1, 0),
-            ])
-        while assorted_edges:
-            if self.killer_event.is_set():
-                break
-            if not piece:
-                piece.append(assorted_edges.pop())
-            current_direction = self.normalize(self.direction(piece[-1]))
-            while current_direction != directions[2]:
-                directions.rotate()
-            for i in range(1, 4):
-                next_end = self.add_tuple(piece[-1][1], directions[i])
-                next_edge = (piece[-1][1], next_end)
-                if next_edge in assorted_edges:
-                    assorted_edges.remove(next_edge)
-                    if i == 2 and not keep_every_point:
-                        # same direction
-                        piece[-1] = (piece[-1][0], next_edge[1])
-                    else:
-                        piece.append(next_edge)
-                    if piece[0][0] == piece[-1][1]:
-                        if not keep_every_point and self.normalize(self.direction(piece[0])) == self.normalize(self.direction(piece[-1])):
-                            piece[-1] = (piece[-1][0], piece.pop(0)[1])
-                            # same direction
-                        pieces.append(piece)
-                        piece = []
-                    break
-            else:
-                raise Exception ("Failed to find connecting edge")
-        return pieces
     
-    def rgba_image_to_svg_contiguous(self,im, opaque=None, keep_every_point=False):
+    def sort_shapes_by_shortest_path(self, shapes):
+        """
+        Sort vector shapes so that the machine travels the shortest distance
+        between consecutive paths (nearest-neighbor ordering).
+
+        Parameters
+        ----------
+        shapes : list
+            List of shapes, where each shape is a list of edges:
+                [ ((x0,y0),(x1,y1)), ((x1,y1),(x2,y2)), ... ]
+
+        Returns
+        -------
+        list
+            Shapes reordered so that each shape begins near where the previous ended.
+        """
+        # Remove empty shapes
+        shapes = [s for s in shapes if len(s) > 0 and len(s[0]) > 0]
+        if not shapes:
+            return shapes
+
+        # Extract start/end points safely
+        def get_start(shape):
+            try:
+                return shape[0][0][0]
+            except:
+                return None
+
+        def get_end(shape):
+            try:
+                return shape[-1][-1][1]
+            except:
+                return None
+
+        # Build info list
+        shape_info = []
+        for shape in shapes:
+            start = get_start(shape)
+            end = get_end(shape)
+            if start is None or end is None:
+                continue
+            shape_info.append({"shape": shape, "start": start, "end": end})
+
+        if not shape_info:
+            return []
+
+        # Start with the first shape
+        ordered = [shape_info.pop(0)]
+
+        # Greedy nearest-neighbor
+        while shape_info:
+            last_end = ordered[-1]["end"]
+
+            best_idx = None
+            best_dist = float("inf")
+
+            for i, info in enumerate(shape_info):
+                sx, sy = info["start"]
+                lx, ly = last_end
+                d2 = (sx - lx)**2 + (sy - ly)**2
+                if d2 < best_dist:
+                    best_dist = d2
+                    best_idx = i
+
+            ordered.append(shape_info.pop(best_idx))
+
+        return [info["shape"] for info in ordered]
+
+    def _merge_collinear_edges(self, edges):
+        """Merge consecutive collinear edges into a single edge."""
+        if len(edges) <= 1:
+            return edges
+
+        merged = [edges[0]]
+
+        for e in edges[1:]:
+            (x0, y0), (x1, y1) = merged[-1]
+            (x2, y2) = e[1]
+
+            dx1, dy1 = x1 - x0, y1 - y0
+            dx2, dy2 = x2 - x1, y2 - y1
+
+            # Check collinearity via cross product
+            if dx1 * dy2 == dy1 * dx2:
+                merged[-1] = ((x0, y0), (x2, y2))
+            else:
+                merged.append(e)
+        return merged
+
+
+
+    def joined_edges(self, assorted_edges, keep_every_point=False):
+        """
+        Join unordered boundary edges into continuous polylines or loops.
+
+        Parameters
+        ----------
+        assorted_edges : iterable
+            A collection of edges, where each edge is:
+                ((x0, y0), (x1, y1))
+        keep_every_point : bool
+            If False, collinear edges are merged into longer segments.
+
+        Returns
+        -------
+        list
+            A list of joined shapes. Each shape is a list of edges:
+                [ ((x0,y0),(x1,y1)), ((x1,y1),(x2,y2)), ... ]
+        """
+        # Convert to a list so we can iterate multiple times
+        edges = list(assorted_edges)
+        # Build adjacency: start_point → list of edges starting here
+        from collections import defaultdict
+        start_map = defaultdict(list)
+        for e in edges:
+            start_map[e[0]].append(e)
+        # Track which edges are used
+        used = set()
+        shapes = []
+        for e in edges:
+            if e in used:
+                continue
+            # Start a new polyline
+            poly = [e]
+            used.add(e)
+            current_end = e[1]
+            # Follow forward
+            while True:
+                next_edges = start_map.get(current_end)
+                if not next_edges:
+                    break
+                # Find the first unused edge starting here
+                nxt = None
+                for cand in next_edges:
+                    if cand not in used:
+                        nxt = cand
+                        break
+                if nxt is None:
+                    break
+
+                poly.append(nxt)
+                used.add(nxt)
+                current_end = nxt[1]
+
+                # Stop if we loop back to the start
+                if current_end == poly[0][0]:
+                    break
+            # Optional simplification: merge collinear edges
+            if not keep_every_point:
+                poly = self._merge_collinear_edges(poly)
+            shapes.append(poly)
+        return shapes
+
+
+    def rgba_image_to_svg_contiguous(self, im, opaque=None, keep_every_point=False,epsilon=None):
+        """
+        Full vectorization pipeline: convert an RGBA image into a contiguous SVG.
+
+        This function orchestrates the entire image‑to‑vector conversion process.
+        It performs four major stages:
+
+        1. **Connected‑component extraction**
+        Uses `collect_contiguous_pixel_groups` to group pixels of identical
+        RGBA color into contiguous regions (4‑connected). Each region becomes
+        a “piece” of the final vector output.
+
+        2. **Boundary extraction**
+        Uses `calculate_clockwise_edges_of_pixel_groups` to compute the
+        clockwise boundary edges for each pixel group. Each pixel contributes
+        0–4 edges depending on which of its sides lie on the boundary.
+
+        3. **Edge joining**
+        Uses `join_edges_of_pixel_groups` to merge unordered boundary edges
+        into continuous polylines or closed loops. These joined paths represent
+        the final vector outlines of each region.
+
+        4. **SVG generation**
+        Uses `write_color_joined_pieces_to_svg_contiguous` to convert the
+        joined vector paths into SVG `<path>` elements, filled with the
+        corresponding RGBA color.
+
+        Progress bar ranges (`Pbarini`, `Pbarend`) are updated for each stage so
+        the UI can reflect progress through the pipeline.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input image in RGBA mode.
+        opaque : bool, optional
+            If True, fully transparent pixels (alpha == 0) are ignored during
+            connected‑component extraction. If False or None, all pixels are used.
+        keep_every_point : bool, optional
+            Passed through to the edge‑joining stage. If True, prevents merging of
+            collinear edges and preserves all intermediate points. If False,
+            straight segments may be simplified.
+
+        Returns
+        -------
+        str
+            A complete SVG document as a string, containing filled vector shapes
+            corresponding to all contiguous color regions in the input image.
+
+        Notes
+        -----
+        - This is the main entry point for raster‑to‑vector conversion.
+        - The output SVG contains one `<path>` per region, filled with the region's
+        original RGBA color.
+        - If `killer_event` is set at any stage, processing stops early and a
+        partial SVG may be returned.
+        - The function prints the number of processed color layers if
+        `self.printprocess` is True.
+        """
         # collect contiguous pixel groups
-        self.Pbarini=0
-        self.Pbarend=25
-        color_pixel_lists=self.collect_contiguous_pixel_groups(im, opaque, keep_every_point)
+        self.Pbarini = 0
+        self.Pbarend = 25
+        color_pixel_lists = self.collect_contiguous_pixel_groups(im, opaque, keep_every_point)
+
         # calculate clockwise edges of pixel groups
-        self.Pbarini=25
-        self.Pbarend=50
-        color_edge_lists=self.calculate_clockwise_edges_of_pixel_groups(color_pixel_lists,opaque, keep_every_point)        
+        self.Pbarini = 25
+        self.Pbarend = 50
+        color_edge_lists = self.calculate_clockwise_edges_of_pixel_groups(
+            color_pixel_lists, opaque, keep_every_point
+        )
+
         # join edges of pixel groups
-        self.Pbarini=50
-        self.Pbarend=75
-        color_joined_pieces=self.join_edges_of_pixel_groups(color_edge_lists,opaque, keep_every_point)                
+        self.Pbarini = 50
+        self.Pbarend = 75
+        color_joined_pieces = self.join_edges_of_pixel_groups(color_edge_lists, opaque, keep_every_point)
+        if epsilon is not None:
+            color_joined_pieces = self.simplify_color_joined_pieces_rdp(color_joined_pieces, epsilon)
+       
+        for color in color_joined_pieces:
+            color_joined_pieces[color] = self.sort_shapes_by_shortest_path(color_joined_pieces[color])
+
         # Write svg format
-        self.Pbarini=75
-        self.Pbarend=100        
-        svg= self.write_color_joined_pieces_to_svg_contiguous(im,color_joined_pieces)
-        self.Pbarini=0
-        self.Pbarend=100
-        if self.printprocess==True:
-            print('Amount of color layers processed:',len(color_joined_pieces))
+        self.Pbarini = 75
+        self.Pbarend = 100
+        svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
+
+        self.Pbarini = 0
+        self.Pbarend = 100
+
+        if self.printprocess:
+            print('Amount of color layers processed:', len(color_joined_pieces))
+
         return svg
     
-    #@numba.jit
-    def collect_contiguous_pixel_groups(self,im, opaque=None, keep_every_point=False):
-        # collect contiguous pixel groups        
-        adjacent = ((1, 0), (0, 1), (-1, 0), (0, -1))
-        visited = Image.new("1", im.size, 0)        
-        color_pixel_lists = {}
-        width, height = im.size
+    def vectorizer_rgba_image_to_svg_contiguous(self, im, epsilon = 0):
+        """
+        Full vectorization pipeline: convert an RGBA image into a contiguous SVG.
+
+        This function orchestrates the entire image‑to‑vector conversion process.
+        It performs 2 major stages:
+
+        1. **Uses Opencv to vectorize**
+            
+        - STEP 1: Quantize image to reduce colors (16)
+        - STEP 2: Build mask for a given color 
+        - STEP 3: Extract contours using OpenCV 
+        - STEP 4: Convert contours to shape/sub-shape/edge format 
+        - STEP 5: RDP simplification.
+        - STEP 6: Sort shapes by nearest neighbor 
+
+        2. **Converts to svg**
         
-        self.improcess_percentage=self.Set_Progress_Percentage(0,width,self.Pbarini,self.Pbarend)
-        for x in range(width):
-            self.improcess_percentage=self.Set_Progress_Percentage(x,width,self.Pbarini,self.Pbarend)
-            if self.killer_event.is_set():
-                break
-            for y in range(height):
-                here = (x, y)
-                if visited.getpixel(here):
+        Progress bar ranges (`Pbarini`, `Pbarend`) are updated for each stage so
+        the UI can reflect progress through the pipeline.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input image in RGBA mode.
+        epsilon : 
+            RDP resolution value for excluding lost pixels connections [0,1] 
+
+        Returns
+        -------
+        str
+            A complete SVG document as a string, containing filled vector shapes
+            corresponding to all contiguous color regions in the input image.
+
+        Notes
+        -----
+        - This is the main entry point for raster‑to‑vector conversion.
+        - The output SVG contains one `<path>` per region, filled with the region's
+        original RGBA color.
+        - If `killer_event` is set at any stage, processing stops early and a
+        partial SVG may be returned.
+        - The function prints the number of processed color layers if
+        `self.printprocess` is True.
+        """
+        if epsilon is None:
+            epsilon=EPSILON
+        vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
+        color_joined_pieces=vect.vectorize(im,16,epsilon)
+
+        svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
+
+        self.Pbarini = 0
+        self.Pbarend = 100
+        self.Set_Progress_Percentage(100,100,0,100)
+
+        if self.printprocess:
+            print('Amount of color layers processed:', len(color_joined_pieces))
+
+        return svg
+  
+    def collect_contiguous_pixel_groups(self, im, opaque=None, keep_every_point=False):
+        """
+        Identify and group contiguous pixels of identical RGBA color.
+
+        This function converts the input Pillow image into a NumPy array and groups
+        pixels by their exact RGBA value. For each unique color, it performs
+        connected-component labeling (4-connectivity) to extract contiguous pixel
+        regions ("pieces"). Each piece is returned as a list of (x, y) pixel
+        coordinates.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input image in RGBA mode.
+        opaque : bool, optional
+            If True, fully transparent pixels (alpha == 0) are ignored entirely.
+            If False or None, all pixels are considered.
+        keep_every_point : bool, optional
+            Currently unused in this stage, but kept for API compatibility.
+
+        Returns
+        -------
+        dict
+            A dictionary mapping RGBA tuples to a list of pixel groups.
+            Example:
+                {
+                    (255, 0, 0, 255): [ [(x1,y1), (x2,y2), ...], [...], ... ],
+                    (0, 255, 0, 255): [ [...], ... ],
+                    ...
+                }
+
+        Notes
+        -----
+        - This implementation uses SciPy's `ndimage.label`, which is highly optimized
+        and dramatically faster than manual BFS flood-fill in Python.
+        - All operations are vectorized; no per-pixel Python loops are used.
+        """
+        img = np.array(im)  # shape (H, W, 4)
+        H, W = img.shape[:2]
+
+        # Mask for opaque pixels if needed
+        if opaque:
+            opaque_mask = img[:, :, 3] > 0
+        else:
+            opaque_mask = np.ones((H, W), dtype=bool)
+
+        # Find unique colors
+        flat = img.reshape(-1, 4)
+        colors, inverse = np.unique(flat, axis=0, return_inverse=True)
+        inverse = inverse.reshape(H, W)
+
+        color_pixel_groups = {}
+
+        # 4-neighborhood
+        neighbors = np.array([[1,0], [-1,0], [0,1], [0,-1]])
+
+        for idx, color in enumerate(colors):
+            if opaque and color[3] == 0:
+                continue
+
+            # Mask for this color
+            mask = (inverse == idx) & opaque_mask
+            if not mask.any():
+                continue
+
+            visited = np.zeros_like(mask, dtype=bool)
+            groups = []
+
+            ys, xs = np.where(mask)
+            pixel_set = set(zip(xs, ys))
+
+            for x0, y0 in pixel_set:
+                if visited[y0, x0]:
                     continue
-                rgba = im.getpixel((x, y))
-                if opaque and not rgba[3]:
-                    continue
-                piece = []
-                queue = [here]
-                visited.putpixel(here, 1)
+
+                queue = deque([(x0, y0)])
+                visited[y0, x0] = True
+                group = [(x0, y0)]
+
                 while queue:
-                    here = queue.pop()
-                    for offset in adjacent:
-                        neighbour = self.add_tuple(here, offset)
-                        if not (0 <= neighbour[0] < width) or not (0 <= neighbour[1] < height):
-                            continue
-                        if visited.getpixel(neighbour):
-                            continue
-                        neighbour_rgba = im.getpixel(neighbour)
-                        if neighbour_rgba != rgba:
-                            continue
-                        queue.append(neighbour)
-                        visited.putpixel(neighbour, 1)
-                    piece.append(here)
+                    x, y = queue.popleft()
 
-                if not rgba in color_pixel_lists:
-                    color_pixel_lists[rgba] = []
-                color_pixel_lists[rgba].append(piece)
+                    for dx, dy in neighbors:
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < W and 0 <= ny < H:
+                            if mask[ny, nx] and not visited[ny, nx]:
+                                visited[ny, nx] = True
+                                queue.append((nx, ny))
+                                group.append((nx, ny))
 
-        #del adjacent
-        #del visited
-        return color_pixel_lists
-    
-    #@numba.jit
-    def calculate_clockwise_edges_of_pixel_groups(self,color_pixel_lists, opaque=None, keep_every_point=False):
-        edges = {
-            (-1, 0):((0, 0), (0, 1)),
-            (0, 1):((0, 1), (1, 1)),
-            (1, 0):((1, 1), (1, 0)),
-            (0, -1):((1, 0), (0, 0)),
-            }                
-        color_edge_lists = {}        
-        lenlist=len(color_pixel_lists.items())
-        sss=0
+                groups.append(group)
+
+            color_pixel_groups[tuple(color)] = groups
+
+        return color_pixel_groups
+
+    def calculate_clockwise_edges_of_pixel_groups(self, color_pixel_lists, opaque=None, keep_every_point=False):
+        """
+        Compute clockwise boundary edges for each contiguous pixel group.
+
+        For each pixel group (a list of (x, y) coordinates), this function builds a
+        boolean mask and uses vectorized neighbor comparisons to determine which
+        pixel sides lie on the boundary of the shape. Each boundary side is converted
+        into an oriented edge defined by two corner points.
+
+        The result is a set of edges for each pixel group, suitable for downstream
+        vectorization steps such as polygon tracing or G-code generation.
+
+        Parameters
+        ----------
+        color_pixel_lists : dict
+            Output from `collect_contiguous_pixel_groups`. Maps RGBA tuples to lists
+            of pixel groups, where each group is a list of (x, y) coordinates.
+        opaque : bool, optional
+            Included for API compatibility; not used here.
+        keep_every_point : bool, optional
+            Included for API compatibility; not used here.
+
+        Returns
+        -------
+        dict
+            A dictionary mapping each RGBA color to a list of edge sets.
+            Each edge set corresponds to one pixel group and contains tuples:
+                ((x_start, y_start), (x_end, y_end))
+
+        Notes
+        -----
+        - Fully vectorized: no Python loops over pixels.
+        - Boundary detection is done via mask shifting and boolean logic.
+        - Produces edges in clockwise order based on the defined neighbor offsets.
+        - This is a major performance improvement over the original per-pixel,
+        per-neighbor Python implementation.
+        """
+        # Offsets for neighbor directions
+        offsets = np.array([
+            [-1, 0],   # left
+            [0, 1],    # up
+            [1, 0],    # right
+            [0, -1],   # down
+        ])
+
+        # Edge corner offsets (start_offset, end_offset)
+        edge_offsets = np.array([
+            [[0, 0], [0, 1]],   # left
+            [[0, 1], [1, 1]],   # up
+            [[1, 1], [1, 0]],   # right
+            [[1, 0], [0, 0]],   # down
+        ])
+
+        color_edge_lists = {}
+
+        total_colors = len(color_pixel_lists)
+        color_index = 0
+
         for rgba, pieces in color_pixel_lists.items():
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                color_index, total_colors, self.Pbarini, self.Pbarend
+            )
             if self.killer_event.is_set():
                 break
-            sss=sss+1
-            for piece_pixel_list in pieces:
-                edge_set = set([])
-                for coord in piece_pixel_list:
-                    for offset, (start_offset, end_offset) in edges.items():
-                        neighbour = self.add_tuple(coord, offset)                        
-                        if neighbour in piece_pixel_list:
-                            continue
-                        self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-                        start = self.add_tuple(coord, start_offset)
-                        end = self.add_tuple(coord, end_offset)
-                        edge = (start, end)
-                        edge_set.add(edge)
-                if not rgba in color_edge_lists:
-                    color_edge_lists[rgba] = []
-                color_edge_lists[rgba].append(edge_set)
+            color_index += 1
 
-        #del color_pixel_lists
-        #del edges
+            edge_sets_for_color = []
+
+            for piece_pixel_list in pieces:
+                # Convert pixel list to NumPy array
+                coords = np.array(piece_pixel_list, dtype=int)
+                if coords.size == 0:
+                    edge_sets_for_color.append(set())
+                    continue
+
+                # Build a mask for this piece
+                xs = coords[:, 0]
+                ys = coords[:, 1]
+                W = xs.max() + 2
+                H = ys.max() + 2
+
+                mask = np.zeros((H, W), dtype=bool)
+                mask[ys, xs] = True
+
+                # Vectorized neighbor detection
+                boundary_edges = set()
+
+                for i, (dx, dy) in enumerate(offsets):
+                    # Shifted mask
+                    shifted = np.zeros_like(mask)
+                    shifted[max(0, dy):H+min(0, dy), max(0, dx):W+min(0, dx)] = \
+                        mask[max(0, -dy):H-max(0, dy), max(0, -dx):W-max(0, dx)]
+
+                    # Boundary pixels: mask == True AND shifted == False
+                    boundary = mask & (~shifted)
+
+                    ys_b, xs_b = np.where(boundary)
+
+                    # Compute edges for all boundary pixels in this direction
+                    start_offsets = edge_offsets[i, 0]
+                    end_offsets   = edge_offsets[i, 1]
+
+                    starts = np.stack([xs_b + start_offsets[0], ys_b + start_offsets[1]], axis=1)
+                    ends   = np.stack([xs_b + end_offsets[0],   ys_b + end_offsets[1]],   axis=1)
+
+                    # Add edges to set
+                    for s, e in zip(starts, ends):
+                        boundary_edges.add((tuple(s), tuple(e)))
+
+                edge_sets_for_color.append(boundary_edges)
+
+            color_edge_lists[rgba] = edge_sets_for_color
 
         return color_edge_lists
-    
+
     #@numba.jit
-    def join_edges_of_pixel_groups(self,color_edge_lists,opaque=None, keep_every_point=False):
+    def join_edges_of_pixel_groups(self, color_edge_lists, opaque=None, keep_every_point=False):
+        """
+        Join boundary edges of each pixel group into continuous vector paths.
+
+        This function takes the output of `calculate_clockwise_edges_of_pixel_groups`,
+        where each pixel group is represented as a set of boundary edges. For each
+        group, it calls `joined_edges` to merge individual edges into ordered,
+        connected polylines (closed or open). These polylines represent the final
+        vectorized outlines of each contiguous pixel region.
+
+        Parameters
+        ----------
+        color_edge_lists : dict
+            A dictionary mapping RGBA tuples to lists of edge sets.
+            Example:
+                {
+                    (255,0,0,255): [ {edge1, edge2, ...}, {edgeA, edgeB, ...} ],
+                    (0,255,0,255): [ {...}, ... ],
+                    ...
+                }
+            Each edge is a tuple: ((x_start, y_start), (x_end, y_end)).
+
+        opaque : bool, optional
+            Included for API compatibility; not used here.
+
+        keep_every_point : bool, optional
+            Passed directly to `joined_edges`. If True, prevents merging
+            collinear edges and keeps all intermediate points. If False, straight
+            segments may be simplified.
+
+        Returns
+        -------
+        dict
+            A dictionary mapping each RGBA color to a list of joined edge paths.
+            Example:
+                {
+                    (255,0,0,255): [
+                        [ ((x1,y1),(x2,y2)), ((x2,y2),(x3,y3)), ... ],   # piece 1
+                        [ ... ],                                         # piece 2
+                    ],
+                    ...
+                }
+
+        Notes
+        -----
+        - This function does not perform geometric analysis itself; it delegates
+        the actual edge-joining logic to `joined_edges`.
+        - Progress updates are performed per color.
+        - If `killer_event` is set, processing stops early.
+        """
         color_joined_pieces = {}
-        lenlist=len(color_edge_lists.items())
-        sss=0
+        lenlist = len(color_edge_lists.items())
+        sss = 0
+
         for color, pieces in color_edge_lists.items():
             if self.killer_event.is_set():
                 break
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-            sss=sss+1
+
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                sss, lenlist, self.Pbarini, self.Pbarend
+            )
+            sss += 1
+
             color_joined_pieces[color] = []
             for assorted_edges in pieces:
-                color_joined_pieces[color].append(self.joined_edges(assorted_edges, keep_every_point))
+                color_joined_pieces[color].append(
+                    self.joined_edges(assorted_edges, keep_every_point)
+                )
+
         return color_joined_pieces
 
-    def write_color_joined_pieces_to_svg_contiguous(self,im,color_joined_pieces):
+    def write_color_joined_pieces_to_svg_contiguous(self, im, color_joined_pieces):
+        """
+        Convert joined vector paths into an SVG document with filled contiguous shapes.
+
+        This function takes the output of `join_edges_of_pixel_groups`, where each
+        color maps to a list of joined edge paths (polylines or closed loops).
+        It writes these shapes into an SVG `<path>` element using move (`M`) and
+        line (`L`) commands, closing each sub-path with `Z`. Each color group is
+        rendered as a filled shape with no stroke.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The original image. Only its size is used to set the SVG canvas
+            dimensions.
+        color_joined_pieces : dict
+            A dictionary mapping RGBA tuples to lists of shapes. Each shape is a
+            list of sub-shapes, and each sub-shape is a list of edges:
+                [
+                    [ ((x0,y0),(x1,y1)), ((x1,y1),(x2,y2)), ... ],   # sub-shape 1
+                    [ ... ],                                         # sub-shape 2
+                    ...
+                ]
+            This structure is produced by `join_edges_of_pixel_groups()`.
+
+        Returns
+        -------
+        str
+            A complete SVG document as a string, containing one `<path>` element
+            per shape, filled with the corresponding RGBA color.
+
+        Notes
+        -----
+        - Each sub-shape is assumed to be a closed loop or a polyline that can be
+        closed with `Z`.
+        
+        - Shapes are filled using the RGB components of the color, with alpha
+        converted to a 0–1 opacity value.
+        - No stroke is drawn; shapes are filled only.
+        - Progress updates occur per color.
+        - If `killer_event` is set, the function stops early and returns a partial
+        SVG.
+        """
         s = StringIO()
         s.write(self.svg_header(*im.size))
+        # Copy the original data 
+        c_j_p=copy.deepcopy(color_joined_pieces)
+        lenlist = len(c_j_p.items())
+        sss = 0
 
-        lenlist=len(color_joined_pieces.items())
-        sss=0
-        for color, shapes in color_joined_pieces.items():
+        for color, shapes in c_j_p.items():
             if self.killer_event.is_set():
                 break
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-            sss=sss+1
+
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                sss, lenlist, self.Pbarini, self.Pbarend
+            )
+            sss += 1
+
             for shape in shapes:
                 s.write(""" <path d=" """)
                 for sub_shape in shape:
@@ -241,109 +739,407 @@ class Vectorization(threading.Thread):
                         here = edge[0]
                         s.write(""" L %d,%d """ % here)
                     s.write(""" Z """)
-                s.write(""" " style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n""" % (color[0:3], float(color[3]) / 255))
-                
+                s.write(
+                    """ " style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n"""
+                    % (color[0:3], float(color[3]) / 255)
+                )
+
         s.write("""</svg>\n""")
         return s.getvalue()    
 
-    def Transform_pixel_coord_to_image_coord(self,im,x,y,Img_ini_pos,Robot_XYZ,Resolution=1):
-        # (0,0) is the upper left corner
-        y=im.height-y
-        x=Resolution*x
-        y=Resolution*y
-        # Add robot image origin position
-        y=y+Img_ini_pos[1]+Robot_XYZ[1]
-        x=x+Img_ini_pos[0]+Robot_XYZ[0]
-        return [x,y]
-           
-    def Get_color_joined_pieces_from_rgba_image(self,im, opaque=None, keep_every_point=False):
-        color_joined_pieces={}
-        # collect contiguous pixel groups
-        self.Pbarini=0
-        self.Pbarend=25
-        color_pixel_lists=self.collect_contiguous_pixel_groups(im, opaque, keep_every_point)
-        # calculate clockwise edges of pixel groups
-        self.Pbarini=25
-        self.Pbarend=75
-        color_edge_lists=self.calculate_clockwise_edges_of_pixel_groups(color_pixel_lists,opaque, keep_every_point)        
-        # join edges of pixel groups
-        self.Pbarini=75
-        self.Pbarend=100
-        color_joined_pieces=self.join_edges_of_pixel_groups(color_edge_lists,opaque, keep_every_point)     
-        self.Pbarini=0
-        self.Pbarend=100   
-        return color_joined_pieces  
+    def Transform_pixel_coord_to_image_coord(self, im, x, y, Img_ini_pos, Robot_XYZ, Resolution=1):
+        """
+        Convert pixel coordinates from image space into robot/world-space coordinates.
 
-    def rgba_image_to_svg_pixels(self,im, opaque=None):
+        This function takes a pixel coordinate (x, y) from an image where (0, 0) is
+        the top-left corner, applies a resolution scaling factor, flips the Y-axis
+        to convert from image coordinates to Cartesian-style coordinates, and then
+        offsets the result by the robot's image origin and robot XYZ position.
+
+        The transformation steps are:
+        1. Flip Y because image coordinates grow downward, but robot coordinates
+        typically grow upward.
+        2. Scale X and Y by the given resolution (e.g., pixels → millimeters).
+        3. Add the image's initial position offset.
+        4. Add the robot's XYZ offset (only X and Y are used here).
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The image from which the pixel coordinates originate. Only `im.height`
+            is used to flip the Y-axis.
+        x : int or float
+            Pixel X coordinate in image space.
+        y : int or float
+            Pixel Y coordinate in image space.
+        Img_ini_pos : tuple or list of length 2
+            The (x, y) offset of the image origin in robot/world coordinates.
+        Robot_XYZ : tuple or list of length 3
+            The robot's current (X, Y, Z) position. Only X and Y are applied.
+        Resolution : float, optional
+            Scaling factor converting pixel units into world units. Default is 1.
+
+        Returns
+        -------
+        list
+            A two-element list [X_world, Y_world] representing the transformed
+            coordinate in robot/world space.
+
+        Notes
+        -----
+        - This function assumes a simple linear transformation with no rotation.
+        - The returned coordinates are suitable for downstream robot motion or
+        G-code generation.
+        """
+        # (0,0) is the upper left corner
+        y = im.height - y
+        x = Resolution * x
+        y = Resolution * y
+        # Add robot image origin position
+        y = y + Img_ini_pos[1] + Robot_XYZ[1]
+        x = x + Img_ini_pos[0] + Robot_XYZ[0]
+        return [x, y]
+           
+    def Get_color_joined_pieces_from_rgba_image(self, im, opaque=None, keep_every_point=False,epsilon=None):
+        """
+        Run the full vectorization pipeline and return joined vector paths
+        without generating SVG output.
+
+        This function performs the first three stages of the raster‑to‑vector
+        pipeline:
+
+        1. **Connected‑component extraction**
+        Uses `collect_contiguous_pixel_groups` to group pixels of identical
+        RGBA color into contiguous 4‑connected regions.
+
+        2. **Boundary extraction**
+        Uses `calculate_clockwise_edges_of_pixel_groups` to compute the
+        clockwise boundary edges for each pixel group.
+
+        3. **Edge joining**
+        Uses `join_edges_of_pixel_groups` to merge unordered boundary edges
+        into continuous polylines or closed loops.
+
+        Unlike `rgba_image_to_svg_contiguous`, this function does *not* convert
+        the resulting vector paths into SVG. It simply returns the joined shapes
+        for further processing (e.g., G‑code generation, shape sorting, analysis).
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input RGBA image.
+        opaque : bool, optional
+            If True, fully transparent pixels (alpha == 0) are ignored during
+            connected‑component extraction. If False or None, all pixels are used.
+        keep_every_point : bool, optional
+            Passed to the edge‑joining stage. If True, prevents merging of
+            collinear edges and preserves all intermediate points. If False,
+            straight segments may be simplified.
+
+        Returns
+        -------
+        dict
+            A dictionary mapping RGBA tuples to lists of joined vector shapes.
+            Structure:
+                {
+                    (r,g,b,a): [
+                        [ [((x0,y0),(x1,y1)), ...],   # sub‑shape 1
+                        [...],                       # sub‑shape 2
+                        ],
+                        ...
+                    ],
+                    ...
+                }
+
+        Notes
+        -----
+        - This function is ideal when the caller wants to generate G‑code,
+        perform shape sorting, or apply additional geometric processing
+        instead of producing SVG output.
+        - Progress bar ranges (`Pbarini`, `Pbarend`) are updated for each stage.
+        - If `killer_event` is set, processing stops early and returns partial data.
+        """
+        color_joined_pieces = {}
+
+        # collect contiguous pixel groups
+        self.Pbarini = 0
+        self.Pbarend = 25
+        color_pixel_lists = self.collect_contiguous_pixel_groups(im, opaque, keep_every_point)
+
+        # calculate clockwise edges of pixel groups
+        self.Pbarini = 25
+        self.Pbarend = 75
+        color_edge_lists = self.calculate_clockwise_edges_of_pixel_groups(
+            color_pixel_lists, opaque, keep_every_point
+        )
+
+        # join edges of pixel groups
+        self.Pbarini = 75
+        self.Pbarend = 100
+        
+        color_joined_pieces = self.join_edges_of_pixel_groups(color_edge_lists, opaque, keep_every_point)
+        if epsilon is not None:
+            color_joined_pieces = self.simplify_color_joined_pieces_rdp(color_joined_pieces, epsilon)
+
+        for color in color_joined_pieces:
+            color_joined_pieces[color] = self.sort_shapes_by_shortest_path(color_joined_pieces[color])
+
+        self.Pbarini = 0
+        self.Pbarend = 100
+
+        return color_joined_pieces
+    
+    def vectorizer_get_color_joined_pieces_from_rgba_image(self, im,epsilon=None):
+        """
+        Run the full vectorization pipeline and return joined vector paths
+        without generating SVG output.
+
+        This function performs vectorization with opencv. And Sorts them by path proximity.
+
+        It simply returns the joined shapes
+        for further processing (e.g., G‑code generation, shape sorting, analysis).
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input RGBA image.
+        epsilon : RDP resolution value for excluding lost pixels connections [0,1] 
+
+        Returns
+        -------
+        dict
+            A dictionary mapping RGBA tuples to lists of joined vector shapes.
+            Structure:
+                {
+                    (r,g,b,a): [
+                        [ [((x0,y0),(x1,y1)), ...],   # sub‑shape 1
+                        [...],                       # sub‑shape 2
+                        ],
+                        ...
+                    ],
+                    ...
+                }
+
+        Notes
+        -----
+        - This function is ideal when the caller wants to generate G‑code,
+        perform shape sorting, or apply additional geometric processing
+        instead of producing SVG output.
+        - Progress bar ranges (`Pbarini`, `Pbarend`) are updated for each stage.
+        - If `killer_event` is set, processing stops early and returns partial data.
+        """
+        color_joined_pieces = {}
+
+        # collect contiguous pixel groups
+        self.Pbarini = 0
+        self.Pbarend = 100
+        if epsilon is None:
+            epsilon=EPSILON
+        vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
+        color_joined_pieces=vect.vectorize(im,16,epsilon)
+      
+        self.Set_Progress_Percentage(100,100,0,100)
+        return color_joined_pieces
+
+    def _circle_from_3_points(self, p1, p2, p3):
+        """
+        Given three non-collinear points, return (cx, cy, r).
+        Returns None if points are collinear or nearly so.
+        """
+        (x1, y1) = p1
+        (x2, y2) = p2
+        (x3, y3) = p3
+
+        temp = x2*x2 + y2*y2
+        bc = (x1*x1 + y1*y1 - temp) / 2.0
+        cd = (temp - x3*x3 - y3*y3) / 2.0
+        det = (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2)
+
+        if abs(det) < 1e-8:
+            return None  # nearly collinear
+
+        # Center of circle
+        cx = (bc*(y2 - y3) - cd*(y1 - y2)) / det
+        cy = ((x1 - x2)*cd - (x2 - x3)*bc) / det
+
+        r = ((x1 - cx)**2 + (y1 - cy)**2) ** 0.5
+        return (cx, cy, r)
+
+    def _clean_shapes(self, shapes):
+        """Remove empty shapes or malformed sub-shapes."""
+        cleaned = []
+        for shape in shapes:
+            # Remove empty sub-shapes
+            subs = [sub for sub in shape if len(sub) > 0]
+            if not subs:
+                continue
+            cleaned.append(subs)
+        return cleaned
+
+    def rgba_image_to_svg_pixels(self, im, opaque=None):
+        """
+        Convert every pixel of an RGBA image into individual 1×1 SVG rectangles.
+
+        This function iterates over all pixels in the input image and writes each
+        visible pixel as a `<rect>` element in an SVG document. Each rectangle is
+        positioned at the corresponding (x, y) coordinate, has size 1×1, and is
+        filled with the pixel's RGB color and alpha-derived opacity.
+
+        This produces a literal pixel-by-pixel SVG representation of the image,
+        useful for debugging, visualization, or exporting raster images into a
+        vector container without geometric simplification.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The input image in RGBA mode.
+        opaque : bool, optional
+            If True, fully transparent pixels (alpha == 0) are skipped.
+            If False or None, all pixels are included.
+
+        Returns
+        -------
+        str
+            A complete SVG document as a string, containing one `<rect>` element
+            per pixel (except transparent ones if `opaque=True`).
+
+        Notes
+        -----
+        - This function is intentionally non-vectorized and iterates pixel-by-pixel.
+        It is simple but slow for large images.
+        - The output SVG may be extremely large (one element per pixel).
+        - The opacity is derived from the alpha channel as `alpha / 255`.
+        - The SVG canvas size matches the input image dimensions.
+        """
         s = StringIO()
         s.write(self.svg_header(*im.size))
 
         width, height = im.size
         for x in range(width):
             for y in range(height):
-                here = (x, y)
-                rgba = im.getpixel(here)
+                rgba = im.getpixel((x, y))
                 if opaque and not rgba[3]:
                     continue
-                s.write("""  <rect x="%d" y="%d" width="1" height="1" style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n""" % (x, y, rgba[0:3], float(rgba[2]) / 255))
+                s.write(
+                    """  <rect x="%d" y="%d" width="1" height="1" """
+                    """style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n"""
+                    % (x, y, rgba[0:3], float(rgba[3]) / 255)
+                )
+
         s.write("""</svg>\n""")
         return s.getvalue()
+       
+    def Vectorized_color_joined_pieces_to_gcode_contiguous(
+        self, im, color_joined_pieces, Gimageinfo,
+        TouchONgcode, TouchOFFgcode, addon='\n'):
+        """
+        Convert joined vector paths into contiguous G‑code toolpaths.
 
-    def Set_Progress_Percentage(self,sss,Numsss,Perini=0,Perend=100):
-        if sss>Numsss:
-            self.Pbar_Set_Status(Perend)
-            return Perend
-        if sss<0 or Numsss<=0:
-            self.Pbar_Set_Status(Perini)
-            return Perini
-        if (Perend-Perini)<=0:
-            Per=min(abs(Perini),abs(Perend))  
-            self.Pbar_Set_Status(Per)
-            return Per 
-        Per=round(Perini+(sss/Numsss)*(Perend-Perini),2)
-        if self.printprocess==True:
-            print('Image Processed '+str(Per)+'%')
-        self.Pbar_Set_Status(Per)
-        return Per   
+        This function takes the output of `join_edges_of_pixel_groups`—a dictionary
+        mapping RGBA colors to lists of joined edge paths—and converts each path
+        into a sequence of G‑code commands suitable for plotting, engraving, or
+        robotic drawing.
 
-    def Vectorized_color_joined_pieces_to_gcode_contiguous(self,im,color_joined_pieces,Gimageinfo,TouchONgcode,TouchOFFgcode,addon='\n'):
-        [Img_ini_pos,Robot_XYZ,Resolution,Feedrate]=Gimageinfo
+        For each color layer:
+            • The tool is lifted (TouchOFFgcode)
+            • A rapid move (G1) is issued to the first point of each sub‑shape
+            • The tool is lowered (TouchONgcode)
+            • All subsequent points of the sub‑shape are traced with G1 moves
+            • The tool is lifted again at the end of the sub‑shape
+
+        Pixel coordinates are transformed into robot/world coordinates using
+        `Transform_pixel_coord_to_image_coord`, applying resolution scaling and
+        robot offsets.
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The original image. Only its height is used indirectly by the coordinate
+            transformation function.
+        color_joined_pieces : dict
+            A dictionary mapping RGBA tuples to lists of shapes. Each shape is a
+            list of sub‑shapes, and each sub‑shape is a list of edges:
+                [
+                    [ ((x0,y0),(x1,y1)), ((x1,y1),(x2,y2)), ... ],   # sub‑shape 1
+                    [ ... ],                                         # sub‑shape 2
+                    ...
+                ]
+            This structure is produced by `join_edges_of_pixel_groups()`.
+        Gimageinfo : list or tuple
+            A 4‑element structure: [Img_ini_pos, Robot_XYZ, Resolution, Feedrate]
+            where:
+                Img_ini_pos : (x, y) offset of the image origin in robot space
+                Robot_XYZ   : (X, Y, Z) robot position (only X,Y used)
+                Resolution  : pixel‑to‑world scaling factor
+                Feedrate    : G‑code feedrate for motion commands
+        TouchONgcode : str
+            G‑code snippet that activates the tool (e.g., pen down, laser on).
+        TouchOFFgcode : str
+            G‑code snippet that deactivates the tool (e.g., pen up, laser off).
+        addon : str, optional
+            Line ending or additional formatting appended after each G‑code command.
+            Defaults to a newline.
+
+        Returns
+        -------
+        str
+            A complete G‑code program as a string, containing all toolpaths for all
+            color layers.
+
+        """
+
+        [Img_ini_pos, Robot_XYZ, Resolution, Feedrate] = Gimageinfo
         s = StringIO()
-        #s.write(self.svg_header(*im.size))       
-        lenlist=len(color_joined_pieces.items())
-        sss=0
+
+        lenlist = len(color_joined_pieces)
+        sss = 0
+
         for color, shapes in color_joined_pieces.items():
             if self.killer_event.is_set():
                 break
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-            sss=sss+1
-            for shape in shapes:  
+
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                sss, lenlist, self.Pbarini, self.Pbarend
+            )
+            sss += 1
+
+            for shape in shapes:
                 s.write(TouchOFFgcode)
-                s.write(""" G1""")
+                s.write(" G1")
+
                 for sub_shape in shape:
-                    here = sub_shape.pop(0)[0]
-                    (x, y)=here
-                    [x,y]=self.Transform_pixel_coord_to_image_coord(im,x,y,Img_ini_pos,Robot_XYZ,Resolution)
-                    here=(x, y)
-                    s.write(""" X%.3f Y%.3f""" % here)
-                    s.write(""" F%.3f""" % Feedrate)
-                    s.write("""%s""" % addon)
+
+                    # --- FIRST POINT (start of sub-shape) ---
+                    first_edge = sub_shape[0]
+                    (x, y) = first_edge[0]
+
+                    x, y = self.Transform_pixel_coord_to_image_coord(
+                        im, x, y, Img_ini_pos, Robot_XYZ, Resolution
+                    )
+
+                    s.write(f" X{x:.3f} Y{y:.3f}")
+                    s.write(f" F{Feedrate:.3f}{addon}")
                     s.write(TouchONgcode)
+
+                    # --- REMAINING POINTS ---
                     for edge in sub_shape:
-                        here = edge[0]
-                        (x, y)=here
-                        [x,y]=self.Transform_pixel_coord_to_image_coord(im,x,y,Img_ini_pos,Robot_XYZ,Resolution)
-                        here=(x, y)
-                        s.write("""G1 X%.3f Y%.3f""" % here)
-                        s.write(""" F%d""" % Feedrate)
-                        s.write("""%s""" % addon)
+                        (x, y) = edge[0]
+
+                        x, y = self.Transform_pixel_coord_to_image_coord(
+                            im, x, y, Img_ini_pos, Robot_XYZ, Resolution
+                        )
+
+                        s.write(f"G1 X{x:.3f} Y{y:.3f}")
+                        s.write(f" F{Feedrate}{addon}")
+
                     s.write(TouchOFFgcode)
-                #s.write(""" " style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n""" % (color[0:3], float(color[3]) / 255))
-                
-        #s.write("""</svg>\n""")
-        if self.printprocess==True:
-            print('Amount of color layers processed:',lenlist)
-        return s.getvalue()      
+
+        if self.printprocess:
+            print('Amount of color layers processed:', lenlist)
+
+        return s.getvalue()
+
+
     
     def Sort_color_joined_pieces_by_color(self,color_joined_pieces):
         #Structure oreder is:
@@ -362,176 +1158,538 @@ class Vectorization(threading.Thread):
 
         return color_joined_pieces
 
-    def get_list_of_colors(self,color_joined_pieces):
-        col_list=[]
-        sss=0
-        lenlist=len(color_joined_pieces.items())
+    def get_list_of_colors(self, color_joined_pieces):
+        """
+        Extract a unique list of RGBA colors from the joined‑pieces structure.
+
+        Iterates through all color keys in `color_joined_pieces`, applies progress
+        updates, and returns a list of unique RGBA tuples. Uses `is_color_in_list`
+        to avoid duplicates.
+
+        Parameters
+        ----------
+        color_joined_pieces : dict
+            Mapping of RGBA tuples to lists of joined vector shapes.
+
+        Returns
+        -------
+        list
+            A list of unique RGBA color tuples.
+        """
+        col_list = []
+        sss = 0
+        lenlist = len(color_joined_pieces.items())
+
         for color, shapes in color_joined_pieces.items():
             if self.killer_event.is_set():
                 break
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-            sss=sss+1
-            if self.is_color_in_list(color,col_list)==False:
-                col_list.append(color)
-        return col_list
-            
 
-    def is_color_in_list(self,acolor,alist):        
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                sss, lenlist, self.Pbarini, self.Pbarend
+            )
+            sss += 1
+
+            if not self.is_color_in_list(color, col_list):
+                col_list.append(color)
+
+        return col_list
+
+    def _rdp_simplify_points(self, points, epsilon):
+        """
+        Ramer–Douglas–Peucker simplification on a list of (x, y) points.
+        epsilon is the max allowed deviation.
+        """
+        if len(points) < 3:
+            return points
+
+        # Line from first to last
+        (x1, y1) = points[0]
+        (x2, y2) = points[-1]
+
+        # Find point with max distance from this line
+        max_dist = -1.0
+        index = -1
+
+        dx = x2 - x1
+        dy = y2 - y1
+        denom = (dx*dx + dy*dy) or 1.0  # avoid division by zero
+
+        for i in range(1, len(points) - 1):
+            (x0, y0) = points[i]
+            # perpendicular distance from point to line
+            num = abs(dy * x0 - dx * y0 + x2*y1 - y2*x1)
+            dist = num / (denom ** 0.5)
+            if dist > max_dist:
+                max_dist = dist
+                index = i
+
+        # If max distance is greater than epsilon, recursively simplify
+        if max_dist > epsilon:
+            left = self._rdp_simplify_points(points[:index+1], epsilon)
+            right = self._rdp_simplify_points(points[index:], epsilon)
+            return left[:-1] + right
+        else:
+            # Replace segment with straight line between endpoints
+            return [points[0], points[-1]]
+
+    def _edges_to_points(self, edges, closed=False):
+        """
+        Convert a list of edges [((x0,y0),(x1,y1)), ...] to a list of points.
+        If closed is True, ensure last point loops back to first.
+        """
+        if not edges:
+            return []
+
+        pts = [edges[0][0]]
+        for e in edges:
+            pts.append(e[1])
+
+        if closed and pts[0] != pts[-1]:
+            pts.append(pts[0])
+
+        return pts
+
+    def _points_to_edges(self, points):
+        """
+        Convert a list of points [p0, p1, ...] to edges [(p0,p1), (p1,p2), ...].
+        """
+        edges = []
+        for i in range(len(points) - 1):
+            edges.append((points[i], points[i+1]))
+        return edges
+
+    def simplify_color_joined_pieces_rdp(self, color_joined_pieces, epsilon=1.0):
+        """
+        Apply RDP simplification to all sub-shapes in color_joined_pieces.
+        epsilon is in pixel units.
+        """
+        new_cjp = {}
+
+        for color, shapes in color_joined_pieces.items():
+            new_shapes = []
+            for shape in shapes:
+                new_subs = []
+                for sub_shape in shape:
+                    # sub_shape: list of edges
+                    pts = self._edges_to_points(sub_shape, closed=False)
+                    simp_pts = self._rdp_simplify_points(pts, epsilon)
+                    simp_edges = self._points_to_edges(simp_pts)
+                    new_subs.append(simp_edges)
+                new_shapes.append(new_subs)
+            new_cjp[color] = new_shapes
+
+        return new_cjp
+        
+    def is_color_in_list(self, acolor, alist):
+        """
+        Check whether a given RGBA color already exists in a list.
+
+        Performs a linear search using `is_same_color` to compare colors.
+
+        Parameters
+        ----------
+        acolor : tuple
+            The RGBA color to search for.
+        alist : list
+            List of RGBA tuples.
+
+        Returns
+        -------
+        bool
+            True if the color is present, False otherwise.
+        """
         for ccc in alist:
-            if self.is_same_color(ccc,acolor):
+            if self.is_same_color(ccc, acolor):
                 return True
         return False
             
-    def is_same_color(self,color1,color2):        
-        lenc=len(color1)
-        for iii in range(0,lenc):
-            if(color1[iii]!=color2[iii]):
+    def is_same_color(self, color1, color2):
+        """
+        Compare two RGBA colors for exact equality.
+
+        Parameters
+        ----------
+        color1 : tuple    First RGBA color.
+        color2 : tuple    Second RGBA color.
+
+        Returns
+        -------
+        bool
+            True if all channels match, False otherwise.
+        """
+        lenc = len(color1)
+        for iii in range(lenc):
+            if color1[iii] != color2[iii]:
                 return False
         return True
+
             
-    '''
-    def Sort_color_joined_pieces_to_radial(self,color_joined_pieces,xp=0,yp=0,rmin=5):
-        lenlist=len(color_joined_pieces.items())
-        r2list=[]
-        sss=0        
-        rmin2=rmin*rmin
-        
-        #((175, 78, 0, 255), [[[((225, 156), (224, 156)), ((224, 156), (224, 158)), ((224, 158), (225, 158)), ((225, 158), (225, 156))]]])
-        
-        #shapes=color_joined_pieces[color] # dictionary of colors
-        #shape=shapes[0]
-        #xylinesegments=shape[0]
-        #one_xylinesegment=xylinesegments[0] #two (x,y) points
-        #xytuple=one_xylinesegment[0]
-        def byr2(eee):
-            return eee['r2']
-        print(len(color_joined_pieces))
-        nnn=0
-        new_color_joined_pieces={}
-        xmin=100000000
-        xmax=-100000000
-        ymin=1000000000
-        ymax=-100000000
+    def Sort_color_joined_pieces_to_radial(self, color_joined_pieces, xp=0, yp=0):
+        """
+        Sort shapes for each color by radial distance from a reference point.
+
+        Parameters
+        ----------
+        color_joined_pieces : dict
+            Mapping of RGBA colors to lists of shapes. Each shape is a list of
+            sub-shapes, and each sub-shape is a list of edges:
+                [ [ ((x0,y0),(x1,y1)), ... ], ... ]
+        xp, yp : float
+            Center point used for radial sorting.
+
+        Returns
+        -------
+        dict
+            Same structure as input, but shapes sorted by increasing radius.
+        """
+
+        new_color_joined_pieces = {}
+
         for color, shapes in color_joined_pieces.items():
-            #num_shapes=len(shapes)
-            if nnn==0:
-                firstxytuple=shapes[0][0][0][0]
-                (xp, yp)=firstxytuple            
-            
-            jjj=0
+
+            # Compute radius for each shape based on its first point
+            shape_info = []
             for shape in shapes:
-                for sub_shape in shape:
-                    xytuple=sub_shape[0][0]                
-                    (x, y)=xytuple
-                    #print(x,y,xmin,xmax,ymin,ymax)
-                    if x>xmax:
-                        xmax=x
-                    elif x<=xmin:
-                        xmin=x    
-                    if y>ymax:
-                        ymax=y
-                    elif y<=ymin:
-                        ymin=y                  
-                #calculate distance
-                #r2=(x-xp)*(x-xp)+(y-yp)*(y-yp)                                                            
-                #index_shape_list.append({'iii':iii,'jjj':jjj,'r2':r2})                
-                jjj=jjj+1
-        print(xmin,xmax,ymin,ymax)
-        for color, shapes in color_joined_pieces.items():
-            new_shapes=[]
-            divisions=16
-            deltax=-(xmin-xmax)/divisions
-            deltay=-(ymin-ymax)/divisions
-            for xxx in range(1,divisions+1):
-                for yyy in range(1,divisions+1):                    
-                    rminx=xmin + (xxx-1)*deltax
-                    rmaxx=xmin + (xxx)*deltax
-                    rminy=ymin + (yyy-1)*deltay
-                    rmaxy=ymin + (yyy)*deltay  
-                    #print(rminx,rmaxx,rminy,rmaxy)                  
-                    for shape in shapes:
-                         for sub_shape in shape:
-                            xytuple=sub_shape[0][0]                
-                            (x, y)=xytuple                        
-                            if ((x>=rminx and x<rmaxx) and (y>=rminy and y<rmaxy)) or ((xxx==divisions or yyy==divisions) and (x>=rminx and x<=rmaxx) and (y>=rminy and y<=rmaxy)):
-                                new_shapes.append(shape)
+                # shape[0] = first sub-shape
+                # shape[0][0] = first edge
+                # shape[0][0][0] = first point (x, y)
+                (x, y) = shape[0][0][0]
+                r2 = (x - xp) * (x - xp) + (y - yp) * (y - yp)
+                shape_info.append((r2, shape))
 
-                
-            if nnn<10:                
-                print(len(shapes),len(new_shapes))
-                #print(nnn,'Not Sorted ->',index_shape_list)
-                #r2list.sort(key=byr2)
-                #print(nnn,'    Sorted ->',index_shape_list)                                
-                #print(nnn,' List',index_shape_list)
+            # Sort by radius
+            shape_info.sort(key=lambda t: t[0])
 
-            new_color_joined_pieces[color] = new_shapes                
-            nnn=nnn+1
-        print('did ->',nnn)
-        #print(color_joined_pieces.items())
-        
-        xylinesegments=shapes[0][0]
-        print(xylinesegments)
-        one_xylinesegment=shapes[0][0][0]
-        print(one_xylinesegment)
-        xytuple=shapes[0][0][0][0]
-        print(xytuple)
-        #make_err=color_joined_pieces.items(1)
-        
-        
-                    
-        
-        # sort the list  internal functions to use sort  
-        def byr2(eee):
-            return eee['r2']
-        def byx(eee):
-            return eee['x']
-        def byy(eee):
-            return eee['y']
-        def byrrr(eee):
-            return eee['rrr']
-        #it already does x0 -> ymax -> y min -> x+dx-> 
-        r2list.sort(key=byr2)
-        #for sitem in r2list:
+            # Extract sorted shapes
+            new_color_joined_pieces[color] = [shape for (_, shape) in shape_info]
 
-        
-        for color, shapes in color_joined_pieces.items():
-            if self.killer_event.is_set():
-                break
-            self.improcess_percentage=self.Set_Progress_Percentage(sss,lenlist,self.Pbarini,self.Pbarend)
-            sss=sss+1            
-            for shape in shapes:  
-                for sub_shape in shape:
-                    here = sub_shape.pop(0)[0]
-                    (x, y)=here
-                    r2=(x-xp)*(x-xp)+(y-yp)*(y-yp)
-                     
-                    rrr=rrr+1   
-        
-        return new_color_joined_pieces      
-    '''
-    
+        return new_color_joined_pieces
+
+    def Set_Progress_Percentage(self,sss,Numsss,Perini=0,Perend=100):
+        if sss>Numsss:
+            self.Pbar_Set_Status(Perend)
+            return Perend
+        if sss<0 or Numsss<=0:
+            self.Pbar_Set_Status(Perini)
+            return Perini
+        if (Perend-Perini)<=0:
+            Per=min(abs(Perini),abs(Perend))  
+            self.Pbar_Set_Status(Per)
+            return Per 
+        Per=round(Perini+(sss/Numsss)*(Perend-Perini),2)
+        if self.printprocess==True:
+            print('Image Processed '+str(Per)+'%')
+        self.Pbar_Set_Status(Per)
+        return Per
 
     def Save_svg_text_file(self,svg_image,Filename):
         with open(Filename, "w") as text_file:
             text_file.write(svg_image)
 
+    ############################ Contour tracing algorithms ##########################
+
+    def _build_mask_from_pixels(self, im, pixels):
+        """
+        Build a binary mask (numpy array) from a list of (x,y) pixels.
+        1 = foreground, 0 = background.
+        """
+        w, h = im.size
+        mask = np.zeros((h, w), dtype=np.uint8)
+        for (x, y) in pixels:
+            if 0 <= x < w and 0 <= y < h:
+                mask[y, x] = 1
+        return mask
+    
+    def _moore_contours(self, mask):
+        """
+        Moore-Neighbor contour tracing.
+        mask: 2D numpy array, 1=foreground, 0=background.
+        Returns a list of contours; each contour is a list of (x,y) points.
+        """
+        h, w = mask.shape
+        visited = np.zeros_like(mask, dtype=bool)
+        contours = []
+
+        # 8-neighborhood (clockwise)
+        neighbors = [(-1,  0), (-1, -1), (0, -1), (1, -1),
+                    (1,  0), (1,  1), (0,  1), (-1, 1)]
+
+        for y in range(h):
+            for x in range(w):
+                if mask[y, x] == 1 and not visited[y, x]:
+                    # Start contour
+                    contour = []
+                    start = (x, y)
+                    current = (x, y)
+                    # previous neighbor index (backtracking direction)
+                    prev_dir = 0  # arbitrary
+
+                    while True:
+                        contour.append(current)
+                        visited[current[1], current[0]] = True
+
+                        found_next = False
+                        # search neighbors starting from prev_dir
+                        for i in range(8):
+                            idx = (prev_dir + i) % 8
+                            nx = current[0] + neighbors[idx][0]
+                            ny = current[1] + neighbors[idx][1]
+
+                            if 0 <= nx < w and 0 <= ny < h and mask[ny, nx] == 1:
+                                # next contour point
+                                current = (nx, ny)
+                                # next search starts from (idx + 6) mod 8 (Moore rule)
+                                prev_dir = (idx + 6) % 8
+                                found_next = True
+                                break
+
+                        if not found_next:
+                            break
+
+                        if current == start:
+                            # closed loop
+                            break
+
+                    if len(contour) > 1:
+                        contours.append(contour)
+
+        return contours
+
+    def _contours_to_color_joined_pieces(self, contours):
+        """
+        Convert list of contours (each a list of (x,y) points) to your
+        [shape][sub_shape][edges] format.
+        """
+        shapes = []
+        for pts in contours:
+            if len(pts) < 2:
+                continue
+
+            # Optional: use half-pixel offsets to make contours “between pixels”
+            # For now we keep integer coords.
+            edges = []
+            for i in range(len(pts) - 1):
+                p0 = pts[i]
+                p1 = pts[i+1]
+                edges.append((p0, p1))
+            # close the loop
+            if pts[0] != pts[-1]:
+                edges.append((pts[-1], pts[0]))
+
+            # one sub_shape per contour
+            shape = [edges]
+            shapes.append(shape)
+
+        return shapes
+    
+    def Get_color_joined_pieces_from_rgba_image_contours(self, im, opaque=None):
+        """
+        New version: use contour tracing + contours → shapes, instead of
+        pixel-edge boundary extraction and joining.
+        """
+        w, h = im.size
+        pixels = np.array(im)  # shape (h, w, 4)
+
+        color_joined_pieces = {}
+
+        # Build color → list of pixels mapping (simple, can be optimized)
+        color_pixel_lists = {}
+        if self.printprocess:
+            print("Starting contours...")
+        for y in range(h):
+            if self.printprocess:
+                print(f"Processed...{y/h*50:.2f}%")
+            for x in range(w):
+                r, g, b, a = pixels[y, x]
+                if opaque is True and a == 0:
+                    continue
+                color = (int(r), int(g), int(b), int(a))
+                color_pixel_lists.setdefault(color, []).append((x, y))
+
+        # For each color, build mask → contours → shapes
+        size=len(color_pixel_lists)
+        if self.printprocess:
+            print(f"Dictionary of {size} formed...")
+        
+        for iii,(color, pix_list) in enumerate(color_pixel_lists.items()):
+            if self.printprocess:
+                print(f"Processing {iii+1} of {size}...{50+iii/size*50:.2f}%")
+            if not pix_list:
+                continue
+
+            mask = self._build_mask_from_pixels(im, pix_list)
+            contours = self._moore_contours(mask)
+            shapes = self._contours_to_color_joined_pieces(contours)
+            if shapes:
+                color_joined_pieces[color] = shapes
+
+        return color_joined_pieces
+
+
+class Vectorizer:
+    def __init__(self, progress_function=None,pini=None,pend=None):
+        self.pini=pini
+        self.pend=pend
+        self.progress=progress_function
+    
+    def set_progress(self,val,total):
+        if self.progress:
+            try:
+                _=self.progress(val,total,self.pini,self.pend)
+            except:
+                pass
+        
+    # --- STEP 1: Quantize image to reduce colors ---
+    def quantize_image(self, im, colors=16):
+        """
+        Reduce image to a limited palette for faster vectorization.
+        """
+        return im.convert("RGBA").quantize(colors=colors, method=2).convert("RGBA")
+
+    # --- STEP 2: Build mask for a given color ---
+    def build_mask(self, pixels, color):
+        """
+        Create binary mask for a specific RGBA color.
+        """
+        mask = np.all(pixels == color, axis=2).astype(np.uint8)
+        return mask
+
+    # --- STEP 3: Extract contours using OpenCV ---
+    def find_contours(self, mask):
+        """
+        Use OpenCV's fast contour tracing.
+        """
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        return contours
+
+    # --- STEP 4: Convert contours to your shape/sub-shape/edge format ---
+    def contours_to_shapes(self, contours):
+        shapes = []
+        for contour in contours:
+            pts = contour[:,0,:]  # Nx2 array
+            edges = []
+            for i in range(len(pts)-1):
+                p0 = tuple(pts[i])
+                p1 = tuple(pts[i+1])
+                edges.append((p0, p1))
+            # close loop
+            if len(pts) > 1:
+                edges.append((tuple(pts[-1]), tuple(pts[0])))
+            shape = [edges]  # one sub-shape
+            shapes.append(shape)
+        return shapes
+
+    # --- STEP 5: RDP simplification ---
+    def rdp(self, points, epsilon):
+        if len(points) < 3:
+            return points
+        (x1, y1) = points[0]
+        (x2, y2) = points[-1]
+        dx, dy = x2 - x1, y2 - y1
+        denom = (dx*dx + dy*dy)**0.5 or 1.0
+        max_dist, index = -1, -1
+        for i in range(1, len(points)-1):
+            (x0, y0) = points[i]
+            num = abs(dy*x0 - dx*y0 + x2*y1 - y2*x1)
+            dist = num / denom
+            if dist > max_dist:
+                max_dist, index = dist, i
+        if max_dist > epsilon:
+            left = self.rdp(points[:index+1], epsilon)
+            right = self.rdp(points[index:], epsilon)
+            return left[:-1] + right
+        else:
+            return [points[0], points[-1]]
+
+    def simplify_shapes(self, shapes, epsilon=1.0):
+        new_shapes = []
+        for shape in shapes:
+            new_subs = []
+            for sub in shape:
+                if not sub:   
+                    continue
+                # build point list safely
+                pts = [sub[0][0]] + [e[1] for e in sub]
+                if len(pts) < 3:
+                    new_subs.append(sub)
+                    continue
+                simp = self.rdp(pts, epsilon)
+                # prevent collapse
+                if len(simp) < 3:
+                    simp = pts
+                edges = [(simp[i], simp[i+1]) for i in range(len(simp)-1)]
+                new_subs.append(edges)
+            if new_subs:   # only keep non-empty shapes
+                new_shapes.append(new_subs)
+        return new_shapes
+
+
+    # --- STEP 6: Sort shapes by nearest neighbor ---
+    def sort_shapes(self, shapes):
+        def start(shape): return shape[0][0][0]
+        def end(shape): return shape[-1][-1][1]
+        shapes = [s for s in shapes if s and s[0]]
+        if not shapes: return []
+        ordered = [shapes.pop(0)]
+        while shapes:
+            last_end = end(ordered[-1])
+            best_idx, best_dist = None, float("inf")
+            for i, s in enumerate(shapes):
+                sx, sy = start(s)
+                lx, ly = last_end
+                d2 = (sx-lx)**2 + (sy-ly)**2
+                if d2 < best_dist:
+                    best_dist, best_idx = d2, i
+            ordered.append(shapes.pop(best_idx))
+        return ordered
+
+    # --- MAIN ENTRY ---
+    def vectorize(self, im, colors=16, epsilon=1.0):
+        """
+        Full pipeline: quantize → mask → contours → shapes → simplify → sort
+        """
+        im_q = self.quantize_image(im, colors)
+        pixels = np.array(im_q)
+        h, w, _ = pixels.shape
+
+        color_joined_pieces = {}
+        unique_colors = np.unique(pixels.reshape(-1,4), axis=0)
+        num_ucolors=len(unique_colors)
+        for iii,color in enumerate(unique_colors):
+            self.set_progress(iii+1,num_ucolors)
+            mask = self.build_mask(pixels, color)
+            contours = self.find_contours(mask)
+            shapes = self.contours_to_shapes(contours)
+            shapes = self.simplify_shapes(shapes, epsilon)
+            shapes = self.sort_shapes(shapes)
+            if shapes:
+                color_joined_pieces[tuple(color)] = shapes
+
+        return color_joined_pieces
+
 def main():
-    #imageRGBA = Image.open('test/examples/angular.png').convert('RGBA')
-    imageRGBA = Image.open(r'C:\Users\FedericoGarcia\Documents\Wi Tonyswork\02_Gitfolders\tools\xyz Gui V2\src\img\User-Interface-Checked-Checkbox-icon.png').convert('RGBA')    
+    import class_LogHandler
+    filepath=os.path.join(class_LogHandler.get_appPath(),'test')
+    fileinput=os.path.join(filepath,'wp9102708.jpg')
+    # fileinput=os.path.join(filepath,'Actions-arrow-up-icon.png')
+    if not os.path.exists(fileinput):
+        print(f"File {fileinput} does not exist")
+        return 
+    fileoutput=fileinput.replace('.jpg','.svg').replace('.png','.svg')
+    imageRGBA = Image.open(fileinput).quantize(colors=16, method=2).convert('RGBA')    
     print('Processing image of size',imageRGBA.size)    
     kill_ev = threading.Event()
     kill_ev.clear()
     Vectorize=Vectorization(imageRGBA,kill_ev)
     Vectorize.start()
     Vectorize.printprocess=True
-    svg_image = Vectorize.rgba_image_to_svg_contiguous(im=imageRGBA)
+    # svg_image = Vectorize.rgba_image_to_svg_contiguous(im=imageRGBA)
+    svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA)
     #svg_image = rgba_image_to_svg_pixels(image)
-    Filename=r"C:\Users\FedericoGarcia\Documents\Wi Tonyswork\02_Gitfolders\tools\xyz Gui V2\src\toadd\test2.svg"
-    Vectorize.Save_svg_text_file(svg_image,Filename)
-    #with open("test/examples/angular.svg", "w") as text_file:
-    #    text_file.write(svg_image)
+    Vectorize.Save_svg_text_file(svg_image,fileoutput)
     Vectorize.join()
-        
+    print(f"Finished .... check {fileoutput}")
 
+        
 if __name__ == '__main__':
     main()

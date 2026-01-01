@@ -1343,10 +1343,9 @@ class Image_Gcode_Stream(threading.Thread):
         if Is_up==True:
             Lcode=self.Write_Goto_Code(0,zzz=Ztouch_pos)
             return [Lcode,False]
-        else: 
-            Lcode=self.Write_Goto_Code(0,zzz=Zmove_pos)
-            return [Lcode,True]
-        return 
+        Lcode=self.Write_Goto_Code(0,zzz=Zmove_pos)
+        return [Lcode,True]
+        
     
     def Write_Gimage_Code_Stippling(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):  
         [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo          
@@ -1457,7 +1456,7 @@ class Image_Gcode_Stream(threading.Thread):
         try:  
             Filename="temp/Temp_Imp_Vectorized.svg"
             Vectorize.Save_svg_text_file(svg,Filename)  
-            loggin.info("svg File saved under "+Filename) 
+            logging.info("svg File saved under "+Filename) 
         except:
             pass    
         Vectorize.join()
@@ -1479,47 +1478,106 @@ class Image_Gcode_Stream(threading.Thread):
         P_Bar_Update_Gimage.SetStatus(Per)
         return Per         
 
-    def Write_Gimage_Code_Vectorize(self,pimg_val_range,Zinfo,TCinfo,P_Bar_Update_Gimage):    
-        #TCinfo={'T','T_Ch','T_Ch_per_Layer','T_Ch_Script','T_Ch_XYZpos','T_Ch_in_Layers','T_Z_Correction'}  
-        [deltaZ,Zmove_pos,Ztouch_pos,Resolution,Process_rate]=Zinfo   
-        last_avalue=0
-        is_up=True
-        Lcode=''
-        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(0,0,Resolution)  
-        Lcode=Lcode+self.Write_Goto_Code(0,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-        [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
-        Lcode=Lcode+Lcodeadd            
-        color_joined_pieces=self.Get_Vectorized_color_joined_pieces(self.imp,P_Bar_Update_Gimage,opaque=None, keep_every_point=False)
-        sss=0
-        lenlist=len(color_joined_pieces)
-        for color, shapes in color_joined_pieces.items():            
-            self.improcess_percentage=self.Set_Progress_Percentage(P_Bar_Update_Gimage,sss,lenlist,0,100)            
-            if TCinfo['T_Ch']==True and sss in TCinfo['T_Ch_in_Layers']:
-                Lcode=Lcode+self.Do_a_Tool_Change(TCinfo['T_Ch_XYZpos'],TCinfo['T_Ch'],Zinfo,TCinfo['T_Ch_Script'])
-            for shape in shapes:                  
-                
+    def tool_down(self,Zinfo=None):
+        if Zinfo:
+            return '\n'.join(self.Move_Down_to_Touch(Is_up=True,Zinfo=Zinfo))  
+        return "M3\n"   # or whatever your machine uses
+
+    def tool_up(self,Zinfo=None):
+        if Zinfo:
+            return '\n'.join(self.Move_Down_to_Touch(Is_up=False,Zinfo=Zinfo)) 
+        return "M5\n"
+
+    def px_to_machine(self, x, y, Resolution):
+        return self.Transform_pixel_coordinates_to_image_coordinates(x, y, Resolution)
+
+    def Write_Gimage_Code_Vectorize(self, pimg_val_range, Zinfo, TCinfo, P_Bar_Update_Gimage):
+        [deltaZ, Zmove_pos, Ztouch_pos, Resolution, Process_rate] = Zinfo
+
+        Lcode = ""
+
+        # Move to image origin
+        x0, y0 = self.Transform_pixel_coordinates_to_image_coordinates(0, 0, Resolution)
+        Lcode += self.Write_Goto_Code(0, xxx=x0, yyy=y0, fff=Process_rate)
+        Lcode += self.tool_down()
+
+        # Vectorize image
+        color_joined_pieces = self.Get_Vectorized_color_joined_pieces(
+            self.imp, P_Bar_Update_Gimage, opaque=None, keep_every_point=False
+        )
+
+        total_colors = len(color_joined_pieces)
+        color_index = 0
+
+        for color, shapes in color_joined_pieces.items():
+            # Progress update
+            self.improcess_percentage = self.Set_Progress_Percentage(
+                P_Bar_Update_Gimage, color_index, total_colors, 0, 100
+            )
+
+            # Tool change logic
+            if TCinfo['T_Ch'] and color_index in TCinfo['T_Ch_in_Layers']:
+                Lcode += self.Do_a_Tool_Change(
+                    TCinfo['T_Ch_XYZpos'], TCinfo['T_Ch'], Zinfo, TCinfo['T_Ch_Script']
+                )
+
+            # Draw shapes
+            for shape in shapes:
                 for sub_shape in shape:
-                    here = sub_shape.pop(0)[0]
-                    (x, y)=here
-                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y,Resolution)  
-                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-                    [Lcodeadd,is_up]=self.Move_Down_to_Touch(True,Zinfo)
-                    Lcode=Lcode+Lcodeadd            
+                    if not sub_shape:
+                        continue
+
+                    # Move to start
+                    (x, y) = sub_shape[0][0]
+                    px, py = self.Transform_pixel_coordinates_to_image_coordinates(x, y, Resolution)
+                    Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                    Lcode += self.tool_down()
+
+                    # Draw edges
                     for edge in sub_shape:
-                        here = edge[0]
-                        (xe, ye)=here
-                        [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(xe,ye,Resolution)  
-                        Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-                    #close path shape
-                    [pimg_X,pimg_Y]=self.Transform_pixel_coordinates_to_image_coordinates(x,y,Resolution)  
-                    Lcode=Lcode+self.Write_Goto_Code(1,xxx=pimg_X,yyy=pimg_Y,fff=Process_rate)
-                    [Lcodeadd,is_up]=self.Move_Down_to_Touch(False,Zinfo)
-                    Lcode=Lcode+Lcodeadd            
-                #end of shape
-            self.Report_Printed_Lengths(sss)  
-            sss=sss+1  
-       
-        return Lcode            
+                        (xe, ye) = edge[0]
+                        px, py = self.Transform_pixel_coordinates_to_image_coordinates(xe, ye, Resolution)
+                        Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+
+                    # Close shape
+                    px, py = self.Transform_pixel_coordinates_to_image_coordinates(x, y, Resolution)
+                    Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                    Lcode += self.tool_up()
+
+            self.Report_Printed_Lengths(color_index)
+            color_index += 1
+
+        return Lcode
+    
+    def generate_gcode_from_color_joined_pieces(self, color_joined_pieces, Resolution, Process_rate):
+        Lcode = ""
+
+        for color, shapes in color_joined_pieces.items():
+            for shape in shapes:
+                for sub in shape:
+                    if not sub:
+                        continue
+
+                    # Start point
+                    (x0, y0) = sub[0][0]
+                    px, py = self.Transform_pixel_coordinates_to_image_coordinates(x0, y0, Resolution)
+                    Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                    Lcode += self.tool_down()
+
+                    # Follow edges
+                    for edge in sub:
+                        (xe, ye) = edge[0]
+                        px, py = self.Transform_pixel_coordinates_to_image_coordinates(xe, ye, Resolution)
+                        Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+
+                    # Close shape
+                    px, py = self.Transform_pixel_coordinates_to_image_coordinates(x0, y0, Resolution)
+                    Lcode += self.Write_Goto_Code(1, xxx=px, yyy=py, fff=Process_rate)
+                    Lcode += self.tool_up()
+
+        return Lcode
+
+        
 
 
     

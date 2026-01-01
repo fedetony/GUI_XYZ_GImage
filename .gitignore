@@ -14,3 +14,5 @@ src/temp/*
 /src/test/
 /src/__pycache__/*
 /src/logs
+/src/test_*
+test_*
