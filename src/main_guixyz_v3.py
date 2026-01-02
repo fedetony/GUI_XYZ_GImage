@@ -82,8 +82,7 @@ timestamp = now.strftime("%y-%m-%d %H:%M:%S")
 with open(log_file,"w", encoding="utf-8") as f: 
     f.write(f"With coffee and love by FG\n log for {__app__} {__version__}: {timestamp}\n")
 
-LM = class_LogHandler.LoggerManager(log_file)
-
+LM = class_LogHandler.init_logger_manager(log_file)
 log = LM.get_logger(__name__)
 log.info("Application starting...")
 
@@ -331,7 +330,7 @@ class MyWindow(QtWidgets.QMainWindow):
 
         # create Signal Tracker
         self.ST=class_ST.SignalTracker()        
-        LM.attach_signaltracker_handler(self.ST)
+        LM.attach_signaltracker_handler(self,self.ST)
         # Start tracking all loggers
         self.ST.log_to_main.connect(self.on_log_from_anywhere)
         
@@ -612,28 +611,12 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
         self.ST.stream_info_change.connect(self.Stream_Info_Update)  
 
-
-    @QtCore.pyqtSlot(str, str, str)
-    def on_log_from_anywhere(self, msg, logger_name, level):
-        """logger helper function with class_ST"""
-        # Prefix message with logger name
-        if logger_name:
-            msg = f"({logger_name}) {msg}"
-
-        # Get the correct logger
-        logger = logging.getLogger(logger_name)
-
-        # Dispatch to correct log level
-        if level == 'info':
-            logger.info(msg)
-        elif level == 'warning':
-            logger.warning(msg)
-        elif level == 'error':
-            logger.error(msg)
-        elif level == 'debug':
-            logger.debug(msg)
-        elif level == 'print':
-            print(msg)
+    @QtCore.pyqtSlot(object)
+    def on_log_from_anywhere(self, record: logging.LogRecord):
+        """Receive LogRecord and update GUI log viewer."""
+        formatted = LM.formatter.format(record)
+        # Append to GUI log widget
+        self.write_GUI_Log(formatted)
         
     def Spinbox_val_change_from(self,val):
         numlines=self.plaintextEdit_GcodeScript.blockCount() #self.ui.spinBox_Stream_Linefrom.maximum()        

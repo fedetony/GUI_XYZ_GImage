@@ -1,4 +1,6 @@
 #class_gmimage_dialog
+from PIL import Image, ImageFilter  # imports the library
+from PIL.ImageQt import ImageQt
 
 from PyQt6 import QtCore, QtGui, QtWidgets, QtSvg, QtSvgWidgets
 from PyQt6.QtWidgets import *
@@ -8,29 +10,27 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QPixmap, QPainter
 
 import logging
 import os
 import json
 from copy import deepcopy
 from pathlib import Path
+import numpy as np
 
 
 import class_ST
-import class_LogHandler
-ap=class_LogHandler.get_appPath()
+import class_File_Dialogs
+from class_LogHandler import get_appPath, LM
+ap=get_appPath()
 img_path=os.path.join(ap,"img")
 config_path=os.path.join(ap,"config")
 temp_path=os.path.join(ap,"temp")
 gimage_path=os.path.join(ap,"gimage")
 
-log = logging.getLogger("Gimage")
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[%(levelname)s] (%(name)s) %(message)s')
-ahandler=logging.StreamHandler()
-ahandler.setLevel(logging.INFO)
-ahandler.setFormatter(formatter)
-log.addHandler(ahandler)
+log = LM.get_logger("Gimage")
     
 class GimageGcodeGenerator(QtWidgets.QMainWindow):
     closed = QtCore.pyqtSignal()
@@ -40,25 +40,32 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         log.info("... Started")
         self.setWindowTitle("Gimage G-Code Generator")
         self.setMinimumSize(1200, 800)
-
+        # -------------------------
         #Initialize Variables
+        # -------------------------
         self.tm=None
         self.cm=None
         self.color_selection_list=['Black&White','Red','Green','Blue','RGB']
-
+        self.im = None
+        self.im_width=0
+        self.im_height=0
+        self.is_original_image=False
+        self.is_processed_image=False
+        self.file_dialog=class_File_Dialogs.Dialogs()
+        self.im_processor=ImageProcessor()
+        # -------------------------
+        # Build GUI
+        # -------------------------
         # Main splitter
         splitter = QtWidgets.QSplitter()
         splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.setCentralWidget(splitter)
-
         # --- LEFT PANEL ---
         left_panel = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left_panel)
-
         # -------------------------
         # Toolbars
         # -------------------------
-
         self.gimage_image_toolbar = QtWidgets.QToolBar()
         self.gimage_image_toolbar.setIconSize(QtCore.QSize(36, 36))
 
@@ -67,9 +74,9 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.gimage_image_toolbar.addAction(self.action_open_image)
         self.gimage_image_toolbar.addSeparator()
         self.gimage_image_toolbar.addAction(self.action_save_image)
-
+        # Actual interface
         self.gimage_actual_interface_label=QtWidgets.QLabel("Actual Interface: ")
-        
+        # Config toolbar
         self.gimage_config_toolbar = QtWidgets.QToolBar()
         self.gimage_config_toolbar.setIconSize(QtCore.QSize(24, 24))
 
@@ -91,22 +98,14 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # Selectors
         # -------------------------
         selector_layout = QtWidgets.QVBoxLayout()
-        
         machine_layout, self.machine_combo = self._make_icon_label_combo_row(
-            "Machine:", ":/img/Modify-icon.png"
-        )
-
+            "Machine:", ":/img/Modify-icon.png")
         tool_layout, self.tool_combo = self._make_icon_label_combo_row(
-            "Tool:", ":/img/Ahmadhania-Spherical-Paper-clip.128.png"
-        )
-
+            "Tool:", ":/img/Ahmadhania-Spherical-Paper-clip.128.png")
         technique_layout, self.technique_combo = self._make_icon_label_combo_row(
-            "Technique:", ":/img/Ahmadhania-Spherical-Write.128.png"
-        )
-
+            "Technique:", ":/img/Ahmadhania-Spherical-Write.128.png")
         color_layout, self.color_combo = self._make_icon_label_combo_row(
-            "Color:", ":/img/Ahmadhania-Spherical-Umbrella.128.png"
-        )
+            "Color:", ":/img/Ahmadhania-Spherical-Umbrella.128.png")
 
         selector_layout.addLayout(machine_layout)
         selector_layout.addLayout(tool_layout)
@@ -133,18 +132,44 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # -------------------------
         splitter.addWidget(left_panel)
         splitter.setStretchFactor(0, 0)
-
+        #####################
         # --- RIGHT PANEL ---
+        #####################
+
+        # -------------------------
+        # Image Toolbox
+        # -------------------------
+        self.image_toolbox = QtWidgets.QToolBar("Tools")
+        self.image_toolbox.setOrientation(QtCore.Qt.Orientation.Vertical)
+        self.image_toolbox.setIconSize(QtCore.QSize(24, 24))
+        self.image_toolbox.setMovable(False)
+
+        self.action_zoom_in = QtGui.QAction(QtGui.QIcon(":/img/Plus-icon.png"), "Zoom In", self)
+        self.action_zoom_out = QtGui.QAction(QtGui.QIcon(":/img/Minus-icon.png"), "Zoom Out", self)
+        self.action_fit = QtGui.QAction(QtGui.QIcon(":/img/move-icon.png"), "Fit", self)
+
+        self.image_toolbox.addAction(self.action_fit)
+        self.image_toolbox.addSeparator()
+        self.image_toolbox.addAction(self.action_zoom_in)
+        self.image_toolbox.addAction(self.action_zoom_out)
+        
+
+        # -------------------------
+        # Splitter with two views
+        # -------------------------
         right_splitter = QtWidgets.QSplitter()
         right_splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
 
-        # Original image preview
-        self.original_view = QtWidgets.QGraphicsView()
+        self.zoom_controller = SyncedZoomController()
+
+        self.original_view = SyncedGraphicsView(self.zoom_controller)
+        self.processed_view = SyncedGraphicsView(self.zoom_controller)
+        self.original_view.set_has_image(False)
+        self.processed_view.set_has_image(False)
+
         self.original_scene = QtWidgets.QGraphicsScene()
         self.original_view.setScene(self.original_scene)
 
-        # Processed image preview
-        self.processed_view = QtWidgets.QGraphicsView()
         self.processed_scene = QtWidgets.QGraphicsScene()
         self.processed_view.setScene(self.processed_scene)
 
@@ -153,11 +178,23 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         right_splitter.setStretchFactor(0, 1)
         right_splitter.setStretchFactor(1, 1)
 
-        splitter.addWidget(right_splitter)
+        # -------------------------
+        # Combine splitter + toolbox horizontally
+        # -------------------------
+        right_splitter_container = QtWidgets.QWidget()
+        right_splitter_layout = QtWidgets.QHBoxLayout(right_splitter_container)
+        right_splitter_layout.setContentsMargins(0, 0, 0, 0)
+        right_splitter_layout.setSpacing(0)
+
+        right_splitter_layout.addWidget(right_splitter, stretch=1)
+        right_splitter_layout.addWidget(self.image_toolbox)
+
+        splitter.addWidget(right_splitter_container)
         splitter.setStretchFactor(1, 1)
         # Set Configuration
         self.setup_configuration()
         self.fill_combos()
+        self.connect_actions_to_gui()
 
     def _make_icon_label_combo_row(self, text, icon_path):
         layout = QtWidgets.QHBoxLayout()
@@ -224,32 +261,210 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
 
     # def on_resolution_changed(self, value: float):
     #     self.cm.set_output_param("output", "resolution", value=float(value))
-    
-    def save_gimage_config(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save Gimage Config", "", "JSON Files (*.json)"
+
+    def connect_actions_to_gui(self):
+        self.action_open.triggered.connect(self.load_gimage_config)
+        self.action_save.triggered.connect(self.save_gimage_config)
+        self.action_refresh.triggered.connect(self.refresh_gui_from_config)
+        self.action_open_image.triggered.connect(self.load_original_image)
+
+        self.action_fit.triggered.connect(self.on_fit_clicked)
+        self.action_zoom_in.triggered.connect(self.on_zoom_in_clicked)
+        self.action_zoom_out.triggered.connect(self.on_zoom_out_clicked)
+
+        self.color_combo.currentTextChanged.connect(self.on_color_changed)
+
+    def on_color_changed(self, value):
+        color_selection=value
+        pass
+        # self.cm. = value
+        # self.update_processed_image()
+
+    def on_zoom_in_clicked(self):
+        factor = 1.25
+        new_zoom = self.zoom_controller.current_zoom * factor
+        self.zoom_controller.set_zoom(new_zoom)
+
+    def on_zoom_out_clicked(self):
+        factor = 0.8
+        new_zoom = self.zoom_controller.current_zoom * factor
+        self.zoom_controller.set_zoom(new_zoom)
+
+    def on_fit_clicked(self):
+        self.original_view.fitInView(
+            self.original_scene.itemsBoundingRect(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio
         )
-        if path:
-            self.cm.save_session(path)
+        self.processed_view.fitInView(
+            self.processed_scene.itemsBoundingRect(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio
+        )
+        # Reset zoom controller to 1.0 so wheel zoom starts from neutral
+        self.zoom_controller.set_zoom(1.0)
+
+    def open_image(self, imagefilename):
+        """Opens image into the show supports jpeg,png,svg 
+            and sets self.im as pillow 
+
+        Args:
+            imagefilename (str): filename
+
+        Returns:
+            bool: True if Image loaded correctly
+        """
+        if not os.path.exists(imagefilename):
+            return False
+        try:
+            if imagefilename.lower().endswith(".svg"):
+                # Render SVG → QPixmap
+                pix = self.svg_to_qpixmap(imagefilename)
+                # Convert QPixmap → Pillow Image
+                self.im = self.qpixmap_to_pil(pix)
+                self.im_width = self.im.width
+                self.im_height = self.im.height
+                # Display 
+                self.show_original_image(pix)
+            else:
+                # Otherwise: normal raster image
+                self.im = Image.open(imagefilename)
+                self.im_width = self.im.width
+                self.im_height = self.im.height
+                qimg = self.pil_to_qimage(self.im)
+                self.show_original_image(qimg)
+            # set zoom
+            self.zoom_controller.set_zoom(1.0)
+
+            self.is_original_image = True
+            self.image_filename = imagefilename
+            self.original_view.set_has_image(self.is_original_image)
+            self.clear_processed_view()
+            return True
+        except Exception as e:
+            log.error(f"Opening Image: {e}")
+            self.im = None
+            self.clear_original_view(include_processed=True)
+        return False
+
+    def clear_processed_view(self):
+        self.is_processed_image=False
+        self.processed_scene.clear()
+        self.processed_view.set_has_image(False)
+    
+    def clear_original_view(self,include_processed=True):
+        self.is_original_image=False
+        self.original_scene.clear()
+        self.original_view.set_has_image(False)
+        if include_processed:
+            self.clear_processed_view()
+
+    def save_gimage_config(self):
+        filepath=self.file_dialog.saveFileDialog(6,"Save Gimage Config") #json
+        if filepath:
+            self.cm.save_session(filepath)
 
     def load_gimage_config(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Load Gimage Config", "", "JSON Files (*.json)"
-        )
-        if path:
-            self.cm.load_session(path)
+        filepath = self.file_dialog.openFileNameDialog(6,"Load Gimage Config") #json
+        if filepath:
+            self.cm.load_session(filepath)
             self.refresh_gui_from_config()
+
+    def load_original_image(self):
+        filepath = self.file_dialog.openFileNameDialog(1,"Load Gimage Image")
+        if filepath:
+            self.open_image(filepath)
 
     def refresh_gui_from_config(self):
         # placeholder for refresh
         pass
 
-    def show_original_image(self, qimage):
-        self.original_scene.clear()
-        pix = QtGui.QPixmap.fromImage(qimage)
-        self.original_scene.addPixmap(pix)
-        self.original_view.fitInView(self.original_scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+    def make_processed_image(self):
+        self.im_processed=self.im.copy()
     
+    def show_processed_image(self, image):
+        self.processed_scene.clear()
+        if isinstance(image, QtGui.QPixmap):
+            pix = image
+        elif isinstance(image, QtGui.QImage):
+            pix = QtGui.QPixmap.fromImage(image)
+        elif isinstance(image, Image.Image):
+            pix = self.pil_to_qpixmap(image)
+        else:
+            log.error(f"Unsupported image type: {type(image)}")
+            return
+        self.processed_scene.addPixmap(pix)
+        self.im_processed = self.im
+        self.processed_view.set_has_image(True)
+        self.is_processed_image = True
+
+        # Sync zoom with original view
+        self.processed_view.resetTransform()
+        self.processed_view.scale(
+            self.zoom_controller.current_zoom,
+            self.zoom_controller.current_zoom
+        )
+
+    @staticmethod
+    def pil_to_qimage(pil_image:Image)->QImage:
+        pil_image = pil_image.convert("RGBA")
+        data = pil_image.tobytes("raw", "RGBA")
+        qimage = QImage(
+            data,
+            pil_image.width,
+            pil_image.height,
+            QImage.Format.Format_RGBA8888
+        )
+        return qimage
+    
+    def pil_to_qpixmap(self,pil_image)->QPixmap:
+        return QPixmap.fromImage(self.pil_to_qimage(pil_image))
+
+    def show_original_image(self, image):
+        self.original_scene.clear()
+        if isinstance(image, QtGui.QPixmap):
+            pix = image
+        elif isinstance(image, QtGui.QImage):
+            pix = QtGui.QPixmap.fromImage(image)
+        elif isinstance(image, Image.Image):
+            pix = self.pil_to_qpixmap(image)
+        else:
+            log.error(f"Unsupported image type: {type(image)}")
+            return
+        self.original_scene.addPixmap(pix)
+        # Fit only the original view
+        self.original_view.fitInView(
+            self.original_scene.itemsBoundingRect(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio
+        )
+
+    @staticmethod
+    def qpixmap_to_pil(pixmap:QPixmap)->Image.Image:
+        qimage = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+        width = qimage.width()
+        height = qimage.height()
+        ptr = qimage.bits()
+        ptr.setsize(qimage.sizeInBytes())
+        arr = bytes(ptr)
+        pil_img = Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
+        return pil_img
+
+    @staticmethod
+    def svg_to_qpixmap(svg_path, width=None, height=None):
+        renderer = QtSvg.QSvgRenderer(svg_path)
+
+        # If no size given, use the SVG's default size
+        default_size = renderer.defaultSize()
+        w = width or default_size.width()
+        h = height or default_size.height()
+
+        pixmap = QPixmap(w, h)
+        pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+
+        return pixmap
+
     def draw_vector_paths(self, shapes):
         self.processed_scene.clear()
 
@@ -305,6 +520,282 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
+
+class ImageProcessor:
+    def __init__(self):
+        super().__init__()
+        self.color_palette=None
+        self.rgb_to_pval = {}
+        self.pval_to_rgb = {}
+
+    def apply_quant_color_process_to_image(self,im:Image.Image,number_of_colors, color_selection):
+        """Set color selection and quantize image"""
+        imp=im.copy()
+        if color_selection == 'Black&White':
+            imp = imp.convert('L')
+        else:
+            imp = imp.convert('RGB')
+            if color_selection == 'Red':
+                imp = self.get_one_channel_from_image(imp,'R')
+            elif color_selection == 'Green':
+                imp = self.get_one_channel_from_image(imp,'G')
+            elif color_selection == 'Blue':
+                imp =self.get_one_channel_from_image(imp,'B') 
+            elif color_selection == 'Not Red':
+                imp = self.remove_channel_from_image(imp,'R')
+            elif color_selection == 'Not Green':
+                imp = self.remove_channel_from_image(imp,'G')
+            elif color_selection == 'Not Blue':
+                imp =self.remove_channel_from_image(imp,'B')   
+        return imp.quantize(colors=number_of_colors)
+
+    @staticmethod
+    def rgb_to_luminance_array(imp):
+        """
+        Convert an RGB Pillow image to a luminance (grayscale) NumPy array.
+
+        Uses the standard Rec. 601 luma formula:
+            L = 0.299*R + 0.587*G + 0.114*B
+
+        Args:
+            imp (PIL.Image): Input RGB image.
+
+        Returns:
+            numpy.ndarray: 2D array of uint8 luminance values.
+        """
+        arr = np.array(imp.convert("RGB"), dtype=np.float32)
+        L = arr[:, :, 0] * 0.299 + arr[:, :, 1] * 0.587 + arr[:, :, 2] * 0.114
+        return L.astype(np.uint8)
+
+    def is_color_in_palette(self, color):
+        """
+        Return palette index for an RGB tuple.
+        Returns -1 if not found.
+        """
+        return self.rgb_to_pval.get(color, -1)
+
+    def get_color_from_palette(self, pval):
+        """
+        Return RGB tuple for a palette index.
+        Returns white if not found.
+        """
+        return self.pval_to_rgb.get(pval, (255, 255, 255))
+
+    def get_image_value_range(self):
+        """
+        Compute the minimum and maximum luminance values in the current image.
+
+        Converts the image to luminance using rgb_to_luminance_array() and
+        returns the min/max values found.
+
+        Returns:
+            list: [0, min_luminance, max_luminance]
+        """
+        L = self.rgb_to_luminance_array(self.imp)
+        return [0, int(L.min()), int(L.max())]
+
+    def build_palette_maps(self):
+        """
+        Build fast lookup dictionaries for palette operations.
+
+        Creates:
+            self.rgb_to_pval: {(r,g,b): pval}
+            self.pval_to_rgb: {pval: (r,g,b)}
+        """
+        self.rgb_to_pval = {}
+        self.pval_to_rgb = {}
+        if self.color_palette is None:
+            return
+        for p, c, r, g, b in self.color_palette:
+            self.rgb_to_pval[(r, g, b)] = p
+            self.pval_to_rgb[p] = (r, g, b)
+
+    def retain_selected_layers(self, selected_layer_list):
+        """
+        Keep only pixels whose palette index is in selected_layer_list.
+        All other pixels become white.
+
+        Works for both RGB images and palette-indexed images.
+        Uses NumPy for fast vectorized processing.
+        """
+        arr = np.array(self.imp)
+        # Case 1: RGB image → convert to palette indices
+        if arr.ndim == 3:
+            h, w, _ = arr.shape
+            flat = arr.reshape(-1, 3)
+            rgb_tuples = [tuple(px) for px in flat]
+            # Map RGB → palette index (default -1 for unknown)
+            pvals = np.array([self.rgb_to_pval.get(rgb, -1) for rgb in rgb_tuples])
+            pvals = pvals.reshape(h, w)
+        # Case 2: indexed image (mode "P")
+        else:
+            pvals = arr
+        # Build mask of selected layers
+        mask = np.isin(pvals, selected_layer_list)
+        # Output array (RGB)
+        out = np.zeros((pvals.shape[0], pvals.shape[1], 3), dtype=np.uint8)
+        out[:, :] = (255, 255, 255)  # default white
+        # Fill selected pixels with their palette RGB
+        for p in selected_layer_list:
+            rgb = self.pval_to_rgb.get(p, (255, 255, 255))
+            out[pvals == p] = rgb
+        # Convert back to Pillow image
+        self.imp = Image.fromarray(out, "RGB")
+
+    @staticmethod
+    def get_one_channel_from_image(imp, channel):
+        """
+        Keep only one RGB channel from an image and zero out the others.
+
+        Args:
+            imp (PIL.Image): Input image.
+            channel (str or int): 'R', 'G', 'B' or 0,1,2.
+
+        Returns:
+            PIL.Image: Image with only the selected channel preserved.
+        """
+        arr = np.array(imp.convert("RGB"))
+        if channel in ('R', 0):
+            arr[:, :, 1] = 0
+            arr[:, :, 2] = 0
+        elif channel in ('G', 1):
+            arr[:, :, 0] = 0
+            arr[:, :, 2] = 0
+        elif channel in ('B', 2):
+            arr[:, :, 0] = 0
+            arr[:, :, 1] = 0
+        return Image.fromarray(arr, "RGB")
+
+    @staticmethod
+    def remove_channel_from_image(imp, channel):
+        """
+        Remove (zero out) a single RGB channel while keeping the others intact.
+
+        Args:
+            imp (PIL.Image): Input image.
+            channel (str or int): 'R', 'G', 'B' or 0,1,2.
+
+        Returns:
+            PIL.Image: Image with the selected channel removed.
+        """
+        arr = np.array(imp.convert("RGB"))
+        if channel in ('R', 0):
+            arr[:, :, 0] = 0
+        elif channel in ('G', 1):
+            arr[:, :, 1] = 0
+        elif channel in ('B', 2):
+            arr[:, :, 2] = 0
+        return Image.fromarray(arr, "RGB")
+    
+    @staticmethod
+    def get_color_palette(imp: Image.Image, number_of_colors: int):
+        """
+        Extract the palette from a quantized Pillow image.
+
+        Returns a list of tuples:
+            (palette_index, count, r, g, b)
+
+        Args:
+            imp (PIL.Image.Image): A quantized image (mode 'P').
+            number_of_colors (int): Maximum number of colors to retrieve.
+
+        Returns:
+            list[tuple[int, int, int, int, int]]:
+                A list of (pval, count, r, g, b) entries.
+        """
+        # Ensure the image is palette-based
+        if imp.mode != "P":
+            raise ValueError("get_color_palette() requires a quantized 'P' mode image")
+
+        color_list = imp.getcolors(number_of_colors)  # [(count, pval), ...]
+        palette_list = imp.getpalette()               # flat RGB list
+
+        if not color_list:
+            return []
+
+        color_palette = []
+
+        for count, pval in color_list:
+            base = 3 * pval
+            r = palette_list[base + 0]
+            g = palette_list[base + 1]
+            b = palette_list[base + 2]
+            color_palette.append((pval, count, r, g, b))
+
+        return color_palette
+
+
+
+
+class SyncedZoomController(QtCore.QObject):
+    zoom_changed = QtCore.pyqtSignal(float)
+
+    def __init__(self):
+        super().__init__()
+        self.current_zoom = 1.0
+        self.views = []  # store all synced views
+        
+    def register_view(self, view):
+        self.views.append(view)
+
+    def set_zoom(self, factor):
+        self.current_zoom = factor
+        self.zoom_changed.emit(factor)
+
+class SyncedGraphicsView(QtWidgets.QGraphicsView):
+    def __init__(self, controller:SyncedZoomController, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.controller = controller
+        self.controller.register_view(self)
+
+        self._ignore_scroll = False
+        self._ignore_wheel = False
+        self._has_image = False  
+
+        self.controller.zoom_changed.connect(self.apply_zoom)
+
+    def set_has_image(self, value: bool):
+        self._has_image = value
+    
+    # --- Zoom sync  ---
+    def wheelEvent(self, event):
+        if self._ignore_wheel:
+            return
+
+        zoom_in = 1.25
+        zoom_out = 0.8
+
+        factor = zoom_in if event.angleDelta().y() > 0 else zoom_out
+        new_zoom = self.controller.current_zoom * factor
+        self.controller.set_zoom(new_zoom)
+
+    def apply_zoom(self, factor):
+        if not self._has_image:   # <--- SKIP EMPTY VIEW
+            return
+        self._ignore_wheel = True
+        self.resetTransform()
+        self.scale(factor, factor)
+        self._ignore_wheel = False
+
+    # ---  Scroll sync ---
+    def scrollContentsBy(self, dx, dy):
+        if self._ignore_scroll:
+            return
+        # If this view has no image, do nothing
+        if not self._has_image:
+            return
+        super().scrollContentsBy(dx, dy)
+        # Sync other views
+        for view in self.controller.views:
+            if view is self:
+                continue
+            # Skip views with no image
+            if not view._has_image:
+                continue
+            view._ignore_scroll = True
+            view.horizontalScrollBar().setValue(self.horizontalScrollBar().value())
+            view.verticalScrollBar().setValue(self.verticalScrollBar().value())
+            view._ignore_scroll = False
 
 
 class ConfigManager:
@@ -508,7 +999,6 @@ class ConfigManager:
     def set_output_param(self, key, value):
         self.session["output"][key] = value
 
-
 class SvgViewer(QWidget):
     def __init__(self):
         """Usage viewer = SvgViewer()
@@ -522,8 +1012,6 @@ class SvgViewer(QWidget):
 
     def load_svg(self, filename):
         self.svg.load(filename)
-
-
 
 class SvgGraphicsView(QGraphicsView):
     def __init__(self):
@@ -539,10 +1027,10 @@ class SvgGraphicsView(QGraphicsView):
         item = QGraphicsSvgItem(filename)
         self.scene.addItem(item)
         self.fitInView(item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-
     
 class TreeManager(QWidget):
     item_edited = QtCore.pyqtSignal(str,str,str,str)
+    
     def __init__(self, tree:QTreeWidget,config_manager:ConfigManager):
         super().__init__() 
         self.tree=tree
@@ -552,6 +1040,7 @@ class TreeManager(QWidget):
         self._read_only_keys=[]
         self._hidden_keys=[]
         self._disabled_keys=[]
+        self._validators = {}
 
         header = self.tree.header()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # Key
@@ -559,6 +1048,11 @@ class TreeManager(QWidget):
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # Unit
         header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)           # Info
 
+    def set_validators(self,new_validators:dict=None):
+        if new_validators is None:
+            self._validators = {}
+            return
+        self._validators=new_validators
 
     def set_read_only(self,read_only_key_list):
         if isinstance(read_only_key_list,list):
@@ -578,7 +1072,6 @@ class TreeManager(QWidget):
         else:
             log.error("Hide items must be a list!")
     
-
     def item_changed(self,section_name,section_item,old_section_data,new_section_data):
         self.item_edited.emit(section_name,section_item,str(old_section_data),str(new_section_data))
 
@@ -629,40 +1122,58 @@ class TreeManager(QWidget):
         self.tree.setItemWidget(item, 3, w)
 
     def _add_editor_widget(self, item, value):
+        key = item.text(0)
+        # --- BOOL ---
         if isinstance(value, bool):
             w = QCheckBox()
             w.setChecked(value)
             w.stateChanged.connect(lambda _: self._update_value(item, w.isChecked()))
-
+        # --- INT ---
         elif isinstance(value, int):
             w = QSpinBox()
             w.setRange(-999999, 999999)
             w.setValue(value)
             w.valueChanged.connect(lambda v: self._update_value(item, v))
+            # Apply validator if defined
+            if key in self._validators and isinstance(self._validators[key], QtGui.QIntValidator):
+                v = self._validators[key]
+                w.setRange(v.bottom(), v.top())
+        # --- FLOAT ---
         elif isinstance(value, float):
             w = QDoubleSpinBox()
             w.setRange(-999999.0, 999999.0)
             w.setDecimals(4)
             w.setValue(value)
             w.valueChanged.connect(lambda v: self._update_value(item, v))
+            # Apply validator if defined
+            if key in self._validators and isinstance(self._validators[key], QtGui.QDoubleValidator):
+                v = self._validators[key]
+                w.setRange(v.bottom(), v.top())
+                w.setDecimals(v.decimals())
+        # --- STRING ---
         elif isinstance(value, str):
             w = QLineEdit(value)
             w.textChanged.connect(lambda v: self._update_value(item, v))
+            # Apply validator if defined
+            if key in self._validators:
+                w.setValidator(self._validators[key])
+        # --- LIST (vector editor) ---
         elif isinstance(value, list):
-            # vector editor
             try:
                 w = self._make_vector_editor(item, value)
-            except (ValueError,TypeError):
-                new_value="["+' '.join(value)+"]"
+            except (ValueError, TypeError):
+                new_value = "[" + " ".join(value) + "]"
                 w = QLineEdit(new_value)
                 w.textChanged.connect(lambda v: self._update_value(item, v))
+                # Apply validator if defined
+                if key in self._validators:
+                    w.setValidator(self._validators[key])
+        # --- FALLBACK ---
         else:
-            w = QLabel(str(value))  # fallback
-        # key = item.text(0)  
-        # if key in self._disabled_keys: 
-        #     w.setDisabled(True)
-        # Add to column 1 -> Value
+            w = QLabel(str(value))
+        # Install widget into column 1
         self.tree.setItemWidget(item, 1, w)
+
         
     def _make_vector_editor(self, item, values):
         widget = QWidget()
@@ -706,19 +1217,95 @@ class TreeManager(QWidget):
         self.config_manager.update_value(section, key, values)
 
         self.item_changed(section, key, old_value, values)
-
-    def _disable_key(self):
-        child = QTreeWidgetItem([key, "", "", ""])
-        if key in self._read_only_keys:
-            child.setFlags(child.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-
-
-
-
     
-    # def _set_validators():
-    #     validator = Qt.QRegExpValidator(QRegExp("[A-Za-z0-9_]+"))
-    #     lineedit.setValidator(validator)
+    # def set_validators(self):
+    #     for key, item in self.config_items.items():
+    #         editor = self.treeWidget.itemWidget(item, 1)
+
+    #         if key in ("Img_Resolution",):
+    #             editor.setValidator(QtGui.QDoubleValidator(0.025, 9999.0, 4))
+
+    #         elif key in ("Img_Num_Colors",):
+    #             editor.setValidator(QtGui.QIntValidator(2, 256))
+
+    #         elif key in ("Img_ini_pos", "Canvas_ini_pos"):
+    #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")))
+
+    #         elif key in ("Tool_Change_XYZpos", "Robot_XYZ", "Robot_Size_XYZ"):
+    #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")))
+
+    #         elif key in ("Selected_Layers", "Tool_Change_in_Layers"):
+    #             # list of ints separated by commas
+    #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")))
+
+    # def example_validators(self):
+    #     validators = {
+    #             "Img_Resolution": QtGui.QDoubleValidator(0.025, 9999.0, 4),
+    #             "Img_Num_Colors": QtGui.QIntValidator(2, 256),
+    #             "Img_ini_pos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")),
+    #             "Canvas_ini_pos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")),
+    #             "Dip_XYZvectorpos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*){2,}\d+\s*$")),
+    #             "Tool_Change_XYZpos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
+    #             "Robot_XYZ": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
+    #             "Robot_Size_XYZ": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
+    #             "Selected_Layers": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")),
+    #             "Tool_Change_in_Layers": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")),
+    #             }
+    #     self.set_validators(validators)
+            
 
 
 
+# def Get_Variable_from_Image_Config_Data(self, key):
+#     """
+#     Retrieve a typed configuration value from Image_Config_Data.
+#     The JSON entry must contain at least {"value": ..., "type": ...}.
+#     """
+
+#     entry = self.Image_Config_Data.get(key)
+#     if entry is None:
+#         return None
+
+#     # If the entry is a raw value (old format), return it directly
+#     if not isinstance(entry, dict):
+#         return entry
+
+#     value = entry.get("value")
+#     thetype = entry.get("type", "string")  # default to string
+
+#     # ---- BASIC TYPES ----
+#     if thetype == "int":
+#         try:
+#             return int(value)
+#         except:
+#             return 0
+
+#     if thetype == "float":
+#         try:
+#             return float(value)
+#         except:
+#             return 0.0
+
+#     if thetype == "string":
+#         return str(value)
+
+#     if thetype == "bool":
+#         val = str(value).strip().lower()
+#         return val in ("true", "1", "t", "yes")
+
+#     # ---- VECTOR FLOAT ----
+#     if thetype in ("vector", "vectorf"):
+#         try:
+#             return [float(x) for x in str(value).split()]
+#         except:
+#             return []
+
+#     # ---- VECTOR INT ----
+#     if thetype == "vectori":
+#         try:
+#             return [int(x) for x in str(value).split()]
+#         except:
+#             return []
+
+#     # ---- FALLBACK ----
+#     return value

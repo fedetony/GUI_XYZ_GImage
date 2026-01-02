@@ -1,6 +1,7 @@
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import *
+import logging
 
 class SignalTracker(QWidget):
     '''
@@ -19,14 +20,14 @@ class SignalTracker(QWidget):
     enable_isSTREAMING= QtCore.pyqtSignal(bool)
     is_hold_state= QtCore.pyqtSignal(bool)
     log_update=QtCore.pyqtSignal(bool)
-    log_to_main=QtCore.pyqtSignal(str,str,str)
-    
+    log_to_main = QtCore.pyqtSignal(object)
+
     def __init__(self, *args, **kwargs):        
         super(SignalTracker, self).__init__(*args, **kwargs)    
         self.__name__="ST"
     
-    def Log_to_Main(self,msg:str,i_am:str,log_type='info'):
-        self.log_to_main.emit(msg,i_am,log_type)
+    def Log_to_Main(self, record: logging.LogRecord): 
+        self.log_to_main.emit(record)
 
     def Log_Update(self):
         self.log_update.emit(True)

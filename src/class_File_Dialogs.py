@@ -1,92 +1,251 @@
-from PyQt6.QtWidgets import *
-from PyQt6 import QtWidgets, QtGui, QtCore
+#################
+# Dialog Class Helper
+# Morernized: 02.01.2026
+# With coffee and love by F.G 
+################
+from PyQt6 import QtWidgets
+
+from PyQt6.QtCore import QUrl
+from PyQt6.QtWidgets import QWidget, QFileDialog
+from PyQt6.QtWidgets import QMessageBox, QPushButton
+import os
 
 class Dialogs(QWidget):
     def __init__(self):
         super().__init__()
-        # self.options = QFileDialog.options()
-        # self.options |= QFileDialog.Option.DontUseNativeDialog
         self.options = QFileDialog.Option.DontUseNativeDialog
-        self.dir=""
-    def get_filter(self,filter):
-        if filter==0:
-            self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc)"
-            self.selected_filter = "Gcode Files (*.gcode)"
-        elif filter==1:
-            self.filters="All Files (*);;Images (*.png *.xpm *.jpg *.bmp)"
-            self.selected_filter = "Images (*.png *.xpm *.jpg *.bmp)"
-        elif filter==2:
-            self.filters="All Files (*);;Text Files (*.txt)"
-            self.selected_filter = "Text Files (*.txt)"
-        elif filter==3:
-            self.filters="All Files (*);;Yaml Files (*.yml);;Json Files (*.json)"
-            self.selected_filter = "Yaml Files (*.yml)" 
-        elif filter==4:
-            self.filters="All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Action Files (*.acode)"
-            self.selected_filter = "Gcode Files (*.gcode)"   
-        elif filter==5:
-            self.filters="All Files (*);;Batton Configuration Files (*.btncfg)"
-            self.selected_filter = "Batton Configuration Files (*.btncfg)"
-        else:
-            self.filters="All Files (*)"
-            self.selected_filter = "All Files (*)"    
 
-    def openFileNameDialog(self,filter=0):
-        '''
-        filters:
-        0->Gcode Files (*.gcode *.ncg)
-        1->Images (*.png *.xpm *.jpg *.bmp)
-        2->Text Files (*.txt)
-        3->Configuration Files (*.yml *.json)
-        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
-        5->Batton Configuration files (*.btncfg)
-        else all Files
-        '''        
-        #dir = self.sourceDir
-        self.get_filter(filter)        
+        # Start in user's home directory
+        self.dir = os.path.expanduser("~")
+
+        # Centralized filter definitions
+        self.filter_map = {
+            0: ("All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Linux Gcode Files (*.nc)",
+                "Gcode Files (*.gcode)"),
+            1: ("All Files (*);;Images (*.png *.xpm *.jpg *.bmp)",
+                "Images (*.png *.xpm *.jpg *.bmp)"),
+            2: ("All Files (*);;Text Files (*.txt)",
+                "Text Files (*.txt)"),
+            3: ("All Files (*);;Yaml Files (*.yml);;Json Files (*.json)",
+                "Yaml Files (*.yml)"),
+            4: ("All Files (*);;Gcode Files (*.gcode);;Linux Gcode Files (*.ngc);;Linux Gcode Files (*.nc);;Action Files (*.acode)",
+                "Gcode Files (*.gcode)"),
+            5: ("All Files (*);;Batton Configuration Files (*.btncfg)",
+                "Batton Configuration Files (*.btncfg)"),
+            6: ("Json Files (*.json)",
+                "Json Files (*.json)"),
+            7: ("Yaml Files (*.yml)",
+                "Yaml Files (*.yml)"),
+        }
+
+        self.default_filter = ("All Files (*)", "All Files (*)")
+        self.last_paths = {}
+
+    # ---------------------------------------------------------
+    # Internal helper: get filter tuple
+    # ---------------------------------------------------------
+    def get_filter(self, filter_id):
+        return self.filter_map.get(filter_id, self.default_filter)
+
+    # ---------------------------------------------------------
+    # Internal helper: update last-used directory
+    # ---------------------------------------------------------
+    def _update_last_dir(self, filter_id, path):
+        if not path:
+            return
+        directory = os.path.dirname(path)
+        if os.path.isdir(directory):
+            self.last_paths[filter_id] = directory
+            self.dir = directory  #  update global fallback too
+
+    # ---------------------------------------------------------
+    # Unified dialog handler
+    # ---------------------------------------------------------
+    def _open_dialog(self, mode, filter_id=0, title=None):
+        filters, selected = self.get_filter(filter_id)
+
+        # Determine starting directory
+        start_dir = self.last_paths.get(filter_id, self.dir)
+
+        # Validate directory
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = self.dir
+
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = os.path.expanduser("~")  # final fallback
+
+        # --- OPEN SINGLE FILE ---
+        if mode == "open_single":
+            if title is None:
+                title = "Open File"
+            fileName, _ = QFileDialog.getOpenFileName(
+                self, title, start_dir, filters, selected, options=self.options
+            )
+            if fileName:
+                self._update_last_dir(filter_id, fileName)
+            return fileName or None
+
+        # --- OPEN MULTIPLE FILES ---
+        if mode == "open_multi":
+            if title is None:
+                title = "Open Files"
+            files, _ = QFileDialog.getOpenFileNames(
+                self, title, start_dir, filters, selected, options=self.options
+            )
+            if files:
+                self._update_last_dir(filter_id, files[0])
+            return files or None
+
+        # --- SAVE FILE ---
+        if mode == "save":
+            if title is None:
+                title = "Save File"
+            fileName, _ = QFileDialog.getSaveFileName(
+                self, title, start_dir, filters, selected, options=self.options
+            )
+            if fileName:
+                self._update_last_dir(filter_id, fileName)
+            return fileName or None
+
+        return None
+
+    # ---------------------------------------------------------
+    # Public API for files
+    # ---------------------------------------------------------
+    def openFileNameDialog(self, filter=0,title=None):
+        """Opens a one File dialog"""
+        return self._open_dialog("open_single", filter, title)
+
+    def openFileNamesDialog(self, filter=0, title=None):
+        """Opens multiple File dialog"""
+        return self._open_dialog("open_multi", filter, title)
+
+    def saveFileDialog(self, filter=0, title=None):
+        """Opens a save File dialog"""
+        return self._open_dialog("save", filter, title)
+
+    # ---------------------------------------------------------
+    # Public API for folders
+    # ---------------------------------------------------------
+    def openFolderDialog(self):
+        """Opens a Folder selection"""
+        start_dir = self.last_paths.get("folder", self.dir)
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Folder", start_dir, options=self.options
+        )
+        if folder:
+            self._update_last_dir("folder", folder)
+        return folder or None
+
+    def openFolderUrlDialog(self):
+        """Opens URLS Example:
+        result = dialogs.openFolderUrlDialog()
+        if result:
+            print("Folder path:", result["path"])
+            print("Folder URL:", result["url"])
         
-        fileObj = QFileDialog.getOpenFileName(self, "Open File dialog ", self.dir, self.filters, self.selected_filter, options=self.options)
-        fileName, _ = fileObj
-        if fileName:
-            return fileName
-        else:
-            return None    
-    
-    def openFileNamesDialog(self,filter=0):
-        '''
-        filters:
-        0->Gcode Files (*.gcode *.ncg)
-        1->Images (*.png *.xpm *.jpg *.bmp)
-        2->Text Files (*.txt)
-        3->Configuration Files (*.yml *.json)
-        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
-        5->Batton Configuration files (*.btncfg)
-        else all Files
-        '''
-        self.get_filter(filter) 
-        files, _ = QFileDialog.getOpenFileNames(self, "Open File Names Dialog", self.dir, self.filters, self.selected_filter, options=self.options)
-        if files:
-            return files
-        else:
-            return None    
-    
-    def saveFileDialog(self,filter=0): 
-        '''
-        filters:
-        0->Gcode Files (*.gcode *.ncg)
-        1->Images (*.png *.xpm *.jpg *.bmp)
-        2->Text Files (*.txt)
-        3->Configuration Files (*.yml *.json)
-        4->Gcode and Action Files (*.gcode *.ncg *.acode) 
-        5->Batton Configuration files (*.btncfg)
-        else all Files
-        '''    
-        self.get_filter(filter)         
-        fileName, _ = QFileDialog.getSaveFileName(self, "Save File dialog ", self.dir, self.filters, self.selected_filter, options=self.options)
-        if fileName:
-            return fileName
-        else:
+        Returns:
+            dict: results
+        """
+        start_dir = self.last_paths.get("folder", self.dir)
+        url = QFileDialog.getExistingDirectoryUrl(
+            self,
+            "Select Folder",
+            QUrl.fromLocalFile(start_dir),
+            options=self.options
+        )
+        if not url.isValid():
             return None
+        folder_path = url.toLocalFile()
+        # update last directory
+        self._update_last_dir("folder", folder_path)
+        return {
+            "path": folder_path,
+            "url": url
+        }
+    
+    def openFoldersUrlDialog(self):
+        """Opens URLS Example:
+        result = dialogs.openFoldersUrlDialog()
+        if result:
+            print(result["paths"])
+            print(result["urls"])
+
+        Returns:
+            dict: results
+        """
+        start_dir = self.last_paths.get("folder", self.dir)
+        urls = QFileDialog.getExistingDirectoriesUrl(
+            self,
+            "Select Folders",
+            QUrl.fromLocalFile(start_dir),
+            options=self.options
+        )
+        if not urls:
+            return None
+        folders = [u.toLocalFile() for u in urls]
+        # update last directory using the first folder
+        self._update_last_dir("folder", folders[0])
+        return {
+            "paths": folders,
+            "urls": urls
+        }
+
+
+class MsgBoxHelper(QWidget):
+    def __init__(self):
+        super().__init__()
+
+    def show(
+        self,
+        title,
+        text,
+        icon=QMessageBox.Icon.Information,
+        buttons=None,
+        default=None,
+        detailed_text=None,
+        informative_text=None,
+    ):
+        """
+        buttons: list of tuples -> [("OK", AcceptRole), ("Cancel", RejectRole)]
+        default: label of default button
+        returns: (label, role)
+        """
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setIcon(icon)
+        msg.setText(text)
+
+        if informative_text:
+            msg.setInformativeText(informative_text)
+
+        if detailed_text:
+            msg.setDetailedText(detailed_text)
+
+        btn_map = {}
+
+        # Add custom buttons
+        if buttons:
+            for label, role in buttons:
+                b = QPushButton(label)
+                msg.addButton(b, role)
+                btn_map[b] = (label, role)
+
+                if default and label == default:
+                    msg.setDefaultButton(b)
+
+        else:
+            # If no buttons provided → default OK
+            b = QPushButton("OK")
+            msg.addButton(b, QMessageBox.ButtonRole.AcceptRole)
+            btn_map[b] = ("OK", QMessageBox.ButtonRole.AcceptRole)
+            msg.setDefaultButton(b)
+
+        msg.exec()
+
+        clicked = msg.clickedButton()
+        return btn_map.get(clicked, (None, None))
 
 
 

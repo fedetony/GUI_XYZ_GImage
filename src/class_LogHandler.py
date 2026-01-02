@@ -6,6 +6,12 @@ import os
 import sys
 from pathlib import Path
 
+LM = None
+
+def init_logger_manager(log_file):
+    global LM
+    LM = LoggerManager(log_file)
+    return LM
 
 class LoggerManager:
     def __init__(self, log_file):
@@ -13,6 +19,7 @@ class LoggerManager:
         self.log_queue = queue.Queue()
         self.root = logging.getLogger()
         self.root.setLevel(logging.DEBUG)
+        self.formatter = logging.Formatter( "%(asctime)s [%(levelname)s] (%(name)s) %(message)s", "%y-%m-%d %H:%M" )
 
         if not self.root.handlers:
             self._setup_file_handler()
@@ -30,7 +37,7 @@ class LoggerManager:
         handler = ConsolePanelHandler(gui_panel)
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%(asctime)s [%(levelname)s] (%(name)s) %(message)s",
             "%y-%m-%d %H:%M"
         ))
 
@@ -40,8 +47,8 @@ class LoggerManager:
         # Store it so you can manage/remove later
         self.gui_handlers.append(handler)
     
-    def attach_signaltracker_handler(self, signal_tracker):
-        handler = SignalTrackerHandler(signal_tracker)
+    def attach_signaltracker_handler(self, parent, signal_tracker):
+        handler = SignalTrackerHandler(parent, signal_tracker)
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(
             "%(asctime)s [%(levelname)s] (%(name)s) %(message)s",
@@ -59,7 +66,7 @@ class LoggerManager:
         fh = logging.FileHandler(self.log_file, mode="a", encoding="utf-8")
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s",
+            "%(asctime)s [%(levelname)s] (%(threadName)-10s) (%(name)s) %(message)s",
             "%y-%m-%d %H:%M:%S"
         ))
         self.root.addHandler(fh)
@@ -109,25 +116,24 @@ class ConsolePanelHandler(logging.Handler):
 
     def emit(self, record):
         self.parent.write_GUI_Log(self.format(record))
-        #self.ui.write_GUI_Log(self.format(record))
-        #self.textedit.append(self.format(record))
 
 class SignalTrackerHandler(logging.Handler):
-    def __init__(self, signal_tracker:class_ST.SignalTracker):
+    def __init__(self, parent, signal_tracker:class_ST.SignalTracker):
         super().__init__()
         self.ST = signal_tracker
+        self._emitting = False
+        self.parent=parent
 
     def emit(self, record):
-        try:
-            msg = self.format(record)
-            logger_name = record.name
-            level = record.levelname.lower()
+        if self._emitting: #avoid recursion
+            return
+        self._emitting = True
+        # msg = self.format(record)
+        # logger_name = record.name
+        # level = record.levelname.lower()
+        self.ST.Log_to_Main(record)
+        self._emitting = False
 
-            # Emit to Qt safely
-            self.ST.log_to_main.emit(msg, logger_name, level)
-
-        except Exception:
-            self.handleError(record)
 
 class ToFileLogger:
     def __init__(self, name):
