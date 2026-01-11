@@ -229,8 +229,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         log.debug(self.cm.machine) 
         log.debug(self.cm.tool) 
         log.debug(self.cm.technique) 
-        log.debug(self.cm.image)
-        log.info("Success machine, tools, technique and session configuration set!")
+        log.debug(self.cm.session)
+        log.info("Success configuration set!")
         self.tm=TreeManager(self.tree,self.cm)
         self.tm.item_edited.connect(self.on_tree_item_edited)
         self.tm.refresh()
@@ -860,12 +860,18 @@ class ConfigManager:
     
     def _validate_session(self):
         if not self._are_all_profiles():
-            raise ValueError(f"Missing one or more profiles!")  
-        
-        machine = self.session["machine"]
-        tool = self.session["tool"]
-        technique = self.session["technique"]
+            raise ValueError("Missing one or more profiles!")
+        try:
+            machine = self.session["machine"]["type"]["value"]
+            tool = self.session["tool"]["type"]["value"]
+            workspace = self.session["workspace"]
+            image = self.session["image"]
+            output = self.session["output"]
+            technique = self.session["technique"]["type"]["value"]
+        except (KeyError,TypeError,ValueError) as eee:
+            raise ValueError(f"Missing configuration in file: '{eee}'")
 
+        # --- 1. Validate existence ---
         if machine not in self.machine_profiles:
             raise ValueError(f"Unknown machine '{machine}'")
 
@@ -875,28 +881,67 @@ class ConfigManager:
         if technique not in self.technique_profiles:
             raise ValueError(f"Unknown technique '{technique}'")
 
-        # Check tool compatibility
-        compatible = self.technique_profiles[technique]["compatible_tools"]
-        if tool not in compatible:
+        machine_def = self.machine_profiles[machine]
+        tool_def = self.tool_profiles[tool]
+        tech_def = self.technique_profiles[technique]
+
+        # --- 2. Tool must be compatible with machine ---
+        if "compatible_machines" in tool_def:
+            if machine not in tool_def["compatible_machines"]:
+                raise ValueError(
+                    f"Tool '{tool}' is not compatible with machine '{machine}'"
+                )
+
+        # --- 3. Technique must be compatible with tool ---
+        if tool not in tech_def["compatible_tools"]:
             raise ValueError(
                 f"Technique '{technique}' is not compatible with tool '{tool}'"
             )
 
+        # --- 4. Technique requirements must be supported by machine/tool ---
+        # Analog power requirement
+        if tech_def.get("requires_analog_power", False):
+            if not machine_def.get("supports_analog_power", False):
+                raise ValueError(
+                    f"Technique '{technique}' requires analog power, "
+                    f"but machine '{machine}' does not support it."
+                )
+
+        # Grayscale requirement
+        if tech_def.get("requires_grayscale", False):
+            if not machine_def.get("supports_grayscale", True):
+                raise ValueError(
+                    f"Technique '{technique}' requires grayscale capability, "
+                    f"but machine '{machine}' does not support it."
+                )
+
+        # Axis requirement (example: some techniques need Z)
+        if tech_def.get("requires_z_axis", False):
+            has_z = any(ax["name"] == "Z" for ax in machine_def["axes"])
+            if not has_z:
+                raise ValueError(
+                    f"Technique '{technique}' requires a Z axis, "
+                    f"but machine '{machine}' does not have one."
+                )
+
+        return True
+
     def update_value(self, section, key, new_value):
         target = None
         if section == "machine":
-            target = self.machine
+            target = self.machine_dict
         elif section == "tool":
-            target = self.tool
+            target = self.tool_dict
+        elif section == "workspace":
+            target = self.workspace_dict
         elif section == "technique":
             target = self.technique
         elif section == "image":
-            target = self.image
+            target = self.image_dict
         elif section == "output":
-            target = self.session
+            target = self.output_dict
         else:
             raise KeyError(f"Unknown section: {section}")
-
         entry = target[key]
 
         if isinstance(entry, dict) and "value" in entry:
@@ -910,11 +955,12 @@ class ConfigManager:
     @property
     def session_dict(self):
         return {
-            "machine": self.machine,
-            "tool": self.tool,
-            "technique": self.technique,
-            "image": self.image,
-            "output": self.session
+            "machine": self.machine_dict,
+            "tool": self.tool_dict,
+            "workspace": self.workspace_dict,
+            "technique": self.technique_dict,
+            "image": self.image_dict,
+            "output": self.output_dict
         }
 
     @property
@@ -931,23 +977,51 @@ class ConfigManager:
 
     @property
     def machine(self):
-        return self.machine_profiles[self.session["machine"]]
+        try:
+            return self.machine_profiles[self.session["machine"]["type"]["value"]]
+        except Exception as eee:
+            log.error(f"Machine error: {eee}")
+        return None
 
     @property
     def tool(self):
-        return self.tool_profiles[self.session["tool"]]
+        try:
+            return self.tool_profiles[self.session["tool"]["type"]["value"]]
+        except Exception as eee:
+            log.error(f"Tool error: {eee}")
+        return None
 
     @property
     def technique(self):
-        return self.technique_profiles[self.session["technique"]]
+        try:
+            return self.technique_profiles[self.session["technique"]["type"]["value"]]
+        except Exception as eee:
+            log.error(f"Technique error: {eee}")
+        return None
+    
+    @property
+    def machine_dict(self):
+        return self.session.get("machine",None)
+    
+    @property
+    def tool_dict(self):
+        return self.session.get("tool",None)
+    
+    @property
+    def workspace_dict(self):
+        return self.session.get("workspace",None)
 
     @property
-    def image(self):
-        return self.session["image"]
+    def technique_dict(self):
+        return self.session.get("technique",None)
+    
+    @property
+    def image_dict(self):
+        return self.session.get("image",None)
 
     @property
-    def output(self):
-        return self.session["output"]
+    def output_dict(self):
+        return self.session.get("output",None)
 
     # -------------------------
     # SESSION SAVE/LOAD
@@ -978,19 +1052,19 @@ class ConfigManager:
     def set_machine(self, name):
         if name not in self.machine_profiles:
             raise ValueError(f"Unknown machine '{name}'")
-        self.session["machine"] = name
+        self.session["machine"]["type"]["value"] = name
         self._validate_session()
 
     def set_tool(self, name):
         if name not in self.tool_profiles:
             raise ValueError(f"Unknown tool '{name}'")
-        self.session["tool"] = name
+        self.session["tool"]["type"]["value"] = name
         self._validate_session()
 
     def set_technique(self, name):
         if name not in self.technique_profiles:
             raise ValueError(f"Unknown technique '{name}'")
-        self.session["technique"] = name
+        self.session["technique"]["type"]["value"] = name
         self._validate_session()
 
     def set_image_param(self, key, value):

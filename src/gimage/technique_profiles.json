@@ -1,46 +1,129 @@
 {
   "vectorize": {
-    "compatible_tools": ["pen", "laser", "cutter", "extruder"],
-    "parameters": {
-      "line_speed": 2000,
-      "arc_fitting": true,
-      "fill_patterns": ["none", "hatch", "crosshatch", "spiral"]
-    }
+    "compatible_tools": ["pen", "pencil", "brush", "laser", "cutter", "extruder", "mark", "bit"],
+    "method": [
+      {
+        "name": "passes",
+        "info": "Draws or cuts the vector outlines using one or multiple passes along the path."
+      }
+    ]
+  },
+
+  "vectorize_fill": {
+    "compatible_tools": ["pen", "pencil", "brush", "laser", "extruder", "mark"],
+    "method": [
+      {
+        "name": "none",
+        "info": "Only outlines are drawn; no interior fill is applied."
+      },
+      {
+        "name": "hatch",
+        "info": "Fills shapes using parallel lines at a fixed angle."
+      },
+      {
+        "name": "crosshatch",
+        "info": "Fills shapes using two hatch patterns at different angles for denser coverage."
+      },
+      {
+        "name": "spiral",
+        "info": "Fills shapes using a continuous spiral pattern from center outward."
+      }
+    ]
   },
 
   "laser_engrave": {
     "compatible_tools": ["laser"],
-    "parameters": {
-      "power_mode": "analog",
-      "min_power": 10,
-      "max_power": 255,
-      "speed": 3000
-    }
+    "method": [
+      {
+        "name": "constant_speed_variable_power",
+        "info": "Laser moves at a fixed speed while power is modulated to create grayscale shading."
+      },
+      {
+        "name": "constant_power_variable_speed",
+        "info": "Laser power stays constant while speed changes to control burn intensity."
+      }
+    ],
+    "requires_grayscale": true,
+    "requires_analog_power": true
   },
 
   "laser_cut": {
     "compatible_tools": ["laser"],
-    "parameters": {
-      "power_mode": "digital",
-      "on_power": 255,
-      "off_power": 0,
-      "speed": 1500
-    }
+    "method": [
+      {
+        "name": "m4_dynamic_power",
+        "info": "Uses M4 mode where laser power dynamically adjusts based on motion speed."
+      },
+      {
+        "name": "m3_constant_power",
+        "info": "Uses M3 mode with fixed laser power for consistent cutting depth."
+      }
+    ]
   },
 
   "lineing": {
-    "compatible_tools": ["pen", "extruder"],
-    "parameters": {
-      "stroke_density": 1.0,
-      "randomness": 0.1
-    }
+    "compatible_tools": ["pen", "pencil", "brush"],
+    "method": [
+      {
+        "name": "repetition",
+        "info": "Repeats the same stroke multiple times to increase line darkness or thickness."
+      },
+      {
+        "name": "overlap",
+        "info": "Draws overlapping strokes to smooth or thicken the line."
+      }
+    ]
+  },
+
+  "circleing": {
+    "compatible_tools": ["pen", "pencil"],
+    "method": [
+      {
+        "name": "repetition",
+        "info": "Repeats circular motions to reinforce the mark or darken the area."
+      },
+      {
+        "name": "spiraling",
+        "info": "Draws a spiral pattern to fill circular regions smoothly."
+      }
+    ]
+  },
+
+  "dithering": {
+    "compatible_tools": ["laser"],
+    "method": [
+      {
+        "name": "pwm_dither",
+        "info": "Simulates grayscale by rapidly toggling the laser on/off using PWM dot patterns."
+      },
+      {
+        "name": "speed_dither",
+        "info": "Simulates grayscale by varying movement speed while keeping laser power fixed."
+      }
+    ],
+    "requires_grayscale": true,
+    "requires_analog_power": false
   },
 
   "stipple": {
     "compatible_tools": ["pen"],
-    "parameters": {
-      "dot_density": 0.5,
-      "randomness": 0.2
-    }
+    "method": [
+      {
+        "name": "density",
+        "info": "Places dots with varying density to simulate shading."
+      },
+      {
+        "name": "repetition",
+        "info": "Repeats dot placement to darken specific areas."
+      },
+      {
+        "name": "random",
+        "info": "Places dots randomly within constraints to create organic textures."
+      },
+      {
+        "name": "puncture",
+        "info": "Applies strong single‑point pressure to create deep or bold dots."
+      }
+    ]
   }
 }

@@ -1,34 +1,80 @@
 {
   "laser": {
     "type": "laser",
-    "parameters": {
-      "max_power": 255,
-      "min_power": 0,
-      "focus_height": 0.0
-    }
+    "compatible_machines": [
+      "laser_2axis",
+      "laser_2Aaxis",
+      "laser_3axis"
+    ]
   },
 
-  "pen": {
-    "type": "pen",
+  "bit": {
+    "type": "bit",
+    "compatible_machines": [
+      "cnc_3axis",
+      "cnc_4axis",
+      "cnc_5axis",
+      "cnc_6axis"
+    ]
+  },
+
+  "mark": {
+    "type": "mark",
+    "compatible_machines": [
+      "plotter"
+    ]
+  },
+
+  "pencil": {
+    "type": "pencil",
+    "compatible_machines": [
+      "drawing_bot",
+      "plotter"
+    ]
+  },
+
+  "brush": {
+    "type": "brush",
+    "compatible_machines": [
+      "drawing_bot",
+      "plotter"
+    ],
     "parameters": {
       "z_touch": 0.0,
       "z_retract": 3.0
     }
   },
 
+  "pen": {
+    "type": "pen",
+    "compatible_machines": [
+      "drawing_bot",
+      "plotter"
+    ]
+  },
+
   "cutter": {
     "type": "cutter",
-    "parameters": {
-      "z_cut_depth": -1.0,
-      "z_safe": 3.0
-    }
+    "compatible_machines": [
+      "laser_2axis",
+      "laser_2Aaxis",
+      "laser_3axis",
+      "jet_cutter",
+      "plasma_cutter"
+    ]
+  },
+
+  "scratch": {
+    "type": "scratch",
+    "compatible_machines": [
+      "drawing_bot"
+    ]
   },
 
   "extruder": {
     "type": "extruder",
-    "parameters": {
-      "extrusion_rate": 0.05,
-      "retraction": 1.0
-    }
+    "compatible_machines": [
+      "3d_printer"
+    ]
   }
 }

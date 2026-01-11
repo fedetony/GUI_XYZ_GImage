@@ -1,17 +1,289 @@
 {
-  "machine": "drawing_bot",
-  "tool": "pen",
-  "technique": "vectorize",
+  "machine": {
+    "type": {
+      "value": "laser_2axis",
+      "unit": "",
+      "type": "str",
+      "info": "Machine type (laser, cnc, plotter, etc.)",
+      "user_modifiable": false
+    },
+
+    "name": {
+      "value": "laser machine",
+      "unit": "",
+      "type": "str",
+      "info": "Machine name"
+    },
+
+    "axis_count": {
+      "value": 2,
+      "unit": "",
+      "type": "int",
+      "info": "Number of motion axes available",
+      "user_modifiable": false
+    },
+
+    "axes": {
+      "value": ["X", "Y"],
+      "unit": "",
+      "type": "vector",
+      "info": "List of axis names",
+      "user_modifiable": false
+    },
+
+    "work_area": {
+      "value": [400, 420],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Maximum reachable XY area"
+    },
+
+    "max_speed": {
+      "value": 5000,
+      "unit": "mm/min",
+      "type": "int",
+      "info": "Maximum allowed movement speed"
+    },
+
+    "home_position": {
+      "value": [0, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Machine home position in workspace coordinates"
+    }
+  },
+
+  "tool": {
+    "type": {
+      "value": "laser",
+      "unit": "",
+      "type": "str",
+      "info": "Tool type (pencil, laser, cutter, etc.)",
+      "user_modifiable": false
+    },
+
+    "tool_tip_shape": {
+      "value": "Cylindrical",
+      "unit": "",
+      "type": "str",
+      "info": "Shape of the tool tip",
+      "choices": ["Cylindrical", "Conical", "Spherical"]
+    },
+
+    "tool_tip_size": {
+      "value": 0.1,
+      "unit": "mm",
+      "type": "float",
+      "info": "Diameter or effective contact width"
+    },
+
+    "tool_tip_contact_offset": {
+      "value": [0, 0, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Offset between tool tip and machine reference point"
+    },
+
+    "park_position": {
+      "value": [419, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Position where tool is parked when idle"
+    },
+
+    "tool_z_correction": {
+      "value": 0.1,
+      "unit": "mm/m",
+      "type": "float",
+      "info": "Z correction per meter of tool wear",
+      "visible_when": { "technique.name": "pencil" }
+    },
+
+    "tool_change": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Enable tool change routine"
+    },
+
+    "tool_change_per_layer": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Perform tool change after every layer",
+      "visible_when": { "tool.tool_change.value": true }
+    },
+
+    "tool_change_in_layers": {
+      "value": [-1],
+      "unit": "",
+      "type": "vectori",
+      "info": "List of layers requiring tool change (-1 = all)",
+      "visible_when": {
+        "tool.tool_change.value": true,
+        "tool.tool_change_per_layer.value": true
+      }
+    }
+  },
+
+  "workspace": {
+    "material": {
+      "value": "wood",
+      "unit": "",
+      "type": "str",
+      "info": "Material type",
+      "choices": ["wood", "paper", "canvas", "plastic"]
+    },
+
+    "size": {
+      "value": [297.0, 210.0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Dimensions of the material"
+    },
+
+    "offset": {
+      "value": [10, 10, 4.0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Offset from machine home to material origin"
+    }
+  },
+
+  "technique": {
+    "type": {
+      "value": "vectorize",
+      "unit": "",
+      "type": "str",
+      "info": "Processing technique",
+      "user_modifiable": false,
+      "choices": ["vectorize", "engrave", "stipple", "outline"]
+    },
+
+    "power_range": {
+      "value": [20, 400],
+      "unit": "",
+      "type": "vectori",
+      "info": "Laser power range (S parameter)",
+      "visible_when": { "machine.type": "laser" }
+    },
+
+    "cut_power_range": {
+      "value": [20, 400],
+      "unit": "",
+      "type": "vectori",
+      "info": "Laser cutting power range",
+      "visible_when": { "machine.type": "laser" }
+    },
+
+    "rate": {
+      "value": 2000,
+      "unit": "mm/min",
+      "type": "int",
+      "info": "Movement speed for this technique",
+      "visible_when": { "technique.use_variable_rate.value": false }
+    },
+
+    "use_variable_rate": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Enable dynamic speed based on image content",
+      "visible_when": { "machine.type": "laser" }
+    },
+
+    "z_retraction": {
+      "value": 2,
+      "unit": "mm",
+      "type": "float",
+      "info": "Z lift between moves",
+      "visible_when": { "machine.axis_count": ">=3" }
+    }
+  },
 
   "image": {
-    "path": "input.png",
-    "width": 200,
-    "height": 200,
-    "resolution": 0.5,
-    "position": [10, 10]
+    "file": {
+      "value": "",
+      "unit": "",
+      "type": "str",
+      "info": "File name with path to input image"
+    },
+
+    "color": {
+      "value": "RGB",
+      "unit": "",
+      "type": "str",
+      "info": "Color scheme",
+      "user_modifiable":false
+    },
+
+    "process": {
+      "value": "descrete",
+      "unit": "",
+      "type": "int",
+      "info": "descrete to quantisize the colors into number of colors, continuous to set proportional value to color value",
+      "choices":["descrete","continuous"]
+    },
+
+    "number_of_colors": {
+      "value": 8,
+      "unit": "",
+      "type": "int",
+      "info": "Number of colors/layers (<256)",
+      "range": [1, 256],
+      "visible_when":{"image.process.value":"descrete"}
+    },
+
+    "resolution": {
+      "value": 0.5,
+      "unit": "px/mm",
+      "type": "float",
+      "info": "Image resolution"
+    },
+
+    "selected_layers": {
+      "value": [0,1,2,3,4,5,6,7],
+      "unit": "",
+      "type": "vectori",
+      "info": "Layers to process (-1 = all)"
+    },
+
+    "draw_frame": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Draw a frame around the image"
+    },
+
+    "frame_offset": {
+      "value": [0, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Frame offset relative to image",
+      "visible_when": { "image.draw_frame.value": true }
+    }
   },
 
   "output": {
-    "gcode_path": "output.gcode"
+    "gcode_path": {
+      "value": "output.gcode",
+      "unit": "",
+      "type": "str",
+      "info": "Output G-code file path"
+    },
+
+    "image_size": {
+      "value": [100, 100, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Final image size after processing"
+    },
+
+    "image_offset": {
+      "value": [10, 10, 0],
+      "unit": "mm",
+      "type": "vectorf",
+      "info": "Offset of processed image in workspace"
+    }
   }
 }

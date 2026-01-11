@@ -1,41 +1,147 @@
 {
   "laser_2axis": {
     "name": "Laser 2‑Axis",
-    "axes": ["X", "Y"],
-    "supports_z": false,
-    "supports_e": false,
-    "max_speed": 5000,
-    "home_command": "G28",
-    "units": "mm"
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
+  },
+
+  "laser_2Aaxis": {
+    "name": "Laser 2A‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "A", "role": "rotation"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
+  },
+
+  "laser_3axis": {
+    "name": "Laser 3‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
+  },
+
+  "cnc_3axis": {
+    "name": "CNC 3‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
+  },
+
+  "cnc_4axis": {
+    "name": "CNC 4‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"},
+      {"name": "A", "role": "rotation"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
+  },
+
+  "cnc_5axis": {
+    "name": "CNC 5‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"},
+      {"name": "A", "role": "rotation"},
+      {"name": "B", "role": "rotation"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
   },
 
   "cnc_6axis": {
     "name": "CNC 6‑Axis",
-    "axes": ["X", "Y", "Z", "A", "B", "C"],
-    "supports_z": true,
-    "supports_e": false,
-    "max_speed": 3000,
-    "home_command": "G28",
-    "units": "mm"
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"},
+      {"name": "A", "role": "rotation"},
+      {"name": "B", "role": "rotation"},
+      {"name": "C", "role": "rotation"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
+  },
+
+  "plotter": {
+    "name": "Plotter 2‑Axis",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
   },
 
   "drawing_bot": {
     "name": "Drawing Bot",
-    "axes": ["X", "Y", "Z"],
-    "supports_z": true,
-    "supports_e": false,
-    "z_retract_default": 3.0,
-    "home_command": "G28",
-    "units": "mm"
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
+  },
+
+  "lathe": {
+    "name": "Lathe",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "A", "role": "spindle"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
+  },
+
+  "jet_cutter": {
+    "name": "Water jet cutter",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
+  },
+
+  "plasma_cutter": {
+    "name": "Plasma cutter",
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"}
+    ],
+    "coordinate_positions": 2,
+    "default_units": "mm"
   },
 
   "3d_printer": {
     "name": "3D Printer",
-    "axes": ["X", "Y", "Z", "E"],
-    "supports_z": true,
-    "supports_e": true,
-    "extruder_temp": 200,
-    "home_command": "G28",
-    "units": "mm"
+    "axes": [
+      {"name": "X", "role": "position"},
+      {"name": "Y", "role": "position"},
+      {"name": "Z", "role": "position"},
+      {"name": "E", "role": "extruder"}
+    ],
+    "coordinate_positions": 3,
+    "default_units": "mm"
   }
 }

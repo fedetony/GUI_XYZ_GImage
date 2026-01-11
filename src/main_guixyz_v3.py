@@ -8,7 +8,8 @@ __app__ = "GUI_XYZ"
 __author__ = "FG"
 __authorname__ = "Federico García"
 __version__="3.1.0 Beta"
-__creationdate__= "20.12.2025" #"16.06.2020"
+__creationdate__= "16.06.2020"
+__lastmodificationdate__= "20.12.2025" 
 __gitaccount__="<a href=\"https://github.com/fedetony\">' Github for fedetony'</a>"
 __CR__="Copyright (C) <year> "+__authorname__
 __CRstatement__="""This program is distributed in the hope that it will be useful,
