@@ -1,6 +1,6 @@
 {
   "machine": {
-    "type": {
+    "machine_type": {
       "value": "laser_2axis",
       "unit": "",
       "type": "str",
@@ -26,7 +26,13 @@
     "axes": {
       "value": ["X", "Y"],
       "unit": "",
-      "type": "vector",
+      "type": "list",
+      "subtype": "str",
+      "meta":{
+        "constraints": {
+          "arity": 2
+           }
+      },
       "info": "List of axis names",
       "user_modifiable": false
     },
@@ -34,7 +40,8 @@
     "work_area": {
       "value": [400, 420],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
       "info": "Maximum reachable XY area"
     },
 
@@ -48,13 +55,19 @@
     "home_position": {
       "value": [0, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
+      "meta":{
+        "constraints": {
+          "arity": 2
+           }
+      },
       "info": "Machine home position in workspace coordinates"
     }
   },
 
   "tool": {
-    "type": {
+    "tool_type": {
       "value": "laser",
       "unit": "",
       "type": "str",
@@ -80,14 +93,26 @@
     "tool_tip_contact_offset": {
       "value": [0, 0, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "coords",
+      "subtype": "float",
+      "meta":{
+        "constraints": {
+          "arity": 3
+           }
+      },
       "info": "Offset between tool tip and machine reference point"
     },
 
     "park_position": {
       "value": [419, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
+      "meta":{
+        "constraints": {
+          "arity": 2
+           }
+      },
       "info": "Position where tool is parked when idle"
     },
 
@@ -117,7 +142,14 @@
     "tool_change_in_layers": {
       "value": [-1],
       "unit": "",
-      "type": "vectori",
+      "type": "list",
+      "subtype": "int",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 2
+           }
+      },
       "info": "List of layers requiring tool change (-1 = all)",
       "visible_when": {
         "tool.tool_change.value": true,
@@ -138,20 +170,34 @@
     "size": {
       "value": [297.0, 210.0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 2
+           }
+      },
       "info": "Dimensions of the material"
     },
 
     "offset": {
       "value": [10, 10, 4.0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "coords",
+      "subtype": "float",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 3
+           }
+      },
       "info": "Offset from machine home to material origin"
     }
   },
 
   "technique": {
-    "type": {
+    "technique_type": {
       "value": "vectorize",
       "unit": "",
       "type": "str",
@@ -163,15 +209,31 @@
     "power_range": {
       "value": [20, 400],
       "unit": "",
-      "type": "vectori",
+      "type": "list",
+      "subtype": "int",
       "info": "Laser power range (S parameter)",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 2
+           }
+      },
       "visible_when": { "machine.type": "laser" }
     },
 
     "cut_power_range": {
       "value": [20, 400],
       "unit": "",
-      "type": "vectori",
+      "type": "list",
+      "subtype": "int",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "min":[0,0],
+          "max":[1000,1000],
+          "arity": 2
+           }
+      },
       "info": "Laser cutting power range",
       "visible_when": { "machine.type": "laser" }
     },
@@ -230,7 +292,13 @@
       "unit": "",
       "type": "int",
       "info": "Number of colors/layers (<256)",
-      "range": [1, 256],
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "min":1,
+          "max":256
+           }
+      },
       "visible_when":{"image.process.value":"descrete"}
     },
 
@@ -244,8 +312,14 @@
     "selected_layers": {
       "value": [0,1,2,3,4,5,6,7],
       "unit": "",
-      "type": "vectori",
-      "info": "Layers to process (-1 = all)"
+      "type": "list",
+      "subtype": "int",
+      "meta":{
+        "hidden":false,
+        "editable":false
+      },
+      "info": "Layers to process (-1 = all)",
+      "action":"layerDialog"
     },
 
     "draw_frame": {
@@ -258,7 +332,16 @@
     "frame_offset": {
       "value": [0, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "coords",
+      "subtype": "float",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "min":[0,0],
+          "max":[1000,1000],
+          "arity": 2
+           }
+      },
       "info": "Frame offset relative to image",
       "visible_when": { "image.draw_frame.value": true }
     }
@@ -275,14 +358,28 @@
     "image_size": {
       "value": [100, 100, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 3
+           }
+      },
       "info": "Final image size after processing"
     },
 
     "image_offset": {
       "value": [10, 10, 0],
       "unit": "mm",
-      "type": "vectorf",
+      "type": "list",
+      "subtype": "float",
+      "meta":{
+        "hidden":false,
+        "constraints": {
+          "arity": 3
+           }
+      },
       "info": "Offset of processed image in workspace"
     }
   }
