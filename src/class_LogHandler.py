@@ -25,16 +25,22 @@ class LoggerManager:
             self._setup_file_handler()
             self._setup_queue_handler()
 
-        self.gui_handler = None
+        self.normal_handlers= None
+        self.gui_handlers = None
         self.update_thread = None
 
-    def attach_gui_handler(self, gui_panel):
+    def attach_gui_handler(self, parent):
+        """On log emit runs write_GUI_Log function on gui_panel
+
+        Args:
+            gui_panel (QWidget): Window object with write_GUI_Log method
+        """
         # Create the list the first time
-        if not hasattr(self, "gui_handlers"):
+        if not hasattr(self, "gui_handlers") or not isinstance(self.gui_handlers,list):
             self.gui_handlers = []
 
         # Create a new handler for this GUI panel
-        handler = ConsolePanelHandler(gui_panel)
+        handler = ConsolePanelHandler(parent)
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(
             "%(asctime)s [%(levelname)s] (%(name)s) %(message)s",
@@ -47,7 +53,13 @@ class LoggerManager:
         # Store it so you can manage/remove later
         self.gui_handlers.append(handler)
     
-    def attach_signaltracker_handler(self, parent, signal_tracker):
+    def attach_signaltracker_handler(self, parent, signal_tracker: class_ST.SignalTracker):
+        """Sends emitted record through signal tracker Log_To_Main process (log_to_main signal)
+
+        Args:
+            parent (any): Not used* 
+            signal_tracker (class_ST.SignalTracker): SignalTracker object connected to main log
+        """
         handler = SignalTrackerHandler(parent, signal_tracker)
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(
@@ -56,8 +68,82 @@ class LoggerManager:
         ))
 
         self.root.addHandler(handler)
+    
+    @staticmethod
+    def _get_level(level: str):
+        level=str(level).lower()
+        level_map={
+            "info":logging.INFO,
+            "debug":logging.DEBUG,
+            "critical":logging.CRITICAL,
+            "error":logging.ERROR,
+            "warning":logging.WARNING,
+            "warn":logging.WARN,
+            "fatal":logging.FATAL
+            }
+        return level_map.get(level) or level_map.get("debug")
+
+    def get_logger_with_handler(self,name: str ,level: str="debug",propagate: bool=False,format: str=None):
+        """
+        Create and return a logger with its own StreamHandler.
+
+        This logger receives its own dedicated handler (with its own level and
+        formatting), and optionally forwards log records to the root logger
+        depending on the `propagate` flag.
+
+        Args:
+            name (str):
+                The name of the logger to create or retrieve.
+
+            level (str, optional):
+                Logging level for both the logger and its StreamHandler.
+                Defaults to "debug".
+
+            propagate (bool, optional):
+                If False, the logger is isolated and does NOT forward messages
+                to the root logger.  
+                If True, messages are also propagated to the root logger
+                (e.g., file handler, GUI handler).  
+                Defaults to False.
+
+            format (str, optional):
+                Custom logging format string.  
+                If None, the default format
+                "%(asctime)s [%(levelname)s] (%(name)s) %(message)s"
+                is used.
+
+        Returns:
+            logging.Logger:
+                The configured logger instance with its attached StreamHandler.
+        """
+        logger = logging.getLogger(name)
+        logger.setLevel(self._get_level(level))
+        # define a Handler which writes INFO messages or higher to the sys.stderr
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(self._get_level(level))
+        # set a format which is simpler for console use
+        if not format:
+            formatter = logging.Formatter("%(asctime)s [%(levelname)s] (%(name)s) %(message)s")
+        else:
+            formatter = logging.Formatter(format)
+        # tell the handler to use this format
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+        logger.propagate = propagate  # False if you want isolation
+        return logger
+        
+    def get_new_logger_propagating_to_root(self,name,level="debug"):
+        """Creates a logger and adds the logger handler to root central logger.
+
+        Args:
+            name (str): Name of the logger
+        """
+        return self.get_logger_with_handler(name,level,True,None)
 
     def start_gui_update_thread(self, killer_event):
+        """Starts a thread which persistently logs True value. 
+        When killer_event in a thread is set, then the signal stops.
+        Used to check external device thread is connected."""
         if self.update_thread is None:
             self.update_thread = Log_Update(killer_event)
             self.update_thread.start()
@@ -102,7 +188,7 @@ class QueueHandler(logging.Handler):
     # (https://stackoverflow.com/questions/13318742/python-logging-to-tkinter-text-widget) is not thread safe!
     # See https://stackoverflow.com/questions/43909849/tkinter-python-crashes-on-new-thread-trying-to-log-on-main-thread
 
-    def __init__(self, log_queue):
+    def __init__(self, log_queue: queue.Queue):
         super().__init__()
         self.log_queue = log_queue
 
@@ -113,9 +199,18 @@ class ConsolePanelHandler(logging.Handler):
     def __init__(self, parent):
         logging.Handler.__init__(self)
         self.parent = parent
+        self._emitting = False
 
-    def emit(self, record):
-        self.parent.write_GUI_Log(self.format(record))
+    def emit(self, record:logging.LogRecord):
+        if self._emitting: #avoid recursion
+            return
+        self._emitting = True
+        try:
+            self.parent.write_GUI_Log(self.format(record))
+        except AttributeError as eee:
+            print(f"Error in ConsolePanelHandler: {eee}")
+            print(f"[{record.name}] {record.message}")
+        self._emitting = False
 
 class SignalTrackerHandler(logging.Handler):
     def __init__(self, parent, signal_tracker:class_ST.SignalTracker):
@@ -134,9 +229,8 @@ class SignalTrackerHandler(logging.Handler):
         self.ST.Log_to_Main(record)
         self._emitting = False
 
-
 class ToFileLogger:
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
 
@@ -164,7 +258,7 @@ class Log_Update(threading.Thread):
         print('Logging Thread Exit')  
     def quit(self):
         print('quit received')                                   
-        self.killer_event.set()                      
+        self.killer_event.set()                   
 
 def get_appPath():
     # determine if application is a script file or frozen exe

@@ -10,9 +10,31 @@ from xmlrpc.client import boolean
 from PyQt6 import QtCore, QtGui, QtWidgets
 import re
 
+tv_fun_name = "Treeview Functions"
 # Add logger
-from class_LogHandler import get_appPath, LM
-log = LM.get_logger("TreeviewFunctions")
+try:
+    from class_LogHandler import get_appPath, LM
+    log = LM.get_logger_with_handler(tv_fun_name,
+                                     "debug",
+                                     True,
+                                     "%(asctime)s [%(levelname)s] (%(name)s) %(message)s")
+    log.info(f"{tv_fun_name} Logger started")
+except ImportError:
+    # set up logging to file - see previous section for more details
+    log = logging.getLogger(tv_fun_name) #'' for root logger
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s [%(levelname)s] (%(threadName)-10s) %(message)s',
+                        datefmt='%y-%m-%d %H:%M')
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    tvconsole = logging.StreamHandler()
+    tvconsole.setLevel(logging.INFO)
+    # set a format which is simpler for console use
+    formatter = logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
+    # tell the handler to use this format
+    tvconsole.setFormatter(formatter)
+    # add the handler to the root logger
+    log.addHandler(tvconsole)
+    log.info(f"{tv_fun_name} Local Logger started")
 
 from typing import Dict, Any, List, Optional
 from typing import Any, Dict, List, Tuple, Optional
@@ -34,8 +56,8 @@ class TreeviewFunctions(QtWidgets.QWidget):
     struct_data_change = QtCore.pyqtSignal(list, object, str, str)
     # signal on click: item, index, stored
     item_clicked = QtCore.pyqtSignal(QtGui.QStandardItem, QtCore.QModelIndex, dict) 
-    # in your view/controller class
-    item_right_clicked = QtCore.pyqtSignal(QtCore.QModelIndex, dict)  # declare on class level
+    # signal on right click:  index, stored
+    item_right_clicked = QtCore.pyqtSignal(QtCore.QModelIndex, dict)  
 
     def __init__(self,
                  treeviewobj: QtWidgets.QTreeView,
@@ -51,7 +73,7 @@ class TreeviewFunctions(QtWidgets.QWidget):
             {"name": "VALUE", "editable": True,  "selectable": True,  "hidden": False}]
         """
         super().__init__(*args, **kwargs)
-        self.__name__ = "Treeview Functions"
+        self.__name__ = tv_fun_name
 
         # validate view
         if not isinstance(treeviewobj, QtWidgets.QTreeView):
@@ -596,6 +618,99 @@ class TreeviewFunctions(QtWidgets.QWidget):
                 # fallback to expanding root children up to depth manually
                 self.treeviewobj.expandAll()
 
+    def get_selected_paths(self) ->list[str]:
+        """Gets a list of first column indexes that are selected
+
+        Returns:
+            list[str]: list of indexes
+        """
+        selected = []
+        for idx in self.treeviewobj.selectedIndexes():
+            if idx.column() != 0:
+                continue
+            path = self.get_path_for_index(idx)
+            selected.append(path)
+        return selected
+
+
+    def get_expanded_paths(self)->list:
+        """Makes a list of the paths which are expanded
+
+        Returns:
+            list: Expanded
+        """
+        paths = []
+        def recurse(idx, path):
+            if self.treeviewobj.isExpanded(idx):
+                paths.append(path[:])
+
+            model = self.modelobj
+            rows = model.rowCount(idx)
+            for r in range(rows):
+                child = model.index(r, 0, idx)
+                name = model.data(child, QtCore.Qt.ItemDataRole.DisplayRole)
+                recurse(child, path + [name])
+
+        root = QtCore.QModelIndex()
+        recurse(root, [])
+        return paths
+    
+    def restore_expanded_paths(self, paths:list):
+        """Restores the expansion of the list of paths
+
+        Args:
+            paths (list): list of paths
+        """
+        for path in paths:
+            idx = self.find_index_by_path(path)
+            if idx.isValid():
+                self.treeviewobj.expand(idx)
+    
+    def restore_selected_paths(self, paths):
+        """Restores the selected items
+
+        Args:
+            paths (list): list of paths
+        """
+        selection_model = self.treeviewobj.selectionModel()
+        selection_model.clearSelection()
+
+        for path in paths:
+            idx = self.find_index_by_path(path)
+            if idx.isValid():
+                selection_model.select(
+                    idx,
+                    QtCore.QItemSelectionModel.SelectionFlag.Select |
+                    QtCore.QItemSelectionModel.SelectionFlag.Rows
+                )
+    
+    def find_index_by_path(self, path):
+        """Helper to navigate model"""
+        model = self.modelobj
+        idx = QtCore.QModelIndex()
+        for name in path:
+            found = None
+            rows = model.rowCount(idx)
+            for r in range(rows):
+                child = model.index(r, 0, idx)
+                if model.data(child, QtCore.Qt.ItemDataRole.DisplayRole) == name:
+                    found = child
+                    break
+            if found is None:
+                return QtCore.QModelIndex()
+            idx = found
+        return idx
+    
+    def get_path_for_index(self, idx):
+        model = self.modelobj
+        path = []
+        while idx.isValid():
+            name = model.data(idx, QtCore.Qt.ItemDataRole.DisplayRole)
+            path.insert(0, name)
+            idx = idx.parent()
+        return path
+
+
     # # -------------------------
     # # Styling pass (apply icons/backgrounds after model built)
     # # -------------------------
@@ -888,13 +1003,13 @@ class TreeviewFunctions(QtWidgets.QWidget):
         # print(key_map_dict["ITEM"])
         # print(key_map_dict["VALUE"])
         idx_val  = safe_get("VALUE", "index")
-        self.item_clicked.emit(key_item,index,val_item.data(USER_ROLE))
+        if val_item and key_item:
+            self.item_clicked.emit(key_item,index,val_item.data(USER_ROLE))
         # Make key non-editable
         if key_item:
             key_item.setEditable(False)
-
-        # Decorate only the key item (icon, style, tooltip, background)
-        self.decorate_item(key_item)
+            # Decorate only the key item (icon, style, tooltip, background)
+            self.decorate_item(key_item)
 
         # If no value column or click is not on value column, nothing more to do
         if not (idx_val and index.column() == idx_val.column() and val_item):
@@ -949,7 +1064,7 @@ class TreeviewFunctions(QtWidgets.QWidget):
         except ValueError:
             return None
     
-    def _get_index_key_for_item(self, index):
+    def _get_index_key_for_item(self, index: QtCore.QModelIndex):
         """
         Return a dict mapping each field name to:
             - "column": its column index
@@ -1453,8 +1568,7 @@ class TreeviewFunctions(QtWidgets.QWidget):
                 else:
                     expected = f"{primary}"
                 log.info(
-                    f'Item "{item_name}" failed restriction "{restriction}": '
-                    f'expected {expected}, got {val}'
+                    f'Item "{item_name}" failed restriction "{restriction}": {expected}, got {val}'
                 )
             if not isok:
                 break
@@ -2143,4 +2257,3 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
 
         # Write raw value into model → triggers itemChanged
         model.setData(index, new_val, QtCore.Qt.ItemDataRole.EditRole)
-

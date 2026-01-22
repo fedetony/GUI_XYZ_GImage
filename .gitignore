@@ -15,4 +15,5 @@ src/temp/*
 /src/__pycache__/*
 /src/logs
 /src/test_*
+/src/typed_tree_demo.py
 test_*

@@ -276,7 +276,7 @@ class TreeStructTracker(QtCore.QObject):
         super().__init__()
         self.struct = struct
     
-    def _navigate(self, track):
+    def _navigate(self, track: list):
         """
         Navigate the structure following the track.
         Returns (parent, key, node) or (None, None, None).
@@ -342,14 +342,14 @@ class TreeStructTracker(QtCore.QObject):
                 return None, None, None
         return parent, key, node
     
-    def get_value(self, track):
+    def get_value(self, track: list) ->dict|list:
         """Returns the node at the given path, or None if not found."""
         parent, key, node = self._navigate(track)
         if node is None:
             return None
         return node
     
-    def set_value(self, track, value, subtype=''):
+    def set_value(self, track: list, value: any, subtype:str='') -> bool:
         """Updates an existing node. Does NOT create missing nodes.
         Emits data_changed(track, value, type, subtype)."""
         parent, key, node = self._navigate(track)
@@ -376,7 +376,7 @@ class TreeStructTracker(QtCore.QObject):
         self.data_changed.emit(track, value, str(type(value)), subtype)
         return True
 
-    def create_node(self, track, node_dict):
+    def create_node(self, track: list, node_dict: dict) -> bool:
         """
         Create a new node at the given path.
         Automatically converts list branches into dict-with-children.
@@ -408,7 +408,7 @@ class TreeStructTracker(QtCore.QObject):
         self.data_changed.emit(track, node_dict, "dict", "")
         return True
 
-    def add_child(self, track, child_name, child_node):
+    def add_child(self, track: list, child_name: str, child_node: dict) -> bool:
         """Appends a child to the "children" list of the node at `track`.
         Converts list branches automatically."""
         parent, key, node = self._navigate(track)
@@ -423,7 +423,7 @@ class TreeStructTracker(QtCore.QObject):
 
         return False
 
-    def insert_child(self, track, index, child_name, child_node):
+    def insert_child(self, track: list, index: int, child_name:str, child_node: dict) -> bool:
         """Inserts a child at a specific index."""
         parent, key, node = self._navigate(track)
         if node is None:
@@ -437,7 +437,7 @@ class TreeStructTracker(QtCore.QObject):
 
         return False
 
-    def delete_node(self, track):
+    def delete_node(self, track: list) -> bool:
         """Removes a node from its parent."""
         if not track:
             return False
@@ -463,7 +463,7 @@ class TreeStructTracker(QtCore.QObject):
 
         return False
     
-    def _ensure_branch_dict(self, parent, key):
+    def _ensure_branch_dict(self, parent: dict, key: str) -> dict:
         """
         Ensure parent[key] is a dict node with:
             { "children": [...], "meta": {...} }
@@ -502,7 +502,7 @@ class TreeStructTracker(QtCore.QObject):
         parent[key] = newnode
         return newnode
     
-    def rename_node(self, track, new_name):
+    def rename_node(self, track: list, new_name: str) -> bool:
         """Renames a node key in dict or list-of-dicts."""
         *parent_path, key = track
         parent, pkey, parent_node = self._navigate(parent_path)
@@ -523,7 +523,7 @@ class TreeStructTracker(QtCore.QObject):
                     return True
         return False
     
-    def move_node(self, source_track, dest_track):
+    def move_node(self, source_track: list, dest_track: list) -> bool:
         """Moves a node from one branch to another."""
         parent, key, node = self._navigate(source_track)
         if node is None:
@@ -537,7 +537,7 @@ class TreeStructTracker(QtCore.QObject):
 
         return True
     
-    def set_or_create_value(self, track, value, subtype=''):
+    def set_or_create_value(self, track: list, value: any, subtype: str='')  -> bool:
         """
         Update a value if the node exists, otherwise create the full path.
         """
@@ -551,7 +551,7 @@ class TreeStructTracker(QtCore.QObject):
         self.ensure_path(track[:-1])
         return self.set_value(track, value, subtype=subtype)
     
-    def ensure_path(self, track):
+    def ensure_path(self, track: list):
         """
         Ensure that all intermediate nodes in the path exist.
         Creates dict-with-children nodes as needed.
@@ -596,7 +596,7 @@ class TreeStructTracker(QtCore.QObject):
                 parent[key] = newnode
                 node = newnode["children"]    
 
-    def copy_node(self, source_track, dest_track):
+    def copy_node(self, source_track: list, dest_track: list) -> bool:
         """Copies a node to a new destination node"""
         parent, key, node = self._navigate(source_track)
         if node is None:
@@ -606,7 +606,7 @@ class TreeStructTracker(QtCore.QObject):
         self.add_child(dest_track, key, clone)
         return True
     
-    def validate_node(self, track):
+    def validate_node(self, track: list) -> dict:
         """
         Returns a structural description of the node at the given track.
 
@@ -694,14 +694,13 @@ class TreeStructTracker(QtCore.QObject):
         result["is_node"] = True
         return result
 
-
-    def diff(self, other):
+    def diff(self, other: dict) -> dict:
         """
         Returns a dict describing differences between self.struct and other.
         """
         return deepdiff.DeepDiff(self.struct, other, ignore_order=True)
     
-    def merge(self, other):
+    def merge(self, other: dict):
         """
         Merge another structure into this one.
         """
@@ -722,7 +721,7 @@ class TreeStructTracker(QtCore.QObject):
         _merge(self.struct, other)
         self.data_changed.emit([], None, "merge", "")
     
-    def collapse_branches(self, node):
+    def collapse_branches(self, node: dict|list) -> dict:
         """
         Recursively convert canonical branch nodes:
             { "children": [...], "meta": {} }
@@ -765,7 +764,7 @@ class TreeStructTracker(QtCore.QObject):
         # --- CASE 3: primitive ---
         return node
     
-    def collapse_at(self, track):
+    def collapse_at(self, track: list) -> dict|list:
         """Collapses at a specific node"""
         parent, key, node = self._navigate(track)
         if node is None:
@@ -775,7 +774,7 @@ class TreeStructTracker(QtCore.QObject):
         parent[key] = collapsed
         return True
     
-    def get_struct_item_depth(self, node, depth=0):
+    def get_struct_item_depth(self, node: dict, depth=0) -> int:
         """
         Compute depth of real items in the canonical structure.
         Ignores meta and does not count 'children' wrappers.
@@ -803,7 +802,7 @@ class TreeStructTracker(QtCore.QObject):
 
         return max_depth
     
-    def add_property_to_all_nodes(self, node, prop, default):
+    def add_property_to_all_nodes(self, node: dict, prop: str, default: any):
         """
         Add a property to all real nodes, skipping the root container.
         """
@@ -840,19 +839,19 @@ class TreeStructTracker(QtCore.QObject):
         # Otherwise descend into inner dict
         if isinstance(inner, dict):
             for k, v in inner.items():
-                if k in ("meta", "value", "type", "unit", "info"):
+                if k in ("meta", "value", "children"): # or prop in inner.keys(): 
                     continue
                 self.add_property_to_all_nodes(v, prop, default)
     
-    def _is_real_node(self, node):
+    def _is_real_node(self, node: dict|list) -> bool:
         """Returns True if is a real node, False it's a container (root or branch)"""
         return isinstance(node, dict) and len(node) == 1
     
-    def get_root(self):
+    def get_root(self) -> dict:
         """Return the root container of the main structure."""
         return self.struct
     
-    def remove_property_from_all_nodes(self, node, prop):
+    def remove_property_from_all_nodes(self, node: dict|list, prop: str, remove_value: bool=False):
         """
         Recursively remove a property from all real nodes in the canonical structure.
         - Does NOT remove 'value' unless the programmer explicitly asks for it.
@@ -876,7 +875,8 @@ class TreeStructTracker(QtCore.QObject):
 
         # Descend into normal dict keys
         for key, val in node.items():
-            # Skip meta/value/type/unit/info ONLY if the programmer wants to skip them
-            if key == "value":
+            # Skip value ONLY if the programmer wants
+            if key == "value" and not remove_value:
                 continue
             self.remove_property_from_all_nodes(val, prop)
+
