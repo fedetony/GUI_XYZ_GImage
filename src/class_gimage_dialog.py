@@ -1036,23 +1036,16 @@ class ConfigManager:
     # -------------------------
     @property
     def session_dict(self):
-        return {
-            "machine": [{key:value} for key,value in self.machine_dict.items()],
-            "tool": [{key:value} for key,value in self.tool_dict.items()],
-            "workspace": [{key:value} for key,value in self.workspace_dict.items()],
-            "technique": [{key:value} for key,value in self.technique_dict.items()],
-            "image": [{key:value} for key,value in self.image_dict.items()],
-            "output": [{key:value} for key,value in self.output_dict.items()],
+        s_dict = {
+            "machine": {"children":[{key:value} for key,value in self.machine_dict.items()]},
+            "tool": {"children":[{key:value} for key,value in self.tool_dict.items()]},
+            "workspace": {"children":[{key:value} for key,value in self.workspace_dict.items()]},
+            "technique": {"children":[{key:value} for key,value in self.technique_dict.items()]},
+            "image": {"children":[{key:value} for key,value in self.image_dict.items()]},
+            "output": {"children":[{key:value} for key,value in self.output_dict.items()]},
         }
-        return {"Gimage Config":[
-            {"machine": [{key:value} for key,value in self.machine_dict.items()]},
-            {"tool": [{key:value} for key,value in self.tool_dict.items()]},
-            {"workspace": [{key:value} for key,value in self.workspace_dict.items()]},
-            {"technique": [{key:value} for key,value in self.technique_dict.items()]},
-            {"image": [{key:value} for key,value in self.image_dict.items()]},
-            {"output": [{key:value} for key,value in self.output_dict.items()]},
-            ]
-        }
+        # Here add icons and style
+        return s_dict
 
     @property
     def machine_list(self):
@@ -1085,7 +1078,7 @@ class ConfigManager:
     @property
     def technique(self):
         try:
-            return self.technique_profiles[self.session["technique"]["type"]["value"]]
+            return self.technique_profiles[self.session["technique"]["technique_type"]["value"]]
         except Exception as eee:
             log.error(f"Technique error: {eee}")
         return None

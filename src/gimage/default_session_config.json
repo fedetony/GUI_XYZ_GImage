@@ -80,7 +80,9 @@
       "unit": "",
       "type": "str",
       "info": "Shape of the tool tip",
-      "choices": ["Cylindrical", "Conical", "Spherical"]
+      "meta":{
+      "options": ["Cylindrical", "Conical", "Spherical"]
+      }
     },
 
     "tool_tip_size": {
@@ -163,7 +165,9 @@
       "unit": "",
       "type": "str",
       "info": "Material type",
-      "choices": ["wood", "paper", "canvas", "plastic"]
+      "meta":{
+      "options": ["wood", "paper", "canvas", "plastic"]
+      }
     },
 
     "size": {
@@ -202,7 +206,9 @@
       "type": "str",
       "info": "Processing technique",
       "user_modifiable": false,
-      "choices": ["vectorize", "engrave", "stipple", "outline"]
+      "meta":{
+      "options": ["vectorize", "engrave", "stipple", "outline"]
+      }
     },
 
     "power_range": {
@@ -290,9 +296,11 @@
     "process": {
       "value": "descrete",
       "unit": "",
-      "type": "int",
+      "type": "str",
       "info": "descrete to quantisize the colors into number of colors, continuous to set proportional value to color value",
-      "choices":["descrete","continuous"]
+      "meta":{
+      "options":["descrete","continuous"]
+      }
     },
 
     "number_of_colors": {
