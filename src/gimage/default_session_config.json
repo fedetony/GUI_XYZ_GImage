@@ -121,7 +121,8 @@
       "unit": "mm/m",
       "type": "float",
       "info": "Z correction per meter of tool wear",
-      "visible_when": { "technique.name": "pencil" }
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type]') == 'pencil' else me_set('meta[hidden]',True)"}
     },
 
     "tool_change": {
@@ -136,7 +137,8 @@
       "unit": "",
       "type": "bool",
       "info": "Perform tool change after every layer",
-      "visible_when": { "tool.tool_change.value": true }
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if node_get('tool[tool_change[value]]') == True else me_set('meta[hidden]',True)"}
     },
 
     "tool_change_in_layers": {
@@ -148,13 +150,10 @@
         "hidden":false,
         "constraints": {
           "arity": 2
-           }
+           },
+        "conditions": "me_set('meta[hidden]',False) if (node_get('tool[tool_change[value]]') == True and node_get('tool[tool_change_per_layer[value]]') == True ) else me_set('meta[hidden]',True)"
       },
-      "info": "List of layers requiring tool change (-1 = all)",
-      "visible_when": {
-        "tool.tool_change.value": true,
-        "tool.tool_change_per_layer.value": true
-      }
+      "info": "List of layers requiring tool change (-1 = all)"
     }
   },
 
@@ -214,11 +213,11 @@
       "info": "Laser power range (S parameter)",
       "meta":{
         "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('machine[machine_type[value]]') == 'laser' else me_set('meta[hidden]',True)",
         "constraints": {
           "arity": 2
            }
-      },
-      "visible_when": { "machine.type": "laser" }
+      }
     },
 
     "cut_power_range": {
@@ -228,14 +227,14 @@
       "subtype": "int",
       "meta":{
         "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('machine[machine_type[value]]') == 'laser' else me_set('meta[hidden]',True)",
         "constraints": {
           "min":[0,0],
           "max":[1000,1000],
           "arity": 2
            }
       },
-      "info": "Laser cutting power range",
-      "visible_when": { "machine.type": "laser" }
+      "info": "Laser cutting power range"
     },
 
     "rate": {
@@ -243,7 +242,10 @@
       "unit": "mm/min",
       "type": "int",
       "info": "Movement speed for this technique",
-      "visible_when": { "technique.use_variable_rate.value": false }
+      "meta":{
+        "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[use_variable_rate[value]]') == False else me_set('meta[hidden]',True)"
+      }
     },
 
     "use_variable_rate": {
@@ -251,7 +253,10 @@
       "unit": "",
       "type": "bool",
       "info": "Enable dynamic speed based on image content",
-      "visible_when": { "machine.type": "laser" }
+      "meta":{
+        "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('machine[machine_type[value]]') == 'laser' else me_set('meta[hidden]',True)"
+      }
     },
 
     "z_retraction": {
@@ -259,7 +264,10 @@
       "unit": "mm",
       "type": "float",
       "info": "Z lift between moves",
-      "visible_when": { "machine.axis_count": ">=3" }
+      "meta":{
+        "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if 'Z' in node_get('machine[axes[value]]') else me_set('meta[hidden]',True)"
+      }
     }
   },
 
@@ -294,12 +302,12 @@
       "info": "Number of colors/layers (<256)",
       "meta":{
         "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('image[process[value]]') == 'descrete' else me_set('meta[hidden]',True)",
         "constraints": {
           "min":1,
           "max":256
            }
-      },
-      "visible_when":{"image.process.value":"descrete"}
+      }
     },
 
     "resolution": {
@@ -336,14 +344,14 @@
       "subtype": "float",
       "meta":{
         "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('image[draw_frame[value]]') == True else me_set('meta[hidden]',True)",
         "constraints": {
           "min":[0,0],
           "max":[1000,1000],
           "arity": 2
            }
       },
-      "info": "Frame offset relative to image",
-      "visible_when": { "image.draw_frame.value": true }
+      "info": "Frame offset relative to image"
     }
   },
 

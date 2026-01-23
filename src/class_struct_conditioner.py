@@ -63,6 +63,7 @@ class ConditionEngine:
     def __init__(self, tracker:TreeStructTracker):
         super().__init__()
         self.tracker=tracker
+        self.log_info_on_change=True
         
     def _evaluate_conditions(self, node_track, conditions):
         """
@@ -129,7 +130,8 @@ class ConditionEngine:
             old_value=self.tracker.get_value(node_track+[v_or_p])
             if old_value!=value:
                 was_set=self.tracker.set_value(node_track+[v_or_p],value,subtype)
-                log.info(f"Conditional change applied: {node_track+[v_or_p]} set to {value}")
+                if self.log_info_on_change:
+                    log.info(f"Conditional change applied: {node_track+[v_or_p]} set to {value}")
                 evaluated = was_set or evaluated
                 if was_set:
                     self.tracker.set_or_create_value(node_track+["__conditions__applied__"],True)
@@ -252,7 +254,7 @@ class ConditionEngine:
         value=None
         if isinstance(track,list):
             value = self.tracker.get_value(track)
-        print(f"got node {value}")
+        # print(f"got node {value}")
         if value == None:
             log.warning(f"Did not find condition node_get({path}) -> {track}")
         return value
@@ -295,50 +297,42 @@ class ConditionEngine:
         logged and treated as no‑ops.
         """
         evaluated=False
-        if not isinstance(node, dict):
+        
+        if not isinstance(node, (dict,list)):
             return evaluated
-
+        # Inside val_dict
+            # found: bool
+            # track: list
+            # node: the actual node (or None)
+            # parent_node: the parent container (dict or list)
+            # parent_key: the key/index used to reach this node
+            # is_node: bool # dict with fields (value/type/etc.)
+            # is_branch: bool # dict-with-children OR list
+            # is_root: bool # dict-with-keys , no parent, no key
+            # has_children: bool
+            # children_count: int
+            # children_keys: list # list of the key/index used to reach children
+            # has_type: bool
+            # has_subtype: bool
+            # has_meta: bool
         if track is None:
             track = []
-
-        # Root or container: multiple keys → descend
-        if len(node) != 1:
-            for key, val in node.items():
+        val_dict=self.tracker.validate_node(track)
+        if not val_dict or not val_dict["found"]:
+            log.warning(f'{track} is not a valid node or branch!')
+            return evaluated
+        
+        current_track=val_dict["track"]
+        if (val_dict["is_node"] or val_dict["is_branch"]) and val_dict["has_meta"]:
+            cond_track = current_track + ["meta[conditions]"]
+            conditions = self.tracker.get_value(cond_track)
+            if conditions:
+                changed = self._evaluate_conditions(current_track, conditions)
+                evaluated = changed or evaluated
+        if val_dict["has_children"]:
+            for key in val_dict["children_keys"]:
+                val=self.tracker.get_value(track + [key])
                 evaluated = self.evaluate_conditions_in_a_node(val, track + [key]) or evaluated 
-            return evaluated
 
-        # Real node: exactly one key
-        key = next(iter(node))
-        inner = node[key]
-        current_track = track + [key]
-
-        # Check meta[conditions]
-        cond_track = current_track + ["meta[conditions]"]
-        conditions = self.tracker.get_value(cond_track)
-
-        if conditions:
-            changed = self._evaluate_conditions(current_track, conditions)
-            evaluated = changed or evaluated
-
-
-        # Case 1: children list
-        if isinstance(inner, dict) and "children" in inner:
-            for entry in inner["children"]:
-                for _, child in entry.items():
-                    evaluated = self.evaluate_conditions_in_a_node(child, current_track) or evaluated 
-            return evaluated
-
-        # Case 2: list of nodes
-        if isinstance(inner, list):
-            for entry in inner:
-                evaluated = self.evaluate_conditions_in_a_node(entry, current_track) or evaluated 
-            return evaluated
-
-        # Case 3: descend into inner dict (excluding meta/value/children)
-        if isinstance(inner, dict):
-            for k, v in inner.items():
-                if k in ("meta", "value", "children"):
-                    continue
-                evaluated = self.evaluate_conditions_in_a_node(v, current_track) or evaluated 
         return evaluated
         

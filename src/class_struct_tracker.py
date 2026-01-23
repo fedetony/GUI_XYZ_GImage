@@ -619,6 +619,7 @@ class TreeStructTracker(QtCore.QObject):
 
             is_node: bool          # dict with fields (value/type/etc.)
             is_branch: bool        # dict-with-children OR list
+            is_root: bool          # dict-with-keys , no parent, no key
             has_children: bool
             children_count: int
             children_keys: list    # list of the key/index used to reach children
@@ -639,6 +640,7 @@ class TreeStructTracker(QtCore.QObject):
 
             "is_node": False,
             "is_branch": False,
+            "is_root": False,
             "has_children": False,
             "children_count": 0,
             "children_keys": [],
@@ -653,13 +655,15 @@ class TreeStructTracker(QtCore.QObject):
 
         # --- CASE 1: dict node ---
         if isinstance(node, dict):
-
+            is_root=True
             # Node-like if it has value/type/subtype/meta
             if any(k in node for k in ("value", "type", "subtype", "meta")):
+                is_root=False
                 result["is_node"] = True
 
             # Branch-like if it has children
             if "children" in node and isinstance(node["children"], list):
+                is_root=False
                 result["is_branch"] = True
                 result["has_children"] = len(node["children"]) > 0
                 result["children_count"] = len(node["children"])
@@ -676,6 +680,13 @@ class TreeStructTracker(QtCore.QObject):
             node_subtype = node.get("subtype") or meta.get("subtype")
             result["has_type"] = node_type is not None
             result["has_subtype"] = node_subtype is not None
+
+            if parent is None and key is None and is_root:
+                #root node
+                result["is_root"]=True
+                result["has_children"] = len(node.keys()) > 0
+                result["children_keys"] = list(node.keys()) if len(node.keys()) > 0 else []
+
             return result
 
         # --- CASE 2: list node ---
