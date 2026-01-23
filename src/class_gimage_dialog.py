@@ -26,13 +26,14 @@ import class_File_Dialogs
 from class_LogHandler import get_appPath, LM
 from class_treeview_functions import TypedItemDelegate, TreeviewFunctions, USER_ROLE
 from class_struct_tracker import TreeStructTracker
+from class_struct_conditioner import ConditionEngine
 ap=get_appPath()
 img_path=os.path.join(ap,"img")
 config_path=os.path.join(ap,"config")
 temp_path=os.path.join(ap,"temp")
 gimage_path=os.path.join(ap,"gimage")
 
-log = LM.get_logger("Gimage")
+log = LM.get_new_logger_propagating_to_root("Gimage","debug")
 
 FIELDS_GIMAGE=[
     {"name": "ITEM",  "editable": False, "selectable": True,  "hidden": False},
@@ -242,7 +243,6 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         log.debug(self.cm.session)
         log.info("Success configuration set!")
         # QTreeWidget manager
-        # self.tm=TreeManager(self.tree,self.cm)
         if self.cm.main_struct:
             self.main_struct=self.cm.main_struct
         else:
@@ -257,7 +257,10 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.tree.setItemDelegateForColumn(1, delegate)
         self.tv.data_change[list,object,str,str].connect(self.on_tree_item_edited)
         self.tv.expand_to_depth(1) #333) #Expand all
-
+        # Condition Engine
+        self.ce=ConditionEngine(self.tv.tracker)
+        self._evaluate_conditions()
+        
         # Add cache tooltip, icons, backgrounds, styles
         #self.tv.set_style_cache(self.style_dict)
 
@@ -266,9 +269,6 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.tv.treeviewobj.customContextMenuRequested.connect(self.tv._on_context_menu)
         #self.tv.item_right_clicked.connect(self.on_item_right_clicked)
         
-        # self.tm.item_edited.connect(self.on_tree_item_edited)
-
-        # self.tm.refresh()
         self.tv.do_refresh()
     
     def on_item_right_clicked(self, src_index: QtCore.QModelIndex, stored):
@@ -294,6 +294,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(list, object, object, str, str)
     def on_tree_item_edited_old_new(self, track, old_value, new_value, typestr, subtype):
+        # Do not self._evaluate_conditions() here, is already done in on_tree_item_edited
+        # Use this slot when you need old value and new value 
         # Decide which dialog to open
         # if key == "layers":
         #     self._open_layer_dialog(section, key, old_value)
@@ -312,11 +314,29 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(list, object, str, str)
     def on_tree_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed
-        pass
+        self._evaluate_conditions()
 
     # def on_resolution_changed(self, value: float):
     #     self.cm.set_output_param("output", "resolution", value=float(value))
 
+    def _evaluate_conditions(self):
+        """Evaluate conditions if changes were applied refresh treeview"""
+        evaluated = self.ce.evaluate_conditions_in_a_node(self.tv.tracker.get_root())
+        if evaluated:
+            expanded = self.tv.get_expanded_paths()
+            selected = self.tv.get_selected_paths()
+
+            # Delay the refresh AND the restore
+            def delayed_refresh():
+                self.tv.do_refresh()
+                self.tv.restore_expanded_paths(expanded)
+                self.tv.restore_selected_paths(selected)
+                self.tv.treeview_fit_to_contents(0)
+                # Important Clear circular reference flag
+                self.tv.tracker.remove_property_from_all_nodes(self.tv.tracker.get_root(),"__conditions__applied__")
+            # Need to wait until all data changes are applied.
+            QtCore.QTimer.singleShot(0, delayed_refresh)
+    
     def connect_actions_to_gui(self):
         self.action_open.triggered.connect(self.load_gimage_config)
         self.action_save.triggered.connect(self.save_gimage_config)
@@ -1173,285 +1193,3 @@ class SvgGraphicsView(QGraphicsView):
         self.scene.addItem(item)
         self.fitInView(item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
     
-# QTree Changed for QTreeview    
-# class TreeManager(QWidget):
-#     item_edited = QtCore.pyqtSignal(str,str,str,str)
-    
-#     def __init__(self, tree:QTreeWidget,config_manager:ConfigManager):
-#         super().__init__() 
-#         self.tree=tree
-#         self.config_manager=config_manager
-#         self.tree.setColumnCount(4)
-#         self.tree.setHeaderLabels(["Key", "Value", "Unit", "Info"])
-#         self._read_only_keys=[]
-#         self._hidden_keys=[]
-#         self._disabled_keys=[]
-#         self._validators = {}
-
-#         header = self.tree.header()
-#         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # Key
-#         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # Value
-#         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)  # Unit
-#         header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)           # Info
-
-#     def set_validators(self,new_validators:dict=None):
-#         if new_validators is None:
-#             self._validators = {}
-#             return
-#         self._validators=new_validators
-
-#     def set_read_only(self,read_only_key_list):
-#         if isinstance(read_only_key_list,list):
-#             self._read_only_keys=[]
-#         else:
-#             log.error("Read only items must be a list!")
-    
-#     def set_hidden(self,hide_key_list):
-#         if isinstance(hide_key_list,list):
-#             self._hidden_keys=[]
-#         else:
-#             log.error("Hide items must be a list!")
-    
-#     def set_disabled(self,disabled_key_list):
-#         if isinstance(disabled_key_list,list):
-#             self._disabled_keys=[]
-#         else:
-#             log.error("Hide items must be a list!")
-    
-#     def item_changed(self,section_name,section_item,old_section_data,new_section_data):
-#         self.item_edited.emit(section_name,section_item,str(old_section_data),str(new_section_data))
-
-#     def refresh(self):
-#         """Rebuild the tree from the current config."""
-#         self.session_dict=self.config_manager.session_dict
-#         self.build_config_tree(self.session_dict)
-        
-#     def build_config_tree(self, config_dict:dict):
-#         """Build the configuration tree from a dictionary."""
-#         self.tree.clear()
-#         for section_name, section_data in config_dict.items():
-#             section_item = QTreeWidgetItem([section_name])
-#             section_item.setFlags(section_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-#             self.tree.addTopLevelItem(section_item)
-#             if isinstance(section_data,dict):
-#                 for key, value in section_data.items():
-#                     # 1. Skip hidden keys
-#                     if key in self._hidden_keys:
-#                         continue
-#                     child = QTreeWidgetItem([key, "", "", ""])
-#                     section_item.addChild(child)
-#                     # 2. Gray out read-only keys
-#                     if key in self._read_only_keys:
-#                         child.setFlags(child.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-#                     # 3. Add editor widget
-#                     if isinstance(value, dict):
-#                         if "value" in value:
-#                             self._add_editor_widget(child, value["value"])
-#                         if "unit" in value:
-#                             self._add_editor_unit(child, value["unit"])
-#                         if "info" in value:
-#                             self._add_editor_info(child, value["info"])
-#                     else:
-#                         self._add_editor_widget(child, value)
-#                     # 4. Disable editor widget if needed
-#                     if key in self._disabled_keys:
-#                         editor = self.tree.itemWidget(child, 1)
-#                         if editor:
-#                             editor.setDisabled(True)
-
-#     def _add_editor_unit(self, item, value):
-#         w = QLabel(str(value))  
-#         self.tree.setItemWidget(item, 2, w)
-    
-#     def _add_editor_info(self, item, value):
-#         w = QLabel(str(value))  
-#         self.tree.setItemWidget(item, 3, w)
-
-#     def _add_editor_widget(self, item, value):
-#         key = item.text(0)
-#         # --- BOOL ---
-#         if isinstance(value, bool):
-#             w = QCheckBox()
-#             w.setChecked(value)
-#             w.stateChanged.connect(lambda _: self._update_value(item, w.isChecked()))
-#         # --- INT ---
-#         elif isinstance(value, int):
-#             w = QSpinBox()
-#             w.setRange(-999999, 999999)
-#             w.setValue(value)
-#             w.valueChanged.connect(lambda v: self._update_value(item, v))
-#             # Apply validator if defined
-#             if key in self._validators and isinstance(self._validators[key], QtGui.QIntValidator):
-#                 v = self._validators[key]
-#                 w.setRange(v.bottom(), v.top())
-#         # --- FLOAT ---
-#         elif isinstance(value, float):
-#             w = QDoubleSpinBox()
-#             w.setRange(-999999.0, 999999.0)
-#             w.setDecimals(4)
-#             w.setValue(value)
-#             w.valueChanged.connect(lambda v: self._update_value(item, v))
-#             # Apply validator if defined
-#             if key in self._validators and isinstance(self._validators[key], QtGui.QDoubleValidator):
-#                 v = self._validators[key]
-#                 w.setRange(v.bottom(), v.top())
-#                 w.setDecimals(v.decimals())
-#         # --- STRING ---
-#         elif isinstance(value, str):
-#             w = QLineEdit(value)
-#             w.textChanged.connect(lambda v: self._update_value(item, v))
-#             # Apply validator if defined
-#             if key in self._validators:
-#                 w.setValidator(self._validators[key])
-#         # --- LIST (vector editor) ---
-#         elif isinstance(value, list):
-#             try:
-#                 w = self._make_vector_editor(item, value)
-#             except (ValueError, TypeError):
-#                 new_value = "[" + " ".join(value) + "]"
-#                 w = QLineEdit(new_value)
-#                 w.textChanged.connect(lambda v: self._update_value(item, v))
-#                 # Apply validator if defined
-#                 if key in self._validators:
-#                     w.setValidator(self._validators[key])
-#         # --- FALLBACK ---
-#         else:
-#             w = QLabel(str(value))
-#         # Install widget into column 1
-#         self.tree.setItemWidget(item, 1, w)
-
-        
-#     def _make_vector_editor(self, item, values):
-#         widget = QWidget()
-#         layout = QHBoxLayout(widget)
-#         layout.setContentsMargins(0,0,0,0)
-
-#         spinboxes = []
-#         for v in values:
-#             sb = QDoubleSpinBox()
-#             sb.setRange(-999999, 999999)
-#             sb.setValue(float(v))
-#             sb.valueChanged.connect(lambda _: self._update_vector(item, spinboxes))
-#             layout.addWidget(sb)
-#             spinboxes.append(sb)
-
-#         return widget
-
-#     def _update_value(self, item, new_value):
-#         section = item.parent().text(0)
-#         key = item.text(0)
-
-#         # read old value
-#         entry = self.config_manager.session_dict[section][key]
-#         old_value = entry["value"] if isinstance(entry, dict) else entry
-
-#         # update real config
-#         self.config_manager.update_value(section, key, new_value)
-
-#         # notify
-#         self.item_changed(section, key, old_value, new_value)
-
-#     def _update_vector(self, item, spinboxes):
-#         section = item.parent().text(0)
-#         key = item.text(0)
-
-#         values = [sb.value() for sb in spinboxes]
-
-#         entry = self.config_manager.session_dict[section][key]
-#         old_value = entry["value"] if isinstance(entry, dict) else entry
-
-#         self.config_manager.update_value(section, key, values)
-
-#         self.item_changed(section, key, old_value, values)
-    
-#     # def set_validators(self):
-#     #     for key, item in self.config_items.items():
-#     #         editor = self.treeWidget.itemWidget(item, 1)
-
-#     #         if key in ("Img_Resolution",):
-#     #             editor.setValidator(QtGui.QDoubleValidator(0.025, 9999.0, 4))
-
-#     #         elif key in ("Img_Num_Colors",):
-#     #             editor.setValidator(QtGui.QIntValidator(2, 256))
-
-#     #         elif key in ("Img_ini_pos", "Canvas_ini_pos"):
-#     #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")))
-
-#     #         elif key in ("Tool_Change_XYZpos", "Robot_XYZ", "Robot_Size_XYZ"):
-#     #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")))
-
-#     #         elif key in ("Selected_Layers", "Tool_Change_in_Layers"):
-#     #             # list of ints separated by commas
-#     #             editor.setValidator(QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")))
-
-#     # def example_validators(self):
-#     #     validators = {
-#     #             "Img_Resolution": QtGui.QDoubleValidator(0.025, 9999.0, 4),
-#     #             "Img_Num_Colors": QtGui.QIntValidator(2, 256),
-#     #             "Img_ini_pos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")),
-#     #             "Canvas_ini_pos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*$")),
-#     #             "Dip_XYZvectorpos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*){2,}\d+\s*$")),
-#     #             "Tool_Change_XYZpos": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
-#     #             "Robot_XYZ": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
-#     #             "Robot_Size_XYZ": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*\d+\s*,\s*\d+\s*,\s*\d+\s*$")),
-#     #             "Selected_Layers": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")),
-#     #             "Tool_Change_in_Layers": QtGui.QRegularExpressionValidator(QtCore.QRegularExpression(r"^\s*(\d+\s*,\s*)*\d+\s*$")),
-#     #             }
-#     #     self.set_validators(validators)
-            
-
-
-
-# def Get_Variable_from_Image_Config_Data(self, key):
-#     """
-#     Retrieve a typed configuration value from Image_Config_Data.
-#     The JSON entry must contain at least {"value": ..., "type": ...}.
-#     """
-
-#     entry = self.Image_Config_Data.get(key)
-#     if entry is None:
-#         return None
-
-#     # If the entry is a raw value (old format), return it directly
-#     if not isinstance(entry, dict):
-#         return entry
-
-#     value = entry.get("value")
-#     thetype = entry.get("type", "string")  # default to string
-
-#     # ---- BASIC TYPES ----
-#     if thetype == "int":
-#         try:
-#             return int(value)
-#         except:
-#             return 0
-
-#     if thetype == "float":
-#         try:
-#             return float(value)
-#         except:
-#             return 0.0
-
-#     if thetype == "string":
-#         return str(value)
-
-#     if thetype == "bool":
-#         val = str(value).strip().lower()
-#         return val in ("true", "1", "t", "yes")
-
-#     # ---- VECTOR FLOAT ----
-#     if thetype in ("vector", "vectorf"):
-#         try:
-#             return [float(x) for x in str(value).split()]
-#         except:
-#             return []
-
-#     # ---- VECTOR INT ----
-#     if thetype == "vectori":
-#         try:
-#             return [int(x) for x in str(value).split()]
-#         except:
-#             return []
-
-#     # ---- FALLBACK ----
-#     return value
