@@ -27,6 +27,7 @@ from class_LogHandler import get_appPath, LM
 from class_treeview_functions import TypedItemDelegate, TreeviewFunctions, USER_ROLE
 from class_struct_tracker import TreeStructTracker
 from class_struct_conditioner import ConditionEngine
+from class_LSTD import LayerSelectionToolDialog
 ap=get_appPath()
 img_path=os.path.join(ap,"img")
 config_path=os.path.join(ap,"config")
@@ -56,7 +57,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # -------------------------
         self.tv=None
         self.cm=None
-        self.color_selection_list=['Black&White','Red','Green','Blue','RGB']
+        self.color_selection_list=['Black&White','Red','Green','Blue','RGB','Not Red','Not Green','Not Blue']
         self.im = None
         self.im_width=0
         self.im_height=0
@@ -64,6 +65,24 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.is_processed_image=False
         self.file_dialog=class_File_Dialogs.Dialogs()
         self.im_processor=ImageProcessor()
+        self.all_icons_dict = {
+                            "open_image": QtGui.QIcon(":/img/Ahmadhania-Spherical-Select-text.128.png"),
+                            "save_process_image":QtGui.QIcon(":/img/Ahmadhania-Spherical-Save.128.png"),
+                            "open_session_config":QtGui.QIcon(":/img/open-file-icon.png"),
+                            "save_session_config":QtGui.QIcon(":/img/Save-as-icon.png"),
+                            "refresh":QtGui.QIcon(":/img/Actions-view-refresh-icon.png"),
+                            "position_helper":QtGui.QIcon(":/img/Ahmadhania-Spherical-Target.128.png"),
+                            "layer_helper": QtGui.QIcon(":/img/Ahmadhania-Spherical-Restore.128.png"), 
+                            "fit":QtGui.QIcon(":/img/move-icon.png"),
+                            "machine_icon":QtGui.QIcon(":/img/Modify-icon.png"),
+                            "tool_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Paper-clip.128.png"),
+                            "technique_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Write.128.png"),
+                            "color_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Umbrella.128.png"),
+                            "zoom_in": QtGui.QIcon(":/img/Plus-icon.png"),
+                            "zoom_out": QtGui.QIcon(":/img/Minus-icon.png"),
+                            "make_gcode":QtGui.QIcon(":/img/eye-in-a-sky-icon.png"),
+                            }
+        self._do_evaluation=False
         # -------------------------
         # Build GUI
         # -------------------------
@@ -80,8 +99,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.gimage_image_toolbar = QtWidgets.QToolBar()
         self.gimage_image_toolbar.setIconSize(QtCore.QSize(36, 36))
 
-        self.action_open_image = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Select-text.128.png"), "Open Image", self)
-        self.action_save_image = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Save.128.png"), "Save Processed Image", self)
+        self.action_open_image = QtGui.QAction(self.all_icons_dict["open_image"], "Open Image", self)
+        self.action_save_image = QtGui.QAction(self.all_icons_dict["save_process_image"], "Save Processed Image", self)
         self.gimage_image_toolbar.addAction(self.action_open_image)
         self.gimage_image_toolbar.addSeparator()
         self.gimage_image_toolbar.addAction(self.action_save_image)
@@ -91,13 +110,11 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.gimage_config_toolbar = QtWidgets.QToolBar()
         self.gimage_config_toolbar.setIconSize(QtCore.QSize(24, 24))
 
-        self.action_open = QtGui.QAction(QtGui.QIcon(":/img/open-file-icon.png"), "Open Session Config", self)
-        self.action_save = QtGui.QAction(QtGui.QIcon(":/img/Save-as-icon.png"), "Save Session Config", self)
-        self.action_refresh = QtGui.QAction(QtGui.QIcon(":/img/Actions-view-refresh-icon.png"), "Refresh", self)
-        self.action_position_helper = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Target.128.png"), "Position Helper", self)
-        self.action_layer_helper = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Restore.128.png"), "Layer Helper", self)
-        
-        self.action_fit = QtGui.QAction(QtGui.QIcon(":/img/move-icon.png"), "Fit", self)
+        self.action_open = QtGui.QAction(self.all_icons_dict["open_session_config"], "Open Session Config", self)
+        self.action_save = QtGui.QAction(self.all_icons_dict["save_session_config"], "Save Session Config", self)
+        self.action_refresh = QtGui.QAction(self.all_icons_dict["refresh"], "Refresh", self)
+        self.action_position_helper = QtGui.QAction(self.all_icons_dict["position_helper"], "Position Helper", self)
+        self.action_layer_helper = QtGui.QAction(self.all_icons_dict["layer_helper"], "Layer Helper", self)
 
         self.gimage_config_toolbar.addAction(self.action_open)
         self.gimage_config_toolbar.addAction(self.action_save)
@@ -110,25 +127,41 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # -------------------------
         selector_layout = QtWidgets.QVBoxLayout()
         machine_layout, self.machine_combo = self._make_icon_label_combo_row(
-            "Machine:", ":/img/Modify-icon.png")
+            "Machine:", self.all_icons_dict["machine_icon"])
         tool_layout, self.tool_combo = self._make_icon_label_combo_row(
-            "Tool:", ":/img/Ahmadhania-Spherical-Paper-clip.128.png")
+            "Tool:", self.all_icons_dict["tool_icon"])
         technique_layout, self.technique_combo = self._make_icon_label_combo_row(
-            "Technique:", ":/img/Ahmadhania-Spherical-Write.128.png")
+            "Technique:", self.all_icons_dict["technique_icon"])
         color_layout, self.color_combo = self._make_icon_label_combo_row(
-            "Color:", ":/img/Ahmadhania-Spherical-Umbrella.128.png")
+            "Color:", self.all_icons_dict["color_icon"])
 
+        selector_layout.addLayout(color_layout)
         selector_layout.addLayout(machine_layout)
         selector_layout.addLayout(tool_layout)
         selector_layout.addLayout(technique_layout)
-        selector_layout.addLayout(color_layout)
+        
         # -------------------------
         # TreeWidget
         # -------------------------
         self.tree = QtWidgets.QTreeView(self) # QTreeWidget(self)
+        # -------------------------
+        # Gcode output
+        # -------------------------
+        self.gcode_layout = QtWidgets.QHBoxLayout()
+        # gcode toolbar
+        self.gcode_toolbar = QtWidgets.QToolBar()
+        self.gcode_toolbar.setIconSize(QtCore.QSize(36, 36))
+        self.action_make_gcode = QtGui.QAction(self.all_icons_dict["make_gcode"], "Make Gcode", self)
+
+        self.gcode_toolbar.addAction(self.action_make_gcode)
+
         # Progress_bar
         self.gimage_progressbar=QProgressBar()
         self.gimage_progressbar.setRange(0, 100)
+
+        self.gcode_layout.addWidget(self.gcode_toolbar)
+        self.gcode_layout.addWidget(self.gimage_progressbar)
+
         # -------------------------
         # Left layout
         # -------------------------
@@ -137,7 +170,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         left_layout.addWidget(self.gimage_config_toolbar)
         left_layout.addLayout(selector_layout)
         left_layout.addWidget(self.tree)
-        left_layout.addWidget(self.gimage_progressbar)
+        left_layout.addLayout(self.gcode_layout)
         # -------------------------
         # Splitter
         # -------------------------
@@ -155,9 +188,9 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.image_toolbox.setIconSize(QtCore.QSize(24, 24))
         self.image_toolbox.setMovable(False)
 
-        self.action_zoom_in = QtGui.QAction(QtGui.QIcon(":/img/Plus-icon.png"), "Zoom In", self)
-        self.action_zoom_out = QtGui.QAction(QtGui.QIcon(":/img/Minus-icon.png"), "Zoom Out", self)
-        self.action_fit = QtGui.QAction(QtGui.QIcon(":/img/move-icon.png"), "Fit", self)
+        self.action_zoom_in = QtGui.QAction(self.all_icons_dict["zoom_in"], "Zoom In", self)
+        self.action_zoom_out = QtGui.QAction(self.all_icons_dict["zoom_out"], "Zoom Out", self)
+        self.action_fit = QtGui.QAction(self.all_icons_dict["fit"], "Fit", self)
 
         self.image_toolbox.addAction(self.action_fit)
         self.image_toolbox.addSeparator()
@@ -207,13 +240,13 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.fill_combos()
         self.connect_actions_to_gui()
 
-    def _make_icon_label_combo_row(self, text, icon_path):
+    def _make_icon_label_combo_row(self, text, icon_obj:QtGui.QIcon):
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         # Icon
         icon_label = QtWidgets.QLabel()
-        icon_label.setPixmap(QtGui.QIcon(icon_path).pixmap(24, 24))
+        icon_label.setPixmap(icon_obj.pixmap(24, 24))
         # Text label
         text_label = QtWidgets.QLabel(text)
         # Combo
@@ -256,12 +289,14 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         delegate = TypedItemDelegate(self.tv)
         self.tree.setItemDelegateForColumn(1, delegate)
         self.tv.data_change[list,object,str,str].connect(self.on_tree_item_edited)
+        self.tv.struct_data_change[list,object,str,str].connect(self.on_struct_item_edited)
         self.tv.expand_to_depth(1) #333) #Expand all
         # Condition Engine
         self.ce=ConditionEngine(self.tv.tracker)
         self._evaluate_conditions()
         
         # Add cache tooltip, icons, backgrounds, styles
+        self.tv.set_icons_cache(self.all_icons_dict)
         #self.tv.set_style_cache(self.style_dict)
 
         # Right click Menu 
@@ -291,6 +326,21 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self.tool_combo.addItems(self.cm.tool_list)
             self.technique_combo.addItems(self.cm.technique_list)
             self.color_combo.addItems(self.color_selection_list)
+            # Set defaults
+            m_t=self.tv.tracker.get_value(["machine","machine_type","value"])
+            self._set_combo_value(self.machine_combo,m_t) 
+            to_t=self.tv.tracker.get_value(["tool","tool_type","value"])
+            self._set_combo_value(self.tool_combo,to_t)
+            tq_t=self.tv.tracker.get_value(["technique","technique_type","value"])
+            self._set_combo_value(self.technique_combo,tq_t) 
+            c_t=self.tv.tracker.get_value(["image","color","value"])
+            self._set_combo_value(self.color_combo,c_t) 
+    
+    def _set_combo_value(self,combo:QComboBox,value:str):
+        """Helper to set value to combo"""
+        index = combo.findText(value) 
+        if index >= 0: 
+            combo.setCurrentIndex(index)
 
     @QtCore.pyqtSlot(list, object, object, str, str)
     def on_tree_item_edited_old_new(self, track, old_value, new_value, typestr, subtype):
@@ -315,6 +365,12 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     def on_tree_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed
         self._evaluate_conditions()
+    
+    @QtCore.pyqtSlot(list, object, str, str)
+    def on_struct_item_edited(self, track, value, typestr, subtype):
+        # Decide what to do with item value changed
+        if self._do_evaluation:
+            self._evaluate_conditions()
 
     # def on_resolution_changed(self, value: float):
     #     self.cm.set_output_param("output", "resolution", value=float(value))
@@ -322,7 +378,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     def _evaluate_conditions(self):
         """Evaluate conditions if changes were applied refresh treeview"""
         evaluated = self.ce.evaluate_conditions_in_a_node(self.tv.tracker.get_root())
-        if evaluated:
+        if evaluated or self._do_evaluation:
             expanded = self.tv.get_expanded_paths()
             selected = self.tv.get_selected_paths()
 
@@ -349,11 +405,78 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
 
         self.color_combo.currentTextChanged.connect(self.on_color_changed)
 
+        self.action_layer_helper.triggered.connect(self.open_layer_helper)
+
+    def open_layer_helper(self):
+        if not self.is_original_image:
+            return
+        process=self.tv.tracker.get_value(["image","process","value"])
+        if process=="descrete" and self.is_processed_image:
+            num_layers=self.tv.tracker.get_value(["image","number_of_colors","value"])
+            color_selection=self.tv.tracker.get_value(["image","color","value"])
+            selected_layers=self.tv.tracker.get_value(["image","selected_layers","value"])
+            self.LSTDialog=LayerSelectionToolDialog(num_layers,selected_layers)
+            self.LSTDialog.set_preview.connect(self.set_a_preview_image_to_view)
+            self.LSTDialog.accepted.connect(self.set_layer_helper_values)
+            #self.LSTDialog.DSLui.buttonBox_LSTD.accepted.connect(lambda: self.LSTD_buttonClicked(self.LSTDialog.Selected_Layers))             
+            #self.LSTDialog.set_clicked.connect(lambda: self.LSTD_Set_buttonClicked(self.LSTDialog.Selected_Layers))
+            self.LSTDialog.Fill_comboBox_LSTD_Image_Process(self.color_selection_list,color_selection) 
+            self.LSTDialog.color_palette=self.im_processor.get_color_palette(self.im_processed,num_layers)
+            self.LSTDialog.Assign_Colors_to_Labels(self.LSTDialog.color_palette)       
+
+    def LSTD_Set_buttonClicked(self,S_L):
+        self.LSTD_buttonClicked(S_L)        
+
+    def LSTD_buttonClicked(self,S_L):
+        #print(S_L)
+        data=self.Get_data_from_Image_Config_Table()
+        sss=0
+        SLtext=''
+        IncLastLtxt='False'
+        for iii in S_L:
+            if sss>0:
+                SLtext=SLtext+' '        
+            if iii==-1:
+                IncLastLtxt='True'
+            if iii==data['Img_Num_Colors']-1: 
+                IncLastLtxt='True'   
+            SLtext=SLtext+str(iii)
+            sss=sss+1    
+        data['Selected_Layers']=SLtext                
+        data['Include_Last_Layer']=IncLastLtxt
+        self.Set_Data_in_Image_Config(data)
+        self.G_Image.Process_Image()
+        self.PB_Process_Image()
+
+    
+
+    def Change_comboBox_Image_Process_from_LSTD(self):
+        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.ui.comboBox_Image_Process.currentText():    
+            index= self.ui.comboBox_Image_Process.findText(self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
+            self.ui.comboBox_Image_Process.setCurrentIndex(index)   
+            Color_Palette=self.G_Image.Get_Color_Palette()
+            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                   
+            
+    def Change_comboBox_LSTD_from_Image_Process(self):
+        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.ui.comboBox_Image_Process.currentText():                 
+            index= self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.findText(self.ui.comboBox_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
+            self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.setCurrentIndex(index)   
+            Color_Palette=self.G_Image.Get_Color_Palette()
+            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette) 
+
     def on_color_changed(self, value):
-        color_selection=value
-        pass
-        # self.cm. = value
-        # self.update_processed_image()
+        """Color setting changed, if different apply to config and processed image"""
+        color_selection=self.tv.tracker.get_value(["image","color","value"])
+        if color_selection != value:
+            self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
+            was_set=self.tv.tracker.set_value(["image","color","value"],value)
+            self._do_evaluation=False
+            if was_set:
+                def new_process_image():
+                    self.im_processed=self.make_processed_image()
+                    self.set_processed_image_to_view()
+                if self.is_original_image:
+                    QtCore.QTimer.singleShot(0, new_process_image)
 
     def on_zoom_in_clicked(self):
         factor = 1.25
@@ -406,19 +529,64 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
                 self.im_height = self.im.height
                 qimg = self.pil_to_qimage(self.im)
                 self.show_original_image(qimg)
-            # set zoom
-            self.zoom_controller.set_zoom(1.0)
 
             self.is_original_image = True
             self.image_filename = imagefilename
             self.original_view.set_has_image(self.is_original_image)
             self.clear_processed_view()
+            self.im_processed=self.make_processed_image() # Image
+            self.is_processed_image = True 
+            self.set_processed_image_to_view()
+            # set zoom
+            self.zoom_controller.set_zoom(1.0)
             return True
         except Exception as e:
             log.error(f"Opening Image: {e}")
             self.im = None
             self.clear_original_view(include_processed=True)
         return False
+
+    def set_processed_image_to_view(self):
+        if self.is_processed_image: 
+            self.processed_view.set_has_image(self.is_processed_image)
+            pqimg = self.pil_to_qimage(self.im_processed)
+            self.show_processed_image(pqimg)
+
+    @QtCore.pyqtSlot(list, str, int, str)
+    def set_layer_helper_values(self,selected_layers,process,num_colors,color_selection):
+        if not self.is_original_image:
+            return
+        self._do_evaluation=True
+        ok = self.tv.tracker.set_value(["image","process","value"],process)
+        ok |= self.tv.tracker.set_value(["image","number_of_colors","value"],num_colors)
+        ok |= self.tv.tracker.set_value(["image","color","value"],color_selection)    
+        ok |= self.tv.tracker.set_value(["image","selected_layers","value"],selected_layers)
+        self._do_evaluation=False
+        if ok:
+            self.im_processed=self.make_processed_image()
+            self.is_processed_image = True 
+            self.set_processed_image_to_view()
+        
+        
+    @QtCore.pyqtSlot(list, str, int, str)
+    def set_a_preview_image_to_view(self,selected_layers,process,num_colors,color_selection):
+        if not self.is_original_image:
+            return
+        im_processed=self.im.copy()
+        if process == "descrete":            
+            im_processed = self.im_processor.apply_quant_color_process_to_image(im_processed,num_colors,color_selection)
+            im_processed = self.im_processor.retain_selected_layers(im_processed,selected_layers,num_colors)
+            try:
+                self.LSTDialog.color_palette=self.im_processor.get_color_palette(im_processed,num_colors)
+                self.LSTDialog.Assign_Colors_to_Labels(self.LSTDialog.color_palette) 
+            except:
+                pass
+        elif process == "continuous":
+            im_processed=self.im_processor.apply_quant_color_process_to_image(im_processed,None,color_selection)
+        self.is_processed_image = True 
+        self.processed_view.set_has_image(self.is_processed_image)
+        pqimg = self.pil_to_qimage(im_processed)
+        self.show_processed_image(pqimg)
 
     def clear_processed_view(self):
         self.is_processed_image=False
@@ -453,7 +621,26 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         pass
 
     def make_processed_image(self):
-        self.im_processed=self.im.copy()
+        """Makes color and quantization process to image.
+
+        Returns:
+            Image: processed image
+        """
+        if not self.is_original_image:
+            return
+        im_processed=self.im.copy()
+        process=self.tv.tracker.get_value(["image","process","value"])
+        num_colors=self.tv.tracker.get_value(["image","number_of_colors","value"])
+        color_selection=self.tv.tracker.get_value(["image","color","value"])
+        if process == "descrete":            
+            im_processed=self.im_processor.apply_quant_color_process_to_image(im_processed,num_colors,color_selection)
+            selected_layers=self.tv.tracker.get_value(["image","selected_layers","value"])
+            im_processed=self.im_processor.retain_selected_layers(im_processed,selected_layers,num_colors)
+        elif process == "continuous":
+            im_processed=self.im_processor.apply_quant_color_process_to_image(im_processed,None,color_selection)
+        return im_processed
+        
+
     
     def show_processed_image(self, image):
         self.processed_scene.clear()
@@ -602,8 +789,9 @@ class ImageProcessor:
         self.color_palette=None
         self.rgb_to_pval = {}
         self.pval_to_rgb = {}
+        self.imp=None
 
-    def apply_quant_color_process_to_image(self,im:Image.Image,number_of_colors, color_selection):
+    def apply_quant_color_process_to_image(self,im:Image.Image,number_of_colors, color_selection)->Image.Image:
         """Set color selection and quantize image"""
         imp=im.copy()
         if color_selection == 'Black&White':
@@ -622,7 +810,9 @@ class ImageProcessor:
                 imp = self.remove_channel_from_image(imp,'G')
             elif color_selection == 'Not Blue':
                 imp =self.remove_channel_from_image(imp,'B')   
-        return imp.quantize(colors=number_of_colors)
+        if isinstance(number_of_colors,int) and 0<number_of_colors<=256:
+            return imp.quantize(colors=number_of_colors)
+        return imp
 
     @staticmethod
     def rgb_to_luminance_array(imp):
@@ -685,7 +875,7 @@ class ImageProcessor:
             self.rgb_to_pval[(r, g, b)] = p
             self.pval_to_rgb[p] = (r, g, b)
 
-    def retain_selected_layers(self, selected_layer_list):
+    def retain_selected_layers(self,imp:Image.Image, selected_layer_list:list,number_of_colors:int):
         """
         Keep only pixels whose palette index is in selected_layer_list.
         All other pixels become white.
@@ -693,7 +883,9 @@ class ImageProcessor:
         Works for both RGB images and palette-indexed images.
         Uses NumPy for fast vectorized processing.
         """
-        arr = np.array(self.imp)
+        self.color_palette=self.get_color_palette(imp,number_of_colors)
+        self.build_palette_maps()
+        arr = np.array(imp)
         # Case 1: RGB image → convert to palette indices
         if arr.ndim == 3:
             h, w, _ = arr.shape
@@ -715,7 +907,7 @@ class ImageProcessor:
             rgb = self.pval_to_rgb.get(p, (255, 255, 255))
             out[pvals == p] = rgb
         # Convert back to Pillow image
-        self.imp = Image.fromarray(out, "RGB")
+        return Image.fromarray(out, "RGB")
 
     @staticmethod
     def get_one_channel_from_image(imp, channel):
@@ -763,7 +955,7 @@ class ImageProcessor:
         return Image.fromarray(arr, "RGB")
     
     @staticmethod
-    def get_color_palette(imp: Image.Image, number_of_colors: int):
+    def get_color_palette(imp: Image.Image, number_of_colors: int = 256):
         """
         Extract the palette from a quantized Pillow image.
 
@@ -779,12 +971,16 @@ class ImageProcessor:
                 A list of (pval, count, r, g, b) entries.
         """
         # Ensure the image is palette-based
+        number_of_colors=max(number_of_colors,1)
+        number_of_colors=min(number_of_colors,256)
         if imp.mode != "P":
-            raise ValueError("get_color_palette() requires a quantized 'P' mode image")
-
+            #raise ValueError(f"get_color_palette() requires a quantized 'P' mode image, actual {imp.mode}")
+            imp = imp.quantize(colors=number_of_colors)
+            
         color_list = imp.getcolors(number_of_colors)  # [(count, pval), ...]
         palette_list = imp.getpalette()               # flat RGB list
-
+        if palette_list is None: 
+            return []
         if not color_list:
             return []
 
@@ -1031,21 +1227,45 @@ class ConfigManager:
         else:
             target[key] = new_value
 
+    def _make_configuration_structure(self):
+        s_dict = {
+            "image": {
+                "icon_key":"open_image",
+                "children":[{key:value} for key,value in self.image_dict.items()]
+                },
+            "machine": {
+                "icon_key":"machine_icon",
+                "children":[{key:value} for key,value in self.machine_dict.items()]
+                },
+            "tool": {
+                "icon_key":"tool_icon",
+                "children":[{key:value} for key,value in self.tool_dict.items()]
+                    },
+            "workspace": {
+                "icon_key":"position_helper",
+                "children":[{key:value} for key,value in self.workspace_dict.items()]
+                },
+            "technique": {
+                "icon_key":"technique_icon",
+                "children":[{key:value} for key,value in self.technique_dict.items()]
+                },
+            "output": {
+                "icon_key":"make_gcode",
+                "children":[{key:value} for key,value in self.output_dict.items()]},
+        }
+        tr=TreeStructTracker(s_dict)
+        ok = tr.set_or_create_value(["image","color","icon_key"],"color_icon")
+        ok |= tr.set_or_create_value(["image","color","meta[editable]"],False)
+        ok |= tr.set_or_create_value(["image","color","meta[selectable]"],False)
+        # Here add icons and style
+        return tr.get_root()
+
     # -------------------------
     # ACCESSORS
     # -------------------------
     @property
     def session_dict(self):
-        s_dict = {
-            "machine": {"children":[{key:value} for key,value in self.machine_dict.items()]},
-            "tool": {"children":[{key:value} for key,value in self.tool_dict.items()]},
-            "workspace": {"children":[{key:value} for key,value in self.workspace_dict.items()]},
-            "technique": {"children":[{key:value} for key,value in self.technique_dict.items()]},
-            "image": {"children":[{key:value} for key,value in self.image_dict.items()]},
-            "output": {"children":[{key:value} for key,value in self.output_dict.items()]},
-        }
-        # Here add icons and style
-        return s_dict
+        return self._make_configuration_structure()
 
     @property
     def machine_list(self):

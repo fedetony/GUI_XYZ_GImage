@@ -549,7 +549,50 @@ class TreeStructTracker(QtCore.QObject):
 
         # Node does not exist → create path
         self.ensure_path(track[:-1])
-        return self.set_value(track, value, subtype=subtype)
+        was_set=self.set_or_create_property(track, value, subtype=subtype)
+        return was_set
+    
+    def set_or_create_property(self, track: list, value: any, subtype: str='')  -> bool:
+        """Sets the property path to Node must exist"""
+        was_set=self.set_value(track, value, subtype=subtype)
+        if not was_set:
+            # Add property if missing
+            inner=self.get_value(track[:-1])
+            if not isinstance(inner, dict):
+                return False
+            prop=track[-1]
+            field,subfield=self._get_field_subfield_key(prop)
+            # create field if does not exist
+            if field not in inner:
+                if not subfield:
+                    inner[field] = ""
+                    return self.set_value(track, value, subtype=subtype)
+                fff,sfff=self._get_field_subfield_key(subfield)
+                if sfff:
+                    inner[field] = {f"{fff}":{f"{sfff}":""}}
+                else:    
+                    inner[field] = {f"{subfield}":""}  
+                was_set=self.set_value(track, value, subtype=subtype)   
+            # modify field if does not exist
+            elif field in inner:
+                innd=inner[field]
+                if isinstance(innd, dict):
+                    fff,sfff=self._get_field_subfield_key(subfield)
+                    if sfff:
+                        innd.update({f"{fff}":{f"{sfff}":""}})
+                    else:    
+                        innd.update({f"{subfield}":""})  
+                    was_set=self.set_value(track, value, subtype=subtype)  
+        return was_set
+    
+    def _get_field_subfield_key(self,key):
+        """returns field,subfield tuple in field[subfield] syntax"""
+        base=key
+        inner=None
+        if isinstance(key, str) and "[" in key and key.endswith("]"):
+            base, inner = key.split("[", 1)
+            inner = inner[:-1]  # strip ']'
+        return base,inner
     
     def ensure_path(self, track: list):
         """
