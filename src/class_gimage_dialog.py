@@ -418,51 +418,9 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self.LSTDialog=LayerSelectionToolDialog(num_layers,selected_layers)
             self.LSTDialog.set_preview.connect(self.set_a_preview_image_to_view)
             self.LSTDialog.accepted.connect(self.set_layer_helper_values)
-            #self.LSTDialog.DSLui.buttonBox_LSTD.accepted.connect(lambda: self.LSTD_buttonClicked(self.LSTDialog.Selected_Layers))             
-            #self.LSTDialog.set_clicked.connect(lambda: self.LSTD_Set_buttonClicked(self.LSTDialog.Selected_Layers))
             self.LSTDialog.Fill_comboBox_LSTD_Image_Process(self.color_selection_list,color_selection) 
             self.LSTDialog.color_palette=self.im_processor.get_color_palette(self.im_processed,num_layers)
             self.LSTDialog.Assign_Colors_to_Labels(self.LSTDialog.color_palette)       
-
-    def LSTD_Set_buttonClicked(self,S_L):
-        self.LSTD_buttonClicked(S_L)        
-
-    def LSTD_buttonClicked(self,S_L):
-        #print(S_L)
-        data=self.Get_data_from_Image_Config_Table()
-        sss=0
-        SLtext=''
-        IncLastLtxt='False'
-        for iii in S_L:
-            if sss>0:
-                SLtext=SLtext+' '        
-            if iii==-1:
-                IncLastLtxt='True'
-            if iii==data['Img_Num_Colors']-1: 
-                IncLastLtxt='True'   
-            SLtext=SLtext+str(iii)
-            sss=sss+1    
-        data['Selected_Layers']=SLtext                
-        data['Include_Last_Layer']=IncLastLtxt
-        self.Set_Data_in_Image_Config(data)
-        self.G_Image.Process_Image()
-        self.PB_Process_Image()
-
-    
-
-    def Change_comboBox_Image_Process_from_LSTD(self):
-        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.ui.comboBox_Image_Process.currentText():    
-            index= self.ui.comboBox_Image_Process.findText(self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
-            self.ui.comboBox_Image_Process.setCurrentIndex(index)   
-            Color_Palette=self.G_Image.Get_Color_Palette()
-            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette)                   
-            
-    def Change_comboBox_LSTD_from_Image_Process(self):
-        if self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.currentText()!=self.ui.comboBox_Image_Process.currentText():                 
-            index= self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.findText(self.ui.comboBox_Image_Process.currentText(),QtCore.Qt.MatchFlag.MatchFixedString)
-            self.LSTDialog.DSLui.comboBox_LSTD_Image_Process.setCurrentIndex(index)   
-            Color_Palette=self.G_Image.Get_Color_Palette()
-            self.LSTDialog.Assign_Colors_to_Labels(Color_Palette) 
 
     def on_color_changed(self, value):
         """Color setting changed, if different apply to config and processed image"""
@@ -572,15 +530,16 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     def set_a_preview_image_to_view(self,selected_layers,process,num_colors,color_selection):
         if not self.is_original_image:
             return
+        print("got selected layers->",selected_layers)
         im_processed=self.im.copy()
         if process == "descrete":            
             im_processed = self.im_processor.apply_quant_color_process_to_image(im_processed,num_colors,color_selection)
-            im_processed = self.im_processor.retain_selected_layers(im_processed,selected_layers,num_colors)
             try:
                 self.LSTDialog.color_palette=self.im_processor.get_color_palette(im_processed,num_colors)
                 self.LSTDialog.Assign_Colors_to_Labels(self.LSTDialog.color_palette) 
             except:
                 pass
+            im_processed = self.im_processor.retain_selected_layers(im_processed,selected_layers,num_colors)
         elif process == "continuous":
             im_processed=self.im_processor.apply_quant_color_process_to_image(im_processed,None,color_selection)
         self.is_processed_image = True 
@@ -875,7 +834,7 @@ class ImageProcessor:
             self.rgb_to_pval[(r, g, b)] = p
             self.pval_to_rgb[p] = (r, g, b)
 
-    def retain_selected_layers(self,imp:Image.Image, selected_layer_list:list,number_of_colors:int):
+    def retain_selected_layers(self,imp:Image.Image, selected_layer_list:list,number_of_colors:int,unselected_fill_rgb:tuple=None):
         """
         Keep only pixels whose palette index is in selected_layer_list.
         All other pixels become white.
@@ -883,6 +842,11 @@ class ImageProcessor:
         Works for both RGB images and palette-indexed images.
         Uses NumPy for fast vectorized processing.
         """
+        if not isinstance(selected_layer_list,list):
+            selected_layer_list=[-1]
+        if len(selected_layer_list) == 1 and selected_layer_list[0] == -1: #case [-1]
+            selected_layer_list=list(range(number_of_colors))
+
         self.color_palette=self.get_color_palette(imp,number_of_colors)
         self.build_palette_maps()
         arr = np.array(imp)
@@ -901,10 +865,13 @@ class ImageProcessor:
         mask = np.isin(pvals, selected_layer_list)
         # Output array (RGB)
         out = np.zeros((pvals.shape[0], pvals.shape[1], 3), dtype=np.uint8)
-        out[:, :] = (255, 255, 255)  # default white
+        if unselected_fill_rgb is None:
+            unselected_fill_rgb=(255, 255, 255)  # default white
+
+        out[:, :] = unselected_fill_rgb
         # Fill selected pixels with their palette RGB
         for p in selected_layer_list:
-            rgb = self.pval_to_rgb.get(p, (255, 255, 255))
+            rgb = self.pval_to_rgb.get(p, unselected_fill_rgb)
             out[pvals == p] = rgb
         # Convert back to Pillow image
         return Image.fromarray(out, "RGB")

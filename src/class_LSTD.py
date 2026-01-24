@@ -16,15 +16,22 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
 
     def __init__(self, num_layers, selected_layers, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.actual_color_process='RGB'
+        self.actual_color_process=''
         self.color_palette=None
         self.number_of_layers = max(1, num_layers)
         self.selected_layers = selected_layers or [-1]
         self.original_selected_layers=self.selected_layers
+        self.original_color_process=''
 
         self.Dialog_LSTD = QtWidgets.QDialog()
         self.DSLui = GuiXYZ_LSTD.Ui_Dialog_LSTD()
         self.DSLui.setupUi(self.Dialog_LSTD)
+        self.DSLui.buttonBox_LSTD.accepted.disconnect()
+        self.DSLui.buttonBox_LSTD.rejected.disconnect()
+
+        self.DSLui.buttonBox_LSTD.accepted.connect(self.accept)
+        self.DSLui.buttonBox_LSTD.rejected.connect(self.reject)
+        self.Dialog_LSTD.rejected.connect(self.reject) # close event 
 
         # Store widgets instead of searching by name
         self.checkboxes = []
@@ -43,18 +50,23 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
     def _build_layer_widgets(self):
         layout = self.DSLui.gridLayout
 
-        for iii in range(self.number_of_layers):
+        columns = 8   # choose what fits your dialog width
+        for i in range(self.number_of_layers):
+            row = i // columns
+            col = (i % columns) * 2   # two columns per item: checkbox + label
+
             # Checkbox
-            cb = QtWidgets.QCheckBox(f"Layer {iii}")
+            cb = QtWidgets.QCheckBox(f"{i}")
             cb.clicked.connect(self.get_selected_layers_from_checkbox)
-            layout.addWidget(cb, iii, 0)
+            layout.addWidget(cb, row, col)
             self.checkboxes.append(cb)
 
             # Label
-            lbl = QtWidgets.QLabel(str(iii))
-            lbl.setStyleSheet("border: 1px solid black;")
-            layout.addWidget(lbl, iii, 1)
+            lbl = QtWidgets.QLabel(str(i))
+            lbl.setStyleSheet("border: 1px solid black; padding: 2px;")
+            layout.addWidget(lbl, row, col + 1)
             self.labels.append(lbl)
+
 
     # ---------------------------------------------------------
     # Color assignment
@@ -84,6 +96,7 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
     def clear_all_checkboxes(self, val=False):
         for cb in self.checkboxes:
             cb.setChecked(val)
+        self.get_selected_layers_from_checkbox()
 
     def get_selected_layers_from_checkbox(self):
         selected = [i for i, cb in enumerate(self.checkboxes) if cb.isChecked()]
@@ -110,6 +123,7 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
         self.DSLui.comboBox_LSTD_Image_Process.clear()
         self.DSLui.comboBox_LSTD_Image_Process.addItems(color_selection_list)
         self._set_combo_value(self.DSLui.comboBox_LSTD_Image_Process,actual_color)
+        self.original_color_process=self.DSLui.comboBox_LSTD_Image_Process.currentText()
         self.DSLui.comboBox_LSTD_Image_Process.currentIndexChanged.connect(self.color_process_changed)    
 
     def color_process_changed(self, value:str):
@@ -120,6 +134,7 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
         index = combo.findText(value) 
         if index >= 0: 
             combo.setCurrentIndex(index)
+
     # ---------------------------------------------------------
     # Dialog actions
     # ---------------------------------------------------------
@@ -131,7 +146,12 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
         self.get_selected_layers_from_checkbox()
         self.accepted.emit(self.selected_layers,"descrete",self.number_of_layers,self.actual_color_process)
         self.original_selected_layers=self.selected_layers
+        self.Dialog_LSTD.close() # close dialog
         return self.selected_layers
+    
+    def reject(self):
+        self.accepted.emit(self.original_selected_layers,"descrete",self.number_of_layers,self.original_color_process)
+        self.Dialog_LSTD.close() # close dialog
 
     # ---------------------------------------------------------
     # Layer range filtering
