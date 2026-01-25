@@ -1095,8 +1095,6 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
                 log.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
         else:            
             log.info("Event filename changed!"+afilename)
-        
-
 
     def Image_Preview_Clicked(self):
         print("Image clicked!!!!! ")

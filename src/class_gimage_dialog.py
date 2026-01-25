@@ -446,6 +446,44 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         new_zoom = self.zoom_controller.current_zoom * factor
         self.zoom_controller.set_zoom(new_zoom)
 
+    @staticmethod
+    def zoom_to_fit_height(view: QtWidgets.QGraphicsView, scene_rect: QtCore.QRectF) -> float:
+        """Return the zoom factor needed so the image height matches the view height."""
+        if scene_rect.height() == 0:
+            return 1.0
+
+        viewport_h = view.viewport().height()
+        return viewport_h / scene_rect.height()
+
+    @staticmethod
+    def zoom_to_fit_width(view: QtWidgets.QGraphicsView, scene_rect: QtCore.QRectF) -> float:
+        """Return the zoom factor needed so the image width matches the view width."""
+        if scene_rect.width() == 0:
+            return 1.0
+
+        viewport_w = view.viewport().width()
+        return viewport_w / scene_rect.width()
+
+    def set_best_zoom_fit(self):
+        """Fits the window to the height or width depending on window size"""
+        scene_rect = self.original_scene.sceneRect()
+
+        zoom_h = self.zoom_to_fit_height(self.original_view, scene_rect)
+        zoom_w = self.zoom_to_fit_width(self.original_view, scene_rect)
+
+        # Apply zoom through your controller
+        self.zoom_controller.set_zoom(min(zoom_h,zoom_w))
+
+    def on_fit_width_clicked(self):
+        rect = self.original_scene.sceneRect()
+        zoom = self.zoom_to_fit_width(self.original_view, rect)
+        self.zoom_controller.set_zoom(zoom)
+
+    def on_fit_height_clicked(self):
+        rect = self.original_scene.sceneRect()
+        zoom = self.zoom_to_fit_height(self.original_view, rect)
+        self.zoom_controller.set_zoom(zoom)
+
     def on_fit_clicked(self):
         self.original_view.fitInView(
             self.original_scene.itemsBoundingRect(),
@@ -457,6 +495,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         )
         # Reset zoom controller to 1.0 so wheel zoom starts from neutral
         self.zoom_controller.set_zoom(1.0)
+        self.set_best_zoom_fit()
 
     def open_image(self, imagefilename):
         """Opens image into the show supports jpeg,png,svg 
@@ -496,7 +535,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self.is_processed_image = True 
             self.set_processed_image_to_view()
             # set zoom
-            self.zoom_controller.set_zoom(1.0)
+            # self.zoom_controller.set_zoom(1.0)
+            self.on_fit_clicked()
             return True
         except Exception as e:
             log.error(f"Opening Image: {e}")
@@ -598,9 +638,31 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         elif process == "continuous":
             im_processed=self.im_processor.apply_quant_color_process_to_image(im_processed,None,color_selection)
         return im_processed
-        
 
-    
+    def show_original_image(self, image):
+        self.original_scene.clear()
+        if isinstance(image, QtGui.QPixmap):
+            pix = image
+        elif isinstance(image, QtGui.QImage):
+            pix = QtGui.QPixmap.fromImage(image)
+        elif isinstance(image, Image.Image):
+            pix = self.pil_to_qpixmap(image)
+        else:
+            log.error(f"Unsupported image type: {type(image)}")
+            return
+        self.original_scene.addPixmap(pix)
+        # IMPORTANT: force identical sceneRect
+        self.original_scene.setSceneRect(QtCore.QRectF(pix.rect()))
+        # Fit only once
+        self.original_view.fitInView(
+            self.original_scene.sceneRect(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio
+        )
+        # Sync controller zoom to the fitted zoom
+        fitted_zoom = self.original_view.transform().m11()
+        self.zoom_controller.set_zoom(fitted_zoom)
+        self.original_view.set_has_image(True)
+
     def show_processed_image(self, image):
         self.processed_scene.clear()
         if isinstance(image, QtGui.QPixmap):
@@ -613,16 +675,16 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             log.error(f"Unsupported image type: {type(image)}")
             return
         self.processed_scene.addPixmap(pix)
-        self.im_processed = self.im
+        # IMPORTANT: force identical sceneRect
+        self.processed_scene.setSceneRect(QtCore.QRectF(pix.rect()))
         self.processed_view.set_has_image(True)
         self.is_processed_image = True
-
-        # Sync zoom with original view
-        self.processed_view.resetTransform()
-        self.processed_view.scale(
-            self.zoom_controller.current_zoom,
-            self.zoom_controller.current_zoom
-        )
+        # Apply current zoom WITHOUT resetTransform
+        current = self.processed_view.transform().m11()
+        if current == 0:
+            current = 0.0001
+        scale_factor = self.zoom_controller.current_zoom / current
+        self.processed_view.scale(scale_factor, scale_factor)
 
     @staticmethod
     def pil_to_qimage(pil_image:Image)->QImage:
@@ -638,24 +700,6 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     
     def pil_to_qpixmap(self,pil_image)->QPixmap:
         return QPixmap.fromImage(self.pil_to_qimage(pil_image))
-
-    def show_original_image(self, image):
-        self.original_scene.clear()
-        if isinstance(image, QtGui.QPixmap):
-            pix = image
-        elif isinstance(image, QtGui.QImage):
-            pix = QtGui.QPixmap.fromImage(image)
-        elif isinstance(image, Image.Image):
-            pix = self.pil_to_qpixmap(image)
-        else:
-            log.error(f"Unsupported image type: {type(image)}")
-            return
-        self.original_scene.addPixmap(pix)
-        # Fit only the original view
-        self.original_view.fitInView(
-            self.original_scene.itemsBoundingRect(),
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio
-        )
 
     @staticmethod
     def qpixmap_to_pil(pixmap:QPixmap)->Image.Image:
@@ -968,70 +1012,108 @@ class SyncedZoomController(QtCore.QObject):
     def __init__(self):
         super().__init__()
         self.current_zoom = 1.0
-        self.views = []  # store all synced views
-        
+        self.max_zoom = 50.0
+        self.min_zoom = 0.001
+        self.views = []
+
     def register_view(self, view):
         self.views.append(view)
 
     def set_zoom(self, factor):
+        factor = max(self.min_zoom, min(factor, self.max_zoom))
         self.current_zoom = factor
         self.zoom_changed.emit(factor)
 
+    def zoom_by(self, multiplier: float):
+        self.set_zoom(self.current_zoom * multiplier)
+    
+    def reset_zoom(self):
+        self.set_zoom(1.0)
+
+
 class SyncedGraphicsView(QtWidgets.QGraphicsView):
-    def __init__(self, controller:SyncedZoomController, *args, **kwargs):
+    def __init__(self, controller: SyncedZoomController, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.controller = controller
         self.controller.register_view(self)
 
-        self._ignore_scroll = False
         self._ignore_wheel = False
-        self._has_image = False  
+        self._ignore_scroll = False
+        self._ignore_zoom = False
+        self._has_image = False
 
+        # Connect zoom sync
         self.controller.zoom_changed.connect(self.apply_zoom)
+
+        # Connect scroll sync
+        self.horizontalScrollBar().valueChanged.connect(self.sync_scroll_x)
+        self.verticalScrollBar().valueChanged.connect(self.sync_scroll_y)
+
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_has_image(self, value: bool):
         self._has_image = value
-    
-    # --- Zoom sync  ---
+
+    # -------------------------
+    # Wheel Zoom
+    # -------------------------
     def wheelEvent(self, event):
-        if self._ignore_wheel:
+        if not self._has_image or self._ignore_wheel:
             return
 
         zoom_in = 1.25
         zoom_out = 0.8
-
         factor = zoom_in if event.angleDelta().y() > 0 else zoom_out
+
         new_zoom = self.controller.current_zoom * factor
         self.controller.set_zoom(new_zoom)
 
+    # -------------------------
+    # Apply Zoom (from controller)
+    # -------------------------
     def apply_zoom(self, factor):
-        if not self._has_image:   # <--- SKIP EMPTY VIEW
+        if not self._has_image or self._ignore_zoom:
             return
-        self._ignore_wheel = True
-        self.resetTransform()
-        self.scale(factor, factor)
-        self._ignore_wheel = False
 
-    # ---  Scroll sync ---
-    def scrollContentsBy(self, dx, dy):
-        if self._ignore_scroll:
+        self._ignore_zoom = True
+
+        # Compute relative scale factor
+        current = self.transform().m11()
+        if current == 0:
+            current = 0.0001
+
+        scale_factor = factor / current
+        self.scale(scale_factor, scale_factor)
+
+        self._ignore_zoom = False
+
+    # -------------------------
+    # Scroll Sync
+    # -------------------------
+    def sync_scroll_x(self, value):
+        if self._ignore_scroll or not self._has_image:
             return
-        # If this view has no image, do nothing
-        if not self._has_image:
-            return
-        super().scrollContentsBy(dx, dy)
-        # Sync other views
+
         for view in self.controller.views:
-            if view is self:
+            if view is self or not view._has_image:
                 continue
-            # Skip views with no image
-            if not view._has_image:
-                continue
+
             view._ignore_scroll = True
-            view.horizontalScrollBar().setValue(self.horizontalScrollBar().value())
-            view.verticalScrollBar().setValue(self.verticalScrollBar().value())
+            view.horizontalScrollBar().setValue(value)
             view._ignore_scroll = False
 
+    def sync_scroll_y(self, value):
+        if self._ignore_scroll or not self._has_image:
+            return
+
+        for view in self.controller.views:
+            if view is self or not view._has_image:
+                continue
+
+            view._ignore_scroll = True
+            view.verticalScrollBar().setValue(value)
+            view._ignore_scroll = False
 
 class ConfigManager:
     def __init__(self, base_folder=gimage_path,session_filepath=None):
