@@ -15,7 +15,10 @@ def init_logger_manager(log_file):
 
 class LoggerManager:
     def __init__(self, log_file):
-        self.log_file = Path(log_file)
+        if log_file:
+            self.log_file = Path(log_file)
+        else:
+            self.log_file = None
         self.log_queue = queue.Queue()
         self.root = logging.getLogger()
         self.root.setLevel(logging.DEBUG)
@@ -149,7 +152,10 @@ class LoggerManager:
             self.update_thread.start()
 
     def _setup_file_handler(self):
-        fh = logging.FileHandler(self.log_file, mode="a", encoding="utf-8")
+        if self.log_file:
+            fh = logging.FileHandler(self.log_file, mode="a", encoding="utf-8")
+        else:
+            fh = logging.StreamHandler()
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(logging.Formatter(
             "%(asctime)s [%(levelname)s] (%(threadName)-10s) (%(name)s) %(message)s",

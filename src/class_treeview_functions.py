@@ -19,7 +19,7 @@ try:
                                      True,
                                      "%(asctime)s [%(levelname)s] (%(name)s) %(message)s")
     log.info(f"{tv_fun_name} Logger started")
-except ImportError:
+except (AttributeError, ImportError):
     # set up logging to file - see previous section for more details
     log = logging.getLogger(tv_fun_name) #'' for root logger
     logging.basicConfig(level=logging.DEBUG,
