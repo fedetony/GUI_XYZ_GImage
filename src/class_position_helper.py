@@ -3,39 +3,82 @@ from PyQt6 import QtWidgets, QtGui, QtCore
 
 import math
 import logging
+style_dict = {            
+            "Machine": {
+                "bg":"#d0d0d0",
+                "fg": "#ff0000"       # red text
+            },
+            "Workspace": {
+                "bg":"#a8e6a3",
+                "fg": "#ff0000"       # red text
+            },
+            "Material": {
+                "bg":"#d2a679",
+                "fg": "#ff0000"       # red text
+            },
+            "Head": {
+                "bg":"#8ec6ff",
+                "fg": "#ff0000"       # red text
+            },
+            "Tool":{
+                "bg": "#ffb347",
+                "fg": "#ff0000"       # red text
+            },
+        }
 
 MAIN_STRUCT_EXAMPLE={
-        "Machine": [  
+        "Machine": {"style_key":"Machine","children":[  
                 {"Axes": {"value": ['X','Y','Z'], "type": "list", "subtype": "str", "meta": {"editable": False }}},
                 {"Mapping": [
                     {"X": {"value": "X", "type": "str", "meta": {"options": ["X", "Y", "Z", "A", "B", "C","E","F","S"]}}},
                     {"Y": {"value": "Y", "type": "str", "meta": {"options": ["X", "Y", "Z", "A", "B", "C","E","F","S"]}}},
                     {"Z": {"value": "Z", "type": "str", "meta": {"options": ["X", "Y", "Z", "A", "B", "C","E","F","S"]}}},
                 ]},
-                {"Size": {"value": [700, 800, 200], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
-                {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
-                {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
-            ],
+                {"Size": {"value": [700, 800, 200], "type": "list", "subtype": "float", "unit":"mm", "meta": { "constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
+                {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": { "arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
+                {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": { "arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": '', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                ],
+            },
         "Workspace": [                  
                 {"Size": {"value": [650, 700, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
             ],
         "Material": [                  
                 {"Size": {"value": [270, 210, 3], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Workspace', "type": "str",  "meta": {"hidden":False, "editable":False}}},
             ],
         "Head": [                  
                 {"Size": {"value": [40, 40, 30], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 80.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
             ],
         "Tool": [                  
                 {"Tool Type": {"value": "pencil", "type": "str", "meta": {"options": ["pen","pencil","laser"]}}},
                 {"Size": {"value": [5, 5, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 40.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Head', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Shape":   [{"XY":[
+                           {"Shape Points": {"value": [((0.5 + 0.5 * math.cos(2 * math.pi * i / 6), 0.5 + 0.5 * math.sin(2 * math.pi * i / 6))) for i in range(6)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
+                            {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
+                           ]},
+                            {"XZ":[
+                           {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
+                            {"Anchor": {"value": [0, 0], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
+                           ]},
+                            {"YZ":[
+                           {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
+                            {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
+                           ]},
+                            ]
+            
+                },
             ]
         }
 
@@ -64,7 +107,10 @@ except (AttributeError, ImportError):
 import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
+
+#######################################################
 # ----------------- 3D model -----------------
+#######################################################
 class CNCObject3D:
     """
     Represents a 3D object in the CNC scene graph.
@@ -204,8 +250,9 @@ class CNCObject3D:
         az = self.z + self.d * self.anchor_z
         return QtCore.QPointF(ay, az)
 
-
+#########################################################
 # ----------------- Base projected item -----------------
+#########################################################
 class ProjectedItem(QtWidgets.QGraphicsRectItem):
     """
     A 2D projection of a CNCObject3D into one of the planes:
@@ -457,7 +504,10 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         return super().itemChange(change, value)
 
 
-# ----------------- Main dialog with 3 views -----------------
+###############################################################
+# ----------------------- Main dialog -------------------------
+###############################################################
+
 class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
@@ -496,7 +546,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         
         # Add cache tooltip, icons, backgrounds, styles
         # self.tv.set_icons_cache(self.all_icons_dict)
-        # self.tv.set_style_cache(self.style_dict)
+        self.phtv.set_style_cache(style_dict)
 
         # Right click Menu 
         self.phtv.treeviewobj.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -513,13 +563,34 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     @QtCore.pyqtSlot(list, object, str, str)
     def on_tree_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed from user
-        pass
+        name=track[0]
+        obj=self._get_obj_from_track(track)
+        if obj:            
+            self._changing_from_code=True
+            # update values in structure
+            self.phtv.tracker.set_value(track,value,subtype)
+            # update values inside object
+            m_size=self.phce.tracker.get_value([name,"Size","value"])
+            m_pos=self.phce.tracker.get_value([name,"Position","value"])
+            m_anchor=self.phce.tracker.get_value([name,"Anchor","value"])
+            self.set_obj_size_position_anchor(obj,m_size,m_pos,m_anchor)
+            # m_parent=self.phce.tracker.get_value([name,"Parent","value"])
+            self.on_model_changed(obj)
+            self._changing_from_code=False
+            # update values in views
+            self.update_tree(obj)
 
     @QtCore.pyqtSlot(list, object, str, str)
     def on_struct_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed from code
         if self._do_evaluation:
             self._evaluate_conditions()
+    
+    def _get_obj_from_track(self,track):
+        for name,obj in self.objects.items():
+            if name == track[0]:
+                return obj
+        return None
 
     def _evaluate_conditions(self):
         """Evaluate conditions if changes were applied refresh treeview"""
@@ -724,45 +795,27 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
 
 
     def _build_model(self):
-        # Simple demo model: machine, workspace, material, head, tool
-        self.machine = CNCObject3D("Machine")
-        m_size=self.phce.tracker.get_value(["Machine","Size","value"])
-        m_pos=self.phce.tracker.get_value(["Machine","Position","value"])
-        m_anchor=self.phce.tracker.get_value(["Machine","Anchor","value"])
-        self.set_obj_size_position_anchor(self.machine,m_size,m_pos,m_anchor)
-        # Set world sizes as 110% machine size
-        self.world_sizes=[1.0*sss for sss in m_size]
-
-        self.workspace = CNCObject3D("Workspace")
-        w_size=self.phce.tracker.get_value(["Workspace","Size","value"])
-        w_pos=self.phce.tracker.get_value(["Workspace","Position","value"])
-        w_anchor=self.phce.tracker.get_value(["Workspace","Anchor","value"])
-        self.set_obj_size_position_anchor(self.workspace,w_size,w_pos,w_anchor)
-        # Attach to parent after having coordinates
-        self.machine.attach_child(self.workspace)
-
-        self.material = CNCObject3D("Material")
-        ma_size=self.phce.tracker.get_value(["Material","Size","value"])
-        ma_pos=self.phce.tracker.get_value(["Material","Position","value"])
-        ma_anchor=self.phce.tracker.get_value(["Material","Anchor","value"])
-        self.set_obj_size_position_anchor(self.material,ma_size,ma_pos,ma_anchor)
-        self.workspace.attach_child(self.material)
-
-        self.head = CNCObject3D("Head")
-        h_size=self.phce.tracker.get_value(["Head","Size","value"])
-        h_pos=self.phce.tracker.get_value(["Head","Position","value"])
-        h_anchor=self.phce.tracker.get_value(["Head","Anchor","value"])
-        self.set_obj_size_position_anchor(self.head,h_size,h_pos,h_anchor)
-        self.machine.attach_child(self.head)
-
-        self.tool = CNCObject3D("Tool")
-        t_size=self.phce.tracker.get_value(["Tool","Size","value"])
-        t_pos=self.phce.tracker.get_value(["Tool","Position","value"])
-        t_anchor=self.phce.tracker.get_value(["Tool","Anchor","value"])
-        self.set_obj_size_position_anchor(self.tool,t_size,t_pos,t_anchor)
-        self.head.attach_child(self.tool)
-
-        self.objects = [self.machine, self.workspace, self.material, self.head, self.tool]
+        
+        val_dict=self.phce.tracker.validate_node([])
+        self.objects = {}
+        if val_dict["found"] and val_dict["is_root"]:
+            if val_dict["has_children"]:
+                for child in val_dict["children_keys"]:
+                    # Build object
+                    child_obj = CNCObject3D(child)
+                    m_size=self.phce.tracker.get_value([child,"Size","value"])
+                    m_pos=self.phce.tracker.get_value([child,"Position","value"])
+                    m_anchor=self.phce.tracker.get_value([child,"Anchor","value"])
+                    self.set_obj_size_position_anchor(child_obj,m_size,m_pos,m_anchor)
+                    m_parent=self.phce.tracker.get_value([child,"Parent","value"])
+                    if m_parent in [None,'','None']:                        
+                        # Set world sizes as 110% machine size
+                        self.world_sizes=[max(1.0*sss,size) for sss,size in zip(m_size,self.world_sizes)]    
+                    else:
+                        if m_parent in self.objects.keys():
+                            parent_obj=self.objects[m_parent]
+                            parent_obj.attach_child(child_obj)
+                    self.objects.update({child:child_obj})
 
         self._updating=False
     
@@ -781,14 +834,26 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             obj.anchor_z = anchor_list[2]
     
     def _apply_shapes(self):
-        # pencil shape
-        circle = self.make_circle_polygon()
-        triangle = self.make_square_with_point()
-        triangle2 = self.make_square_with_point()
-
-        self.tool.item_xy.set_shape(circle, anchor=(0.5, 0.5))
-        self.tool.item_xz.set_shape(triangle, anchor=(0.5, 1.0))
-        self.tool.item_yz.set_shape(triangle2, anchor=(0.5, 1.0))
+        # Apply shapes from structure
+        for name,obj in self.objects.items():
+            val_dict=self.phce.tracker.validate_node([name,"Shape"])
+            has_edit_shape=False
+            if val_dict["found"]:
+                for child in val_dict["children_keys"]:
+                    track=val_dict["track"]+[child]
+                    points=self.phce.tracker.get_value(track+["Shape Points","value"])
+                    anchor=self.phce.tracker.get_value(track+["Anchor","value"]) or [0.5,0.5]
+                    if child=="XY" and points:
+                        obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]))
+                        has_edit_shape=False
+                    if child=="XZ" and points:
+                        obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]))
+                        has_edit_shape=False
+                    if child=="YZ" and points:
+                        obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]))
+                        has_edit_shape=False
+            if has_edit_shape and isinstance(obj,CNCObject3D):
+                self.on_model_changed(obj)
 
 
     def _build_views(self):
@@ -799,16 +864,12 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         #     "Head": "lightBlue",
         #     "Tool": "orange",
         # }
-        colors = {
-            "Machine": "#d0d0d0",
-            "Workspace": "#a8e6a3",
-            "Material": "#d2a679",
-            "Head": "#8ec6ff",
-            "Tool": "#ffb347",
-        }
 
+        colors = {}
+        for name,val in style_dict.items():
+            colors.update({name:val.get("bg","#d0d0d0")})
 
-        for obj in self.objects:
+        for name,obj in self.objects.items():
             color = colors.get(obj.name, "white")
 
             obj.item_xy = ProjectedItem(
@@ -896,9 +957,18 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def update_tree(self,obj: CNCObject3D):
         name=obj.name
         self._do_evaluation=True
-        self.phce.tracker.set_value([name,"Size","value"],[obj.w,obj.h,obj.d],"float")
-        self.phce.tracker.set_value([name,"Position","value"],[obj.x,obj.y,obj.z],"float")
-        self.phce.tracker.set_value([name,"Anchor","value"],[obj.anchor_x,obj.anchor_y,obj.anchor_z],"float")
+        decimals=self.phce.tracker.get_value([name,"Size","meta[constraints[decimals]]"]) or 2
+        sizes=[round(obj.w,decimals),round(obj.h,decimals),round(obj.d,decimals)]
+        self.phce.tracker.set_value([name,"Size","value"],sizes,"float")
+
+        decimals=self.phce.tracker.get_value([name,"Position","meta[constraints[decimals]]"]) or 2
+        positions=[round(obj.x,decimals),round(obj.y,decimals),round(obj.z,decimals)]
+        self.phce.tracker.set_value([name,"Position","value"],positions,"float")
+
+        decimals=self.phce.tracker.get_value([name,"Anchor","meta[constraints[decimals]]"]) or 2
+        anchors=[round(obj.anchor_x,decimals),round(obj.anchor_y,decimals),round(obj.anchor_z,decimals)]
+        self.phce.tracker.set_value([name,"Anchor","value"],anchors,"float")   
+        self.phtv.treeview_fit_to_contents(1)     
         self._do_evaluation=False
 
 
