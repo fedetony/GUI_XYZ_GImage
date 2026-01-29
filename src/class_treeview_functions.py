@@ -2112,7 +2112,14 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
             if "max" in c: editor.setMaximum(float(c["max"]))
             editor.setDecimals(meta.get("decimals", 6))
             return editor
-
+        
+        if t == "color":
+            editor = ColorEditor(parent)
+            editor.colorChanged.connect(self.commitData, QtCore.Qt.ConnectionType.DirectConnection)
+            editor.colorChanged.connect(self.closeEditor, QtCore.Qt.ConnectionType.DirectConnection)
+            editor.installEventFilter(self)
+            return editor
+        
         # boolean as checkbox
         if t == "bool":
             editor = QtWidgets.QCheckBox(parent)
@@ -2216,6 +2223,9 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
             idx = editor.findText(str(val))
             if idx >= 0: editor.setCurrentIndex(idx)
             return
+        if isinstance(editor, ColorEditor): 
+            editor.setColor(val) 
+            return
         # composite widget for small lists
         if hasattr(editor, "_editors"):
             parts = val if isinstance(val, (list,tuple)) else (str(val).split(",") if val else [])
@@ -2252,8 +2262,59 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
             new_val = [ed.value() for ed in editor._editors]
         elif isinstance(editor, QtWidgets.QLineEdit):
             new_val = editor.text()
+        elif isinstance(editor, ColorEditor):
+            new_val = editor.color().name(QtGui.QColor.NameFormat.HexArgb)
         else:
             new_val = None
 
         # Write raw value into model → triggers itemChanged
         model.setData(index, new_val, QtCore.Qt.ItemDataRole.EditRole)
+    
+    def createEditor(self, parent, option, index):
+        stored = index.data(USER_ROLE) or {}
+        node = stored.get("node", {})
+        t = node.get("type")
+
+        if t == "color":
+            return ColorEditor(parent=parent)
+
+        # fallback to your existing logic
+        return super().createEditor(parent, option, index)
+    
+    def eventFilter(self, editor, event):
+        # Prevent commit when editor loses focus (because dialog opens)
+        if isinstance(editor, ColorEditor):
+            if event.type() == QtCore.QEvent.Type.FocusOut:
+                return True  # block default behavior
+        return super().eventFilter(editor, event)
+
+
+class ColorEditor(QtWidgets.QPushButton):
+    colorChanged = QtCore.pyqtSignal(QtGui.QColor)
+
+    def __init__(self, color=None, parent=None):
+        super().__init__(parent)
+        self._color = QtGui.QColor(color) if color else QtGui.QColor("white")
+        self.setMaximumWidth(80)
+        self.update_style()
+        QtCore.QTimer.singleShot(0, self.pick_color)
+        # self.clicked.connect(self.pick_color)
+
+    def update_style(self):
+        self.setStyleSheet(f"background-color: {self._color.name(QtGui.QColor.NameFormat.HexArgb)};")
+
+    def pick_color(self):
+        dlg = QtWidgets.QColorDialog(self._color, self)
+        dlg.setOption(QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel, True)
+        new = dlg.getColor()
+        if new.isValid():
+            self._color = new
+            self.update_style()
+            self.colorChanged.emit(new)
+
+    def color(self):
+        return self._color
+
+    def setColor(self, color):
+        self._color = QtGui.QColor(color)
+        self.update_style()

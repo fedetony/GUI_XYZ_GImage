@@ -27,7 +27,7 @@ style_dict = {
         }
 
 MAIN_STRUCT_EXAMPLE={
-        "Machine": {"style_key":"Machine","children":[  
+        "Machine": {"Color":"#d0d0d0","children":[  
                 {"Axes": {"value": ['X','Y','Z'], "type": "list", "subtype": "str", "meta": {"editable": False }}},
                 {"Mapping": [
                     {"X": {"value": "X", "type": "str", "meta": {"options": ["X", "Y", "Z", "A", "B", "C","E","F","S"]}}},
@@ -38,27 +38,26 @@ MAIN_STRUCT_EXAMPLE={
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": { "arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": { "arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": '', "type": "str",  "meta": {"hidden":False, "editable":False}}},
-                ],
-            },
-        "Workspace": [                  
+                ]},
+        "Workspace": {"Color":"#a8e6a3","children":[                  
                 {"Size": {"value": [650, 700, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
-            ],
-        "Material": [                  
+            ]},
+        "Material": {"Color":"#d2a679","children":[                  
                 {"Size": {"value": [270, 210, 3], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Workspace', "type": "str",  "meta": {"hidden":False, "editable":False}}},
-            ],
-        "Head": [                  
+            ]},
+        "Head": {"Color":"#8ec6ff","children":[                  
                 {"Size": {"value": [40, 40, 30], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 80.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
-            ],
-        "Tool": [                  
+            ]},
+        "Tool": {"Color":"#ffb347","children":[                  
                 {"Tool Type": {"value": "pencil", "type": "str", "meta": {"options": ["pen","pencil","laser"]}}},
                 {"Size": {"value": [5, 5, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
@@ -67,19 +66,37 @@ MAIN_STRUCT_EXAMPLE={
                 {"Shape":   [{"XY":[
                            {"Shape Points": {"value": [((0.5 + 0.5 * math.cos(2 * math.pi * i / 6), 0.5 + 0.5 * math.sin(2 * math.pi * i / 6))) for i in range(6)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
-                           ]},
+                            {"Style": [
+                                {"Pen": {"value": "brown", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Pen Width": {"value": 1, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                                {"Fill": {"value": "#ee8e08", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Fill Transparency": {"value": 128, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                                ]},
+                            ]},
                             {"XZ":[
                            {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0, 0], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
+                            {"Style": [
+                                {"Pen": {"value": "brown", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Pen Width": {"value": 1, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                                {"Fill": {"value": "#ee8e08", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Fill Transparency": {"value": 128, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                                ]},
                            ]},
                             {"YZ":[
                            {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
+                             {"Style": [
+                                {"Pen": {"value": "brown", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Pen Width": {"value": 1, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                                {"Fill": {"value": "#ee8e08", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                                {"Fill Transparency": {"value": 128, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                                ]},
                            ]},
                             ]
             
                 },
-            ]
+            ]}
         }
 
 FIELDS_POSITION=[
@@ -107,6 +124,7 @@ except (AttributeError, ImportError):
 import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
+from class_sync_zoom_scroll import SyncedScrollZoomController
 
 #######################################################
 # ----------------- 3D model -----------------
@@ -271,6 +289,9 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.plane = plane
         self.on_model_changed = on_model_changed  # callback to notify dialog
         self.allow_user_resize=(True,True)
+        self.allow_axis_movement=(True,True)
+        self.shape_style=None
+        self.color=color
         # default rectangle 
         self.base_polygon = None # normalized polygon (0..1) 
         self.anchor = (0.5, 0.5) # normalized anchor 
@@ -291,13 +312,15 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self._create_resize_handles()
         self._update_shape()
 
-    def set_shape(self, polygon_points, anchor=(0.5, 0.5)):
+    def set_shape(self, polygon_points, anchor=(0.5, 0.5), style=None):
         """
         polygon_points: list of (x,y) in normalized 0..1 space
         anchor: (ax, ay) also in 0..1 space
         """
         self.base_polygon = polygon_points
         self.anchor = anchor
+        if style:
+            self.shape_style=style
         self._update_shape()
 
     def _update_shape(self):
@@ -311,6 +334,18 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             py = y * h
             poly.append(QtCore.QPointF(px, py))
         self.shape_item.setPolygon(poly)
+        if self.shape_style:
+            pen=self.shape_style.get("Pen","black")
+            width=min(max(int(self.shape_style.get("Pen Width",1)),1),5)
+            fill=self.shape_style.get("Fill","white")
+            lighter=self.shape_style.get("Fill Transparency",100)
+            if fill:
+                color = QtGui.QColor(fill) 
+                if lighter: 
+                    color.setAlpha(lighter) # modifies the color object 
+                self.shape_item.setBrush(color)
+            if pen and width:
+                self.shape_item.setPen(QtGui.QPen(QtGui.QColor(pen), width))
 
     def reset_handles(self ,allow_x=True, allow_y=True):
         """Resets permissions for user resizing, and sets the handles accordingly"""
@@ -477,16 +512,22 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             # Update model based on plane
             if self.plane == self.PlaneXY:
                 # XY view controls X and Y
-                self.obj.x = new_pos.x()
-                self.obj.y = new_pos.y()
+                if self.allow_axis_movement[0]:
+                    self.obj.x = new_pos.x()
+                if self.allow_axis_movement[1]:
+                    self.obj.y = new_pos.y()
             elif self.plane == self.PlaneXZ:
                 # XZ view controls X and Z
-                self.obj.x = new_pos.x()
-                self.obj.z = new_pos.y()
+                if self.allow_axis_movement[0]:
+                    self.obj.x = new_pos.x()
+                if self.allow_axis_movement[1]:                    
+                    self.obj.z = new_pos.y()
             elif self.plane == self.PlaneYZ:
                 # YZ view controls Y and Z
-                self.obj.y = new_pos.x()
-                self.obj.z = new_pos.y()
+                if self.allow_axis_movement[0]:
+                    self.obj.y = new_pos.x()
+                if self.allow_axis_movement[1]:    
+                    self.obj.z = new_pos.y()
 
             # Update local offsets 
             parent = self.obj.parent 
@@ -503,6 +544,20 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
 
         return super().itemChange(change, value)
 
+class TexturedMaterialItem(CNCObject3D):
+    def __init__(self, model: CNCObject3D, texture_path: str, parent_item=None):
+        super().__init__(model, color="brown", parent_item=parent_item)
+        self.texture = QtGui.QPixmap(texture_path)
+
+    def paint(self, painter: QtGui.QPainter, option, widget=None):
+        r = self.rect()
+        if not self.texture.isNull():
+            # Stretch texture to fill material
+            painter.drawPixmap(r, self.texture, self.texture.rect())
+        # Draw border on top
+        painter.setPen(self.pen())
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        painter.drawRect(r)
 
 ###############################################################
 # ----------------------- Main dialog -------------------------
@@ -620,7 +675,9 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         left_layout = QtWidgets.QVBoxLayout(left_panel) 
         # RIGHT PANEL 
         right_panel = QtWidgets.QWidget() 
-        right_layout = QtWidgets.QGridLayout(right_panel) 
+        right_layout = QtWidgets.QVBoxLayout(right_panel)
+        right_layout_grid = QtWidgets.QGridLayout() 
+        right_layout.addLayout(right_layout_grid)
         # Add panels to splitter
         splitter.addWidget(left_panel) 
         splitter.addWidget(right_panel)
@@ -637,44 +694,122 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         flip_h = QtGui.QTransform() 
         flip_h.scale(-1, 1) # flip horizontally
 
-        self.view_xy = OrthoView(self, self._wheel_zoom)
-        self.view_xz = OrthoView(self, self._wheel_zoom)
-        self.view_yz = OrthoView(self, self._wheel_zoom)
+        # Create controller
+        self.zoomscroll = SyncedScrollZoomController()
+        self.axis_sizes={}
 
-        # XY view 
-        #self.view_xy = QtWidgets.QGraphicsView()
+        # Create views
+        self.view_xy = SyncedView(self.zoomscroll,"XY")
+        self.view_xz = SyncedView(self.zoomscroll,"XZ")
+        self.view_yz = SyncedView(self.zoomscroll,"YZ")
+
+        # Create scenes
         self.scene_xy = QtWidgets.QGraphicsScene(self)
+        self.scene_xz = QtWidgets.QGraphicsScene(self)
+        self.scene_yz = QtWidgets.QGraphicsScene(self)
+
+        # Assign scenes to views
         self.view_xy.setScene(self.scene_xy)
+        self.view_xz.setScene(self.scene_xz)
+        self.view_yz.setScene(self.scene_yz)
+
+        # Set hints and drag modes
         self.view_xy.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.view_xy.setDragMode(QtWidgets.QGraphicsView.DragMode.RubberBandDrag)
-        self.view_xy.setTransform(flip_v)
-        right_layout.addWidget(self._wrap_with_label(self.view_xy, "XY (Top View)"), 1, 0)
-
-        # XZ view 
-        #self.view_xz = QtWidgets.QGraphicsView()
-        self.scene_xz = QtWidgets.QGraphicsScene(self)
-        self.view_xz.setScene(self.scene_xz)
         self.view_xz.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.view_xz.setDragMode(QtWidgets.QGraphicsView.DragMode.RubberBandDrag)
-        self.view_xz.setTransform(flip_v)
-        right_layout.addWidget(self._wrap_with_label(self.view_xz, "XZ (Side View)"), 0, 0)
-
-        # YZ view 
-        #self.view_yz = QtWidgets.QGraphicsView()
-        self.scene_yz = QtWidgets.QGraphicsScene(self)
-        self.view_yz.setScene(self.scene_yz)
         self.view_yz.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.view_yz.setDragMode(QtWidgets.QGraphicsView.DragMode.RubberBandDrag)
-        # self.view_yz.setTransform(flip_v)
-        # self.view_yz.setTransform(flip_h)
-        self.view_yz.rotate(270)
-        right_layout.addWidget(self._wrap_with_label(self.view_yz, "YZ (Side View)"), 1, 1)
 
+        # Apply transforms
+        self.view_xy.setTransform(flip_v)
+        self.view_xz.setTransform(flip_v)
+        self.view_yz.rotate(270)
+
+        # IMPORTANT: store base transforms 
+        self.view_xy.base_transform = self.view_xy.transform() 
+        self.view_xz.base_transform = self.view_xz.transform() 
+        self.view_yz.base_transform = self.view_yz.transform()
+
+        # Register mappings
+        self.zoomscroll.register_view(self.view_xy, {"h": ("X", +1), "v": ("Y", -1)})
+        self.zoomscroll.register_view(self.view_yz, {"h": ("Z", -1), "v": ("Y", -1)})
+        self.zoomscroll.register_view(self.view_xz, {"h": ("X", +1), "v": ("Z", -1)})
+        
+        # Add to layout
+        right_layout_grid.addWidget(self._wrap_with_label(self.view_xy, "XY (Top View)"), 1, 0)
+        right_layout_grid.addWidget(self._wrap_with_label(self.view_xz, "XZ (Side View)"), 0, 0)
+        right_layout_grid.addWidget(self._wrap_with_label(self.view_yz, "YZ (Side View)"), 1, 1)
+
+        # Sets same size of XZ (height) and YZ (width)
+        self._sync_axis_sizes(False) # set the sizes
+        self.view_yz.resized.connect(lambda: self._sync_z_axis_size(True))
+        # self.view_xz.resized.connect(self._sync_axis_sizes)
+        # self.view_xy.resized.connect(self._sync_axis_sizes)
+        # self.view_yz.resized.connect(self._sync_axis_sizes)
+        
+        self.zoomscroll.best_fit_zoom(self.view_xy,self.view_xy.scene())
+        
         #properties panel
         self.props = QtWidgets.QTextEdit()
         self.props.setReadOnly(True)
         self.props.setPlainText("Properties / debug output will go here.")
-        right_layout.addWidget(self._wrap_with_label(self.props, "Properties"), 0, 1)
+        right_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
+
+    def _sync_axis_sizes(self,set_sizes=True):
+        self._sync_x_axis_size(set_sizes)
+        self._sync_y_axis_size(set_sizes)
+        self._sync_z_axis_size(set_sizes)
+        # self.set_transformed_scene_rect(self.view_xy,self.axis_sizes["X"],self.axis_sizes["Y"])
+        # self.set_transformed_scene_rect(self.view_xz,self.axis_sizes["X"],self.axis_sizes["Z"])
+        # self.set_transformed_scene_rect(self.view_yz,self.axis_sizes["Y"],self.axis_sizes["Z"])
+        # self.zoomscroll.update_extents(self.axis_sizes)
+
+
+    def _sync_z_axis_size(self,set_sizes):
+        z = self.view_yz.width()   
+        if set_sizes:
+            self.view_xz.setFixedHeight(z)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_xz)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_yz)
+        self.axis_sizes.update({"Z":z})
+    
+    def _sync_y_axis_size(self,set_sizes):
+        y = self.view_xy.height()   
+        if set_sizes:
+            self.view_yz.setFixedHeight(y)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_xy)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_yz)
+        self.axis_sizes.update({"Y":y})
+    
+    def _sync_x_axis_size(self,set_sizes):
+        x = self.view_xy.width()   
+        if set_sizes:
+            self.view_xz.setFixedWidth(x)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_xy)
+            # self.zoomscroll._update_scrollbar_ranges(self.view_xz)
+        self.axis_sizes.update({"X":x})
+
+    def set_transformed_scene_rect(self,view:QtWidgets.QGraphicsView,w,h):    
+        T = view.base_transform
+
+        p1 = T.map(0, 0)
+        p2 = T.map(w, 0)
+        p3 = T.map(0, h)
+        p4 = T.map(w, h)
+
+        xs = [p1[0], p2[0], p3[0], p4[0]]
+        ys = [p1[1], p2[1], p3[1], p4[1]]
+
+        origin_x = min(xs)
+        origin_y = min(ys)
+
+        transformed_width  = max(xs) - min(xs)
+        transformed_height = max(ys) - min(ys)
+
+        view.scene().setSceneRect(origin_x, origin_y, transformed_width, transformed_height)
+
+
 
     def _wrap_with_label(self, widget, text):
         box = QtWidgets.QVBoxLayout()
@@ -690,70 +825,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.scene_xy.setSceneRect(0, 0, world_x, world_y)
         self.scene_xz.setSceneRect(0, 0, world_x, world_z)
         self.scene_yz.setSceneRect(0, 0, world_y, world_z)
-
-
-    #############
-    # Zoom
-    #############
-
-    def _wheel_zoom(self, direction):
-        if direction > 0:
-            self.zoom *= 1.01
-        else:
-            self.zoom /= 1.01
-
-        self._apply_zoom()
-
-    def _apply_zoom(self):
-        # XY
-        t = QtGui.QTransform(self.trans_base_xy)
-        t.scale(self.zoom, self.zoom)
-        self.view_xy.setTransform(t)
-
-        # XZ
-        t = QtGui.QTransform(self.trans_base_xz)
-        t.scale(self.zoom, self.zoom)
-        self.view_xz.setTransform(t)
-
-        # YZ (already rotated/flipped in base_yz)
-        t = QtGui.QTransform(self.trans_base_yz)
-        t.scale(self.zoom, self.zoom)
-        self.view_yz.setTransform(t)
-    
-    def zoom_in(self):
-        self.zoom *= 1.01
-        self._apply_zoom()
-
-    def zoom_out(self):
-        self.zoom /= 1.01
-        self._apply_zoom()
-    
-    @staticmethod
-    def zoom_to_fit_height(view: QtWidgets.QGraphicsView, scene_rect: QtCore.QRectF) -> float:
-        """Return the zoom factor needed so the image height matches the view height."""
-        if scene_rect.height() == 0:
-            return 1.0
-
-        viewport_h = view.viewport().height()
-        return viewport_h / scene_rect.height()
-
-    @staticmethod
-    def zoom_to_fit_width(view: QtWidgets.QGraphicsView, scene_rect: QtCore.QRectF) -> float:
-        """Return the zoom factor needed so the image width matches the view width."""
-        if scene_rect.width() == 0:
-            return 1.0
-
-        viewport_w = view.viewport().width()
-        return viewport_w / scene_rect.width()
-
-    def fit_xy_view(self):
-        scene_rect = self.scene_xy.sceneRect()
-
-        zoom_h = self.zoom_to_fit_height(self.view_xy, scene_rect)
-        zoom_w = self.zoom_to_fit_width(self.view_xy, scene_rect)
-
-        self.zoom = min(zoom_h, zoom_w)
-        self._apply_zoom()
 
 
     #--------------------- Some shapes ----------------
@@ -836,24 +907,33 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def _apply_shapes(self):
         # Apply shapes from structure
         for name,obj in self.objects.items():
-            val_dict=self.phce.tracker.validate_node([name,"Shape"])
-            has_edit_shape=False
-            if val_dict["found"]:
-                for child in val_dict["children_keys"]:
-                    track=val_dict["track"]+[child]
-                    points=self.phce.tracker.get_value(track+["Shape Points","value"])
-                    anchor=self.phce.tracker.get_value(track+["Anchor","value"]) or [0.5,0.5]
-                    if child=="XY" and points:
-                        obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]))
-                        has_edit_shape=False
-                    if child=="XZ" and points:
-                        obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]))
-                        has_edit_shape=False
-                    if child=="YZ" and points:
-                        obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]))
-                        has_edit_shape=False
-            if has_edit_shape and isinstance(obj,CNCObject3D):
-                self.on_model_changed(obj)
+            self._apply_shapes_to_obj(name,obj)
+
+    def _apply_shapes_to_obj(self,name,obj):
+        val_dict=self.phce.tracker.validate_node([name,"Shape"])
+        has_edit_shape=False
+        if val_dict["found"]:
+            for child in val_dict["children_keys"]:
+                track=val_dict["track"]+[child]
+                points=self.phce.tracker.get_value(track+["Shape Points","value"])
+                anchor=self.phce.tracker.get_value(track+["Anchor","value"]) or [0.5,0.5]
+                # Styles
+                style_fill=self.phce.tracker.get_value(track+["Style","Fill","value"]) 
+                style_pen=self.phce.tracker.get_value(track+["Style","Pen","value"]) 
+                style_fill_lighter=self.phce.tracker.get_value(track+["Style","Fill Transparency","value"]) 
+                style_pen_width=self.phce.tracker.get_value(track+["Style","Pen Width","value"]) 
+                style_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
+                if child=="XY" and points:
+                    obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
+                    has_edit_shape=False
+                if child=="XZ" and points:
+                    obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
+                    has_edit_shape=False
+                if child=="YZ" and points:
+                    obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
+                    has_edit_shape=False
+        if has_edit_shape and isinstance(obj,CNCObject3D):
+            self.on_model_changed(obj)
 
 
     def _build_views(self):
@@ -953,6 +1033,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         if not self._changing_from_code:
             self.update_tree(obj)
         self._updating=False
+        self._apply_shapes_to_obj(obj.name,obj)
     
     def update_tree(self,obj: CNCObject3D):
         name=obj.name
@@ -991,33 +1072,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         return msg 
     
     def _fit_all(self):
-        for view, scene in [
-            (self.view_xy, self.scene_xy),
-            (self.view_xz, self.scene_xz),
-            (self.view_yz, self.scene_yz),
-        ]:
-            # scene.setSceneRect(scene.itemsBoundingRect())
-            view.fitInView(scene.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-
-        # Position Z reference lines at Z=0
-        self.zline_xz.setPos(0, 0)
-        self.zline_yz.setPos(0, 0)
-        # self.fit_xy_view()
-        self.zoom=1
-        self._apply_zoom()
-
-class OrthoView(QtWidgets.QGraphicsView):
-    def __init__(self, parent, zoom_callback):
-        super().__init__(parent)
-        self.zoom_callback = zoom_callback
-
-    def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-
-        if delta > 0:
-            self.zoom_callback(+1)
-        else:
-            self.zoom_callback(-1)
+        self.zoomscroll.fit_all()
 
 
 class ResizeHandle(QtWidgets.QGraphicsRectItem):
@@ -1068,6 +1123,129 @@ class ResizeHandle(QtWidgets.QGraphicsRectItem):
         self._dragging = False
         self._last_scene_pos = None
         super().mouseReleaseEvent(event)
+
+class SyncedView(QtWidgets.QGraphicsView):
+    resized = QtCore.pyqtSignal()   
+
+    def __init__(self, controller:SyncedScrollZoomController,name:str="", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name=name
+        self.controller = controller
+        self._ignore_scroll = False
+        self._ignore_zoom = False
+        self.current_zoom = 1
+        #global axis extents 
+        self.extents = {"X": 1000, "Y": 1000, "Z": 1000}
+
+        # Save base transform (flip, rotate, etc.)
+        self.base_transform = QtGui.QTransform()
+
+        # Connect scrollbars
+        self.horizontalScrollBar().valueChanged.connect(self._on_scroll)
+        self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+
+        # Connect zoom sync
+        controller.zoom_changed.connect(self.apply_zoom)
+
+    # Wheel zoom
+    def wheelEvent(self, event):
+        if event.angleDelta().y() > 0:
+            self.controller.zoom_by(1.01)
+        else:
+            self.controller.zoom_by(1/1.01)
+
+    # Scroll → controller
+    def _on_scroll(self):
+        if self._ignore_scroll:
+            return
+        h = self.horizontalScrollBar().value()
+        v = self.verticalScrollBar().value()
+        self.controller.update_global_scroll(self, h, v)
+
+    # Controller → scroll
+    def apply_global_scroll(self, global_scroll, mapping):
+        self._ignore_scroll = True
+        z = self.current_zoom
+        msg=''
+        msg+=f"{self.name}"
+        if "h" in mapping:
+            axis, sign = mapping["h"]
+            px = int(global_scroll[axis] * z * sign)
+            self.horizontalScrollBar().setValue(px)
+            msg+=f" {axis} h->{px} "
+
+        if "v" in mapping:
+            axis, sign = mapping["v"]
+            px = int(global_scroll[axis] * z * sign)
+            self.verticalScrollBar().setValue(px)
+            msg+=f" {axis} v->{px} "
+        print(msg)
+
+        self._ignore_scroll = False
+
+    # Controller → zoom
+    def apply_zoom(self, factor):
+        self._ignore_zoom = True
+        self.current_zoom = factor
+        t = QtGui.QTransform(self.base_transform)
+        t.scale(factor, factor)
+        self.setTransform(t)
+        self._ignore_zoom = False
+    # def apply_zoom(self, factor):
+    #     self._ignore_zoom = True
+    #     self.current_zoom = factor
+
+    #     t = QtGui.QTransform(self.base_transform)
+    #     t.scale(factor, factor)
+    #     self.setTransform(t)
+
+    #     self.update_scrollbar_ranges()
+    #     self._ignore_zoom = False
+    
+    def update_extents(self, **axis_sizes):
+        """
+        Update global axis extents.
+        Example: controller.update_extents(X=1200, Z=800)
+        """
+        changed = False
+        for axis, size in axis_sizes.items():
+            if size > self.extents.get(axis, 0):
+                self.extents[axis] = size
+                changed = True
+
+        if changed:
+            self._apply_scene_rects()
+    
+    def _apply_scene_rects(self):
+        """Compute each view's sceneRect from its mapping"""
+        for view, mapping in self.views:
+            if "h" in mapping and "v" in mapping:
+                h_axis, _ = mapping["h"]
+                v_axis, _ = mapping["v"]
+
+                w = self.extents[h_axis]
+                h = self.extents[v_axis]
+
+                view.setSceneRect(QtCore.QRectF(0, 0, w, h))
+                view.update_scrollbar_ranges()
+
+    def update_scrollbar_ranges(self):
+        sr = self.sceneRect()
+        vp = self.viewport().size()
+        z = self.current_zoom
+
+        h_max = max(0, sr.width() * z - vp.width())
+        v_max = max(0, sr.height() * z - vp.height())
+
+        self.horizontalScrollBar().setRange(0, int(h_max))
+        self.horizontalScrollBar().setPageStep(vp.width())
+
+        self.verticalScrollBar().setRange(0, int(v_max))
+        self.verticalScrollBar().setPageStep(vp.height())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resized.emit()
 
 
 
