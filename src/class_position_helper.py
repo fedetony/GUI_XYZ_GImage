@@ -121,6 +121,7 @@ except (AttributeError, ImportError):
     log = LM.get_logger(__name__)
     log.info("Application starting...")
 
+import resources_rc
 import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
@@ -568,6 +569,23 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         super().__init__()
         self.setWindowTitle("Positioning Helper: Size & Coordinate Editor (XY, XZ, YZ) ")
         self.resize(1200, 800)
+        self.all_icons_dict = {
+                            "open_image": QtGui.QIcon(":/img/Ahmadhania-Spherical-Select-text.128.png"),
+                            "save_process_image":QtGui.QIcon(":/img/Ahmadhania-Spherical-Save.128.png"),
+                            "open_session_config":QtGui.QIcon(":/img/open-file-icon.png"),
+                            "save_session_config":QtGui.QIcon(":/img/Save-as-icon.png"),
+                            "refresh":QtGui.QIcon(":/img/Actions-view-refresh-icon.png"),
+                            "position_helper":QtGui.QIcon(":/img/Ahmadhania-Spherical-Target.128.png"),
+                            "layer_helper": QtGui.QIcon(":/img/Ahmadhania-Spherical-Restore.128.png"), 
+                            "fit":QtGui.QIcon(":/img/move-icon.png"),
+                            "machine_icon":QtGui.QIcon(":/img/Modify-icon.png"),
+                            "tool_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Paper-clip.128.png"),
+                            "technique_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Write.128.png"),
+                            "color_icon":QtGui.QIcon(":/img/Ahmadhania-Spherical-Umbrella.128.png"),
+                            "zoom_in": QtGui.QIcon(":/img/Plus-icon.png"),
+                            "zoom_out": QtGui.QIcon(":/img/Minus-icon.png"),
+                            "make_gcode":QtGui.QIcon(":/img/eye-in-a-sky-icon.png"),
+                            }
 
         self.objects = []
         self.items_xy = {}
@@ -600,7 +618,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self._evaluate_conditions()
         
         # Add cache tooltip, icons, backgrounds, styles
-        # self.tv.set_icons_cache(self.all_icons_dict)
+        self.phtv.set_icons_cache(self.all_icons_dict)
         self.phtv.set_style_cache(style_dict)
 
         # Right click Menu 
@@ -676,8 +694,8 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         # RIGHT PANEL 
         right_panel = QtWidgets.QWidget() 
         right_layout = QtWidgets.QVBoxLayout(right_panel)
-        right_layout_grid = QtWidgets.QGridLayout() 
-        right_layout.addLayout(right_layout_grid)
+        # right_layout_grid = QtWidgets.QGridLayout() 
+        # right_layout.addLayout(right_layout_grid)
         # Add panels to splitter
         splitter.addWidget(left_panel) 
         splitter.addWidget(right_panel)
@@ -736,25 +754,107 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.zoomscroll.register_view(self.view_yz, {"h": ("Z", -1), "v": ("Y", -1)})
         self.zoomscroll.register_view(self.view_xz, {"h": ("X", +1), "v": ("Z", -1)})
         
-        # Add to layout
-        right_layout_grid.addWidget(self._wrap_with_label(self.view_xy, "XY (Top View)"), 1, 0)
-        right_layout_grid.addWidget(self._wrap_with_label(self.view_xz, "XZ (Side View)"), 0, 0)
-        right_layout_grid.addWidget(self._wrap_with_label(self.view_yz, "YZ (Side View)"), 1, 1)
+        # toolbar
+        self.views_toolbox = QtWidgets.QToolBar("Tools")
+        self.views_toolbox.setOrientation(QtCore.Qt.Orientation.Vertical)
+        self.views_toolbox.setIconSize(QtCore.QSize(36, 36))
+        self.views_toolbox.setMovable(False)
 
-        # Sets same size of XZ (height) and YZ (width)
-        self._sync_axis_sizes(False) # set the sizes
-        self.view_yz.resized.connect(lambda: self._sync_z_axis_size(True))
-        # self.view_xz.resized.connect(self._sync_axis_sizes)
-        # self.view_xy.resized.connect(self._sync_axis_sizes)
-        # self.view_yz.resized.connect(self._sync_axis_sizes)
+        self.action_zoom_in = QtGui.QAction(self.all_icons_dict["zoom_in"], "Zoom In", self)
+        self.action_zoom_out = QtGui.QAction(self.all_icons_dict["zoom_out"], "Zoom Out", self)
+        self.action_fit = QtGui.QAction(self.all_icons_dict["fit"], "Fit", self)
+
+        self.views_toolbox.addAction(self.action_fit)
+        self.views_toolbox.addSeparator()
+        self.views_toolbox.addAction(self.action_zoom_in)
+        self.views_toolbox.addAction(self.action_zoom_out)
         
-        self.zoomscroll.best_fit_zoom(self.view_xy,self.view_xy.scene())
+        # Add to layout
+        frame = QtWidgets.QFrame()
+        frame_layout = QtWidgets.QHBoxLayout(frame)
+        frame_layout.setContentsMargins(0, 0, 0, 0)
+        frame_layout.setSpacing(0)
+        #Toolbox in frame
+        self.views_toolbox.setFixedWidth(40)  # important
+        frame_layout.addWidget(self.views_toolbox)
+
+        # Put frame in square widget
+        self.reserved_widget = SquareWidget()
+        square_layout = QtWidgets.QVBoxLayout(self.reserved_widget)
+        square_layout.setContentsMargins(0, 0, 0, 0)
+        square_layout.setSpacing(0)
+        square_layout.addWidget(frame)
+   
+        self.top_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.top_splitter.addWidget(ViewWithLabel(self.view_xz, "XZ (Side View)"))
+        self.top_splitter.addWidget(ViewWithLabel(self.reserved_widget, "Position Helper"))
+        self.top_splitter.setStretchFactor(0, 1)
+        self.top_splitter.setStretchFactor(1, 0)
+
+        self.bottom_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.bottom_splitter.addWidget(ViewWithLabel(self.view_xy, "XY (Top View)"))
+        self.bottom_splitter.addWidget(ViewWithLabel(self.view_yz, "YZ (Side View)"))
+        self.bottom_splitter.setStretchFactor(0, 1)
+        self.bottom_splitter.setStretchFactor(1, 1)
+
+        main_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        main_splitter.addWidget(self.top_splitter)
+        main_splitter.addWidget(self.bottom_splitter)
+        main_splitter.setStretchFactor(0, 1)
+        main_splitter.setStretchFactor(1, 1)
+
+        right_layout.addWidget(main_splitter)
+        # top and bottom splitter sync
+        self._syncing = False
+        self.top_splitter.splitterMoved.connect(
+            lambda pos, index: self.sync_splitters(self.top_splitter, self.bottom_splitter)
+        )
+
+        self.bottom_splitter.splitterMoved.connect(
+            lambda pos, index: self.sync_splitters(self.bottom_splitter, self.top_splitter)
+        )
+        # Sets same size of XZ (height) and YZ (width)
+        # XZ height = YZ width
+        self.view_yz.resized.connect(lambda: self.view_xz.setFixedHeight(self.view_yz.width()))
+        # XY height = YZ height
+        self.view_yz.resized.connect(lambda: self.view_xy.setFixedHeight(self.view_yz.height()))
+        # XZ width = XY width
+        self.view_xy.resized.connect(lambda: self.view_xz.setFixedWidth(self.view_xy.width()))        
         
         #properties panel
         self.props = QtWidgets.QTextEdit()
         self.props.setReadOnly(True)
         self.props.setPlainText("Properties / debug output will go here.")
-        right_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
+        left_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
+
+        # Connect toolbar actions
+        self.action_fit.triggered.connect(lambda: self.zoomscroll.set_best_fit(self.view_xy,self.view_xy.scene()))
+        self.action_zoom_in.triggered.connect(lambda: self.zoomscroll.zoom_by(1.01))
+        self.action_zoom_out.triggered.connect(lambda: self.zoomscroll.zoom_by(1/1.01))
+        
+        # Sync splitters
+        def _sync_refresh():
+            self.zoomscroll.set_best_fit(self.view_xy,self.view_xy.scene())
+            self.sync_splitters(self.top_splitter,self.bottom_splitter)            
+        QtCore.QTimer.singleShot(0, _sync_refresh)
+
+    def sync_splitters(self, source, target):
+        """Syncs the splitters"""
+        if self._syncing:
+            return
+
+        self._syncing = True
+        target.setSizes(source.sizes())
+        self._syncing = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        # Keep splitters synced during window resize
+        if not self._syncing:
+            self._syncing = True
+            self.bottom_splitter.setSizes(self.top_splitter.sizes())
+            self._syncing = False
 
     def _sync_axis_sizes(self,set_sizes=True):
         self._sync_x_axis_size(set_sizes)
@@ -764,7 +864,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         # self.set_transformed_scene_rect(self.view_xz,self.axis_sizes["X"],self.axis_sizes["Z"])
         # self.set_transformed_scene_rect(self.view_yz,self.axis_sizes["Y"],self.axis_sizes["Z"])
         # self.zoomscroll.update_extents(self.axis_sizes)
-
 
     def _sync_z_axis_size(self,set_sizes):
         z = self.view_yz.width()   
@@ -808,8 +907,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         transformed_height = max(ys) - min(ys)
 
         view.scene().setSceneRect(origin_x, origin_y, transformed_width, transformed_height)
-
-
 
     def _wrap_with_label(self, widget, text):
         box = QtWidgets.QVBoxLayout()
@@ -1075,6 +1172,23 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.zoomscroll.fit_all()
 
 
+
+class SquareWidget(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setMinimumSize(40, 40)  # toolbar width = minimum square size
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return width
+
+    def sizeHint(self):
+        return QtCore.QSize(200, 200)
+
+
+
 class ResizeHandle(QtWidgets.QGraphicsRectItem):
     def __init__(self, parent_item, axis, on_resize):
         super().__init__(-4, -4, 8, 8, parent_item)
@@ -1179,7 +1293,7 @@ class SyncedView(QtWidgets.QGraphicsView):
             px = int(global_scroll[axis] * z * sign)
             self.verticalScrollBar().setValue(px)
             msg+=f" {axis} v->{px} "
-        print(msg)
+        # print(msg)
 
         self._ignore_scroll = False
 
@@ -1247,6 +1361,27 @@ class SyncedView(QtWidgets.QGraphicsView):
         super().resizeEvent(event)
         self.resized.emit()
 
+class ViewWithLabel(QtWidgets.QWidget):
+    def __init__(self, view, label_text):
+        super().__init__()
+        self.view = view
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        label = QtWidgets.QLabel(label_text)
+        label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        label.setFixedHeight(20)
+
+        layout.addWidget(label)
+        layout.addWidget(view)
+
+    def sizeHint(self):
+        return self.view.sizeHint()
+
+    def minimumSizeHint(self):
+        return self.view.minimumSizeHint()
 
 
 

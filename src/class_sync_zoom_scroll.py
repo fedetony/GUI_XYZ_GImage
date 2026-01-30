@@ -34,6 +34,7 @@ class SyncedScrollZoomController(QtCore.QObject):
         self.current_zoom = 1.0
         self.min_zoom = 0.001
         self.max_zoom = 50.0
+        self.zoom_factor=1.01
         self.extents = {"X": 1000, "Y": 1000, "Z": 1000}
 
     # ------------------------------------------------------------------

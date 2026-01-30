@@ -19,6 +19,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 import numpy as np
+import resources_rc
 
 
 import class_ST
