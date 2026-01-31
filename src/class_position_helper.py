@@ -1,5 +1,6 @@
 import sys
 from PyQt6 import QtWidgets, QtGui, QtCore
+import pyqtgraph as pg
 
 import math
 import logging
@@ -63,6 +64,13 @@ MAIN_STRUCT_EXAMPLE={
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 40.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Head', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#4508ee", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 1, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#4508ee", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 128, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
                 {"Shape":   [{"XY":[
                            {"Shape Points": {"value": [((0.5 + 0.5 * math.cos(2 * math.pi * i / 6), 0.5 + 0.5 * math.sin(2 * math.pi * i / 6))) for i in range(6)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
@@ -93,9 +101,13 @@ MAIN_STRUCT_EXAMPLE={
                                 {"Fill Transparency": {"value": 128, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
                                 ]},
                            ]},
-                            ]
-            
+                            ]            
                 },
+                {"Tracker": [
+                    {"Speed": {"value": 333, "unit":"mm/s" ,"type": "int", "meta": {"hidden":False, "editable":True}}},
+                    {"Extruder": {"value": 333,"step":0, "type": "float", "meta": {"hidden":False, "editable":False}}},
+                    {"Power": {"value": 333,"step":0, "type": "int", "meta": {"hidden":False, "editable":False}}},
+                    ]},
             ]}
         }
 
@@ -126,6 +138,7 @@ import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
 from class_sync_zoom_scroll import SyncedScrollZoomController
+from class_tracker_plot import TrackerPlot, TrackerPlotsContainer, TrackerPlotsContainerControls, TrackerWindow
 
 #######################################################
 # ----------------- 3D model -----------------
@@ -600,6 +613,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self._build_model()
         self._build_views()
         self._apply_shapes()
+        self._build_plot_trackers()
         self._sync_view_sizes(self.world_sizes[0],self.world_sizes[1],self.world_sizes[2])
         self._fit_all()
 
@@ -652,6 +666,31 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             self._changing_from_code=False
             # update values in views
             self.update_tree(obj)
+            # after updating object and tree
+            self.update_plot_tracker(obj,track)
+    
+    def update_plot_tracker(self,obj,track):
+        name=track[0]
+        if "Tracker" not in track:
+            return
+        prop_track=track[:-1]
+        prop=prop_track[-1]
+        plot_tracker=self.plot_trackers.get(prop)
+        if isinstance(plot_tracker,TrackerPlot):
+            val_dict=self.phce.tracker.validate_node(prop_track)
+            yyy=self.phce.tracker.get_value(prop_track+["value"])
+            # plot tracker the pt_obj_id is the property(Speed, power ...) the prop is the tool
+            pt_obj_id = prop
+            pt_prop = name
+            last_x=plot_tracker.get_last_x(pt_obj_id,pt_prop)
+            last_y=plot_tracker.get_last_y(pt_obj_id,pt_prop)
+            step=self.phce.tracker.get_value(track+["step"])
+            if step and step !=last_x:
+                xxx=step
+            else:
+                xxx=step or last_x+1
+            if yyy and (last_x != xxx or last_y !=yyy):
+                plot_tracker.add_point(pt_obj_id,pt_prop,xxx,yyy)
 
     @QtCore.pyqtSlot(list, object, str, str)
     def on_struct_item_edited(self, track, value, typestr, subtype):
@@ -690,12 +729,10 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.setCentralWidget(splitter)
         # LEFT PANEL 
         left_panel = QtWidgets.QWidget() 
-        left_layout = QtWidgets.QVBoxLayout(left_panel) 
+        self.left_layout = QtWidgets.QVBoxLayout(left_panel) 
         # RIGHT PANEL 
         right_panel = QtWidgets.QWidget() 
-        right_layout = QtWidgets.QVBoxLayout(right_panel)
-        # right_layout_grid = QtWidgets.QGridLayout() 
-        # right_layout.addLayout(right_layout_grid)
+        self.right_layout = QtWidgets.QVBoxLayout(right_panel)
         # Add panels to splitter
         splitter.addWidget(left_panel) 
         splitter.addWidget(right_panel)
@@ -703,7 +740,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         # TreeWidget
         # -------------------------
         self.positions_tree = QtWidgets.QTreeView(self) # QTreeWidget(self)
-        left_layout.addWidget(self.positions_tree)
+        self.left_layout.addWidget(self.positions_tree)
         # -------------------------
         # Views
         # -------------------------
@@ -803,7 +840,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         main_splitter.setStretchFactor(0, 1)
         main_splitter.setStretchFactor(1, 1)
 
-        right_layout.addWidget(main_splitter)
+        self.right_layout.addWidget(main_splitter)
         # top and bottom splitter sync
         self._syncing = False
         self.top_splitter.splitterMoved.connect(
@@ -821,11 +858,24 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         # XZ width = XY width
         self.view_xy.resized.connect(lambda: self.view_xz.setFixedWidth(self.view_xy.width()))        
         
+        # Add Plot tracker container
+        self.tracker_controls = TrackerPlotsContainerControls() 
+        self.left_layout.addWidget(self.tracker_controls)
+        self.plot_trackers={}
+        self.tracker_window = TrackerWindow()
+        self.tracker_controls.showTrackerWindowRequested.connect(
+            lambda: self._show_tracker_window()
+        )
+
+        self.tracker_controls.hideTrackerWindowRequested.connect(
+            lambda: self._hide_tracker_window()
+        )
+
         #properties panel
         self.props = QtWidgets.QTextEdit()
         self.props.setReadOnly(True)
         self.props.setPlainText("Properties / debug output will go here.")
-        left_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
+        self.left_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
 
         # Connect toolbar actions
         self.action_fit.triggered.connect(lambda: self.zoomscroll.set_best_fit(self.view_xy,self.view_xy.scene()))
@@ -837,6 +887,16 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             self.zoomscroll.set_best_fit(self.view_xy,self.view_xy.scene())
             self.sync_splitters(self.top_splitter,self.bottom_splitter)            
         QtCore.QTimer.singleShot(0, _sync_refresh)
+
+    def _show_tracker_window(self):
+        self.tracker_window.show()
+        self.tracker_window.raise_()
+        self.tracker_window.activateWindow()
+        self.tracker_controls.on_toggle(True)
+
+    def _hide_tracker_window(self):
+        self.tracker_window.hide()
+        self.tracker_controls.on_toggle(False)
 
     def sync_splitters(self, source, target):
         """Syncs the splitters"""
@@ -984,6 +1044,8 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                             parent_obj=self.objects[m_parent]
                             parent_obj.attach_child(child_obj)
                     self.objects.update({child:child_obj})
+                    # Add plot tracker
+                    self._plot_tracker_of_obj(child_obj)
 
         self._updating=False
     
@@ -1032,6 +1094,43 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         if has_edit_shape and isinstance(obj,CNCObject3D):
             self.on_model_changed(obj)
 
+    def _build_plot_trackers(self):
+        for name, plot_tracker in self.plot_trackers.items():
+            self.tracker_window.container.add_plot(plot_tracker)
+
+
+    def _plot_tracker_of_obj(self,obj:CNCObject3D):
+        name=obj.name
+        val_dict=self.phce.tracker.validate_node([name,"Tracker"])
+        has_plot_tracker=False
+        if val_dict["found"]:
+            for child in val_dict["children_keys"]:
+                track=val_dict["track"]+[child]
+                # val_child=self.phce.tracker.validate_node(track)
+                plot_tracker_value=self.phce.tracker.get_value(track+["value"])
+                plot_tracker_unit=self.phce.tracker.get_value(track+["unit"]) or ""
+                plot_tracker_x_label=self.phce.tracker.get_value(track+["xlabel"]) or ""
+                plot_tracker_x_unit=self.phce.tracker.get_value(track+["xunit"]) or "step"
+                style_pen_color=self.phce.tracker.get_value([name,"Style","Pen","value"]) or "#000000" 
+                style_pen_width=self.phce.tracker.get_value([name,"Style","Pen Width","value"]) or 2
+                style_line_type=self.phce.tracker.get_value([name,"Style","Line Type","value"]) or "solid"
+                plot_tracker=self.plot_trackers.get(child)
+                if not isinstance(plot_tracker,TrackerPlot):
+                    plot_tracker=TrackerPlot()  
+                # on plot_tracker: obj_id -> (speed, power...) prop is (tool)    
+                pt_obj_id=child
+                pt_prop=name                
+                last_x=plot_tracker.get_last_x(pt_obj_id,pt_prop)
+                plot_tracker.set_title(pt_obj_id)
+                plot_tracker.set_y_label(pt_obj_id,plot_tracker_unit)
+                plot_tracker.set_x_label(plot_tracker_x_label,plot_tracker_x_unit)
+                plot_tracker.ensure_curve(pt_obj_id,pt_prop,style_pen_color,style_pen_width,style_line_type)
+                step=self.phce.tracker.get_value(track+["step"])
+                xxx=step or last_x
+                if plot_tracker_value:
+                    plot_tracker.add_point(pt_obj_id,pt_prop,xxx,plot_tracker_value)          
+                self.plot_trackers.update({pt_obj_id:plot_tracker})
+                
 
     def _build_views(self):
         # colors = {
@@ -1170,8 +1269,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     
     def _fit_all(self):
         self.zoomscroll.fit_all()
-
-
 
 class SquareWidget(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
@@ -1382,7 +1479,6 @@ class ViewWithLabel(QtWidgets.QWidget):
 
     def minimumSizeHint(self):
         return self.view.minimumSizeHint()
-
 
 
 def main():
