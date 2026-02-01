@@ -51,6 +51,13 @@ MAIN_STRUCT_EXAMPLE={
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Workspace', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#d2a679", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 2, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#f3f3f3", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 0, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
             ]},
         "Head": {"Color":"#8ec6ff","children":[                  
                 {"Size": {"value": [40, 40, 30], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
@@ -223,15 +230,31 @@ class CNCObject3D:
         self.local_dy = 0
         self.local_dz = 0
 
+        # 3D position locks
+        self.lock_x = False
+        self.lock_y = False
+        self.lock_z = False
+
+        # Size locks
+        self.lock_w = False
+        self.lock_h = False
+        self.lock_d = False
+
     def move_to(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
+        if not self.lock_x:
+            self.x = x
+        if not self.lock_y:
+            self.y = y
+        if not self.lock_z:
+            self.z = z
 
     def resize_to(self, w, h, d):
-        self.w = w
-        self.h = h
-        self.d = d
+        if not self.lock_w:
+            self.w = w
+        if not self.lock_h:
+            self.h = h
+        if not self.lock_d:
+            self.d = d
 
     def attach_child(self, child):
         """Attach a child object and compute its local offsets once."""
@@ -305,14 +328,20 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.allow_user_resize=(True,True)
         self.allow_axis_movement=(True,True)
         self.shape_style=None
-        self.color=color
+        if isinstance(color,dict):
+            self.general_style=color
+        else:
+            self.general_style=None
+            self.color=color
         # default rectangle 
         self.base_polygon = None # normalized polygon (0..1) 
         self.anchor = (0.5, 0.5) # normalized anchor 
         self.shape_item = QtWidgets.QGraphicsPolygonItem(self)
-
-        self.setBrush(QtGui.QColor(color).lighter(160))
-        self.setPen(QtGui.QPen(QtGui.QColor(color), 2))
+        if not self.general_style:
+            self.setBrush(QtGui.QColor(color).lighter(160))
+            self.setPen(QtGui.QPen(QtGui.QColor(color), 2))
+        else:
+            self.set_style(self,self.general_style)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
@@ -348,18 +377,22 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             py = y * h
             poly.append(QtCore.QPointF(px, py))
         self.shape_item.setPolygon(poly)
-        if self.shape_style:
-            pen=self.shape_style.get("Pen","black")
-            width=min(max(int(self.shape_style.get("Pen Width",1)),1),5)
-            fill=self.shape_style.get("Fill","white")
-            lighter=self.shape_style.get("Fill Transparency",100)
+        self.shape_item=self.set_style(self.shape_item,self.shape_style)
+    
+    def set_style(self,shape_item,shape_style):
+        if shape_style:
+            pen=shape_style.get("Pen","black")
+            width=min(max(int(shape_style.get("Pen Width",1)),1),5)
+            fill=shape_style.get("Fill","white")
+            lighter=shape_style.get("Fill Transparency",100)
             if fill:
                 color = QtGui.QColor(fill) 
                 if lighter: 
                     color.setAlpha(lighter) # modifies the color object 
-                self.shape_item.setBrush(color)
+                shape_item.setBrush(color)
             if pen and width:
-                self.shape_item.setPen(QtGui.QPen(QtGui.QColor(pen), width))
+                shape_item.setPen(QtGui.QPen(QtGui.QColor(pen), width))
+        return shape_item
 
     def reset_handles(self ,allow_x=True, allow_y=True):
         """Resets permissions for user resizing, and sets the handles accordingly"""
@@ -408,17 +441,16 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
                 self.handles.append(handle)
 
     def _on_resize(self, axis, dx, dy):
-        if axis == "x":
+        if axis == "x" and not self.obj.lock_w:
             self.obj.w = max(3, self.obj.w + dx)
-        elif axis == "y":
+        elif axis == "y" and not self.obj.lock_h:
             self.obj.h = max(3, self.obj.h + dy)
-        elif axis == "z":
+        elif axis == "z" and not self.obj.lock_d:
             self.obj.d = max(3, self.obj.d + dy)
 
         # Notify controller
         if self.on_model_changed:
             self.on_model_changed(self.obj)
-
 
     def _build_geometry(self):
         if self.plane == self.PlaneXY:
@@ -509,6 +541,149 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
                 # bottom side (XZ or YZ)
                 h.setPos(r.width() / 2, r.height())
 
+    def contextMenuEvent(self, event):
+        menu = QtWidgets.QMenu()
+        lock_icon = QtGui.QIcon(":/img/Action-lock-silver-icon.png")
+        unlock_icon = QtGui.QIcon(":/img/Action-lock-pink-icon.png")
+        if self.obj.parent is not None:
+            # Sizes
+            if any(self.allow_user_resize):
+                menu.addAction(lock_icon, "Lock Size", self.lock_size)
+            else:                
+                menu.addAction(unlock_icon,"Unlock Size", self.lock_size)
+            # Positions
+            if any(self.allow_axis_movement):
+                menu.addAction(lock_icon,"Lock Position", self.lock_position)
+                menu.addSeparator()
+                menu.addAction("Center in Parent", self.align_center)
+                menu.addSeparator()
+                menu.addAction("Align Left", self.align_left)
+                menu.addAction("Align Right", self.align_right)
+                menu.addAction("Align Top", self.align_top)
+                menu.addAction("Align Bottom", self.align_bottom)
+            else:
+                menu.addAction(unlock_icon,"Unlock Position", self.lock_position)            
+            
+
+        menu.exec(event.screenPos())
+
+    def lock_position(self):
+        lock=any(self.allow_axis_movement)
+        self.allow_axis_movement=(not lock, not lock)
+        if self.plane == self.PlaneXY:
+            self.obj.lock_x=lock
+            self.obj.lock_y=lock
+        elif self.plane == self.PlaneXZ:
+            self.obj.lock_x=lock
+            self.obj.lock_z=lock
+        elif self.plane == self.PlaneYZ: 
+            self.obj.lock_y=lock
+            self.obj.lock_z=lock
+
+    def lock_size(self):
+        lock=any(self.allow_user_resize)
+        self.allow_user_resize=(not lock, not lock)
+        if self.plane == self.PlaneXY:
+            self.obj.lock_w=lock
+            self.obj.lock_h=lock
+        elif self.plane == self.PlaneXZ:
+            self.obj.lock_w=lock
+            self.obj.lock_d=lock
+        elif self.plane == self.PlaneYZ: 
+            self.obj.lock_h=lock
+            self.obj.lock_d=lock
+
+    def align_center(self):
+        p = self.obj.parent
+        value=None
+        if self.plane == self.PlaneXY:
+            x = p.x + (p.w - self.obj.w) / 2
+            y = p.y + (p.h - self.obj.h) / 2
+            value=QtCore.QPointF(x, y)
+        elif self.plane == self.PlaneXZ:
+            x = p.x + (p.w - self.obj.w) / 2
+            z = p.z + (p.d - self.obj.d) / 2
+            value=QtCore.QPointF(x, z)
+        elif self.plane == self.PlaneYZ:  # YZ
+            y = p.y + (p.h - self.obj.h) / 2
+            z = p.z + (p.d - self.obj.d) / 2
+            value=QtCore.QPointF(y, z)
+        if value:
+            self.itemChange(QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange,value)
+
+    def align_left(self):
+        p = self.obj.parent
+        value=None
+        if self.plane == self.PlaneXY:
+            x = p.x
+            y = self.obj.y
+            value=QtCore.QPointF(x, y)
+        elif self.plane == self.PlaneXZ:
+            x = p.x
+            z = self.obj.z
+            value=QtCore.QPointF(x, z)
+        elif self.plane == self.PlaneYZ:  # YZ
+            y = p.y 
+            z = self.obj.z
+            value=QtCore.QPointF(y, z)
+        if value:
+            self.itemChange(QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange,value)
+
+    def align_right(self):
+        p = self.obj.parent
+        value=None
+        if self.plane == self.PlaneXY:
+            x = p.x + p.w - self.obj.w
+            y = self.obj.y
+            value = QtCore.QPointF(x, y)
+        elif self.plane == self.PlaneXZ:
+            x = p.x + p.w - self.obj.w
+            z = self.obj.z
+            value = QtCore.QPointF(x, z)
+        elif self.plane == self.PlaneYZ:  # YZ
+            y = p.y + p.h - self.obj.h
+            z = self.obj.z
+            value = QtCore.QPointF(y, z)
+        if value:
+            self.itemChange(QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange, value)
+
+    def align_top(self):
+        p = self.obj.parent
+        value=None
+        if self.plane == self.PlaneXY:
+            x = self.obj.x
+            y = p.y + p.h - self.obj.h
+            value = QtCore.QPointF(x, y)
+        elif self.plane == self.PlaneXZ:
+            x = self.obj.x
+            z = p.z + p.d - self.obj.d
+            value = QtCore.QPointF(x, z)
+        elif self.plane == self.PlaneYZ:  # YZ
+            y = p.y + p.h - self.obj.h
+            z = self.obj.z
+            value = QtCore.QPointF(y, z)
+        if value:
+            self.itemChange(QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange, value)
+
+    def align_bottom(self):
+        p = self.obj.parent
+        value=None
+        if self.plane == self.PlaneXY:
+            x = self.obj.x
+            y = p.y
+            value = QtCore.QPointF(x, y)
+        elif self.plane == self.PlaneXZ:
+            x = self.obj.x
+            z = p.z
+            value = QtCore.QPointF(x, z)
+        elif self.plane == self.PlaneYZ:  # YZ
+            y = p.y
+            z = self.obj.z
+            value = QtCore.QPointF(y, z)
+        if value:
+            self.itemChange(QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange, value)
+
+
     def hoverMoveEvent(self, event):
         scene_pos = self.mapToScene(event.pos())
         if self.plane == self.PlaneXY:
@@ -522,39 +697,53 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
     def itemChange(self, change, value):
         if change == QtWidgets.QGraphicsItem.GraphicsItemChange.ItemPositionChange:
             new_pos = QtCore.QPointF(value)
-
+            allow_x=False
+            allow_y=False
+            allow_z=False
             # Update model based on plane
             if self.plane == self.PlaneXY:
                 # XY view controls X and Y
                 if self.allow_axis_movement[0]:
                     self.obj.x = new_pos.x()
+                    allow_x=True
                 if self.allow_axis_movement[1]:
                     self.obj.y = new_pos.y()
+                    allow_y=True
+                nx,ny=self.obj.x,self.obj.y
             elif self.plane == self.PlaneXZ:
                 # XZ view controls X and Z
                 if self.allow_axis_movement[0]:
                     self.obj.x = new_pos.x()
+                    allow_x=True
                 if self.allow_axis_movement[1]:                    
                     self.obj.z = new_pos.y()
+                    allow_z=True
+                nx,ny=self.obj.x,self.obj.z
             elif self.plane == self.PlaneYZ:
                 # YZ view controls Y and Z
                 if self.allow_axis_movement[0]:
                     self.obj.y = new_pos.x()
+                    allow_y=True
                 if self.allow_axis_movement[1]:    
                     self.obj.z = new_pos.y()
+                    allow_z=True
+                nx,ny=self.obj.y,self.obj.z
 
             # Update local offsets 
             parent = self.obj.parent 
             if parent is not None:
-                self.obj.local_dx = self.obj.x - parent.x 
-                self.obj.local_dy = self.obj.y - parent.y 
-                self.obj.local_dz = self.obj.z - parent.z
+                if allow_x:
+                    self.obj.local_dx = self.obj.x - parent.x 
+                if allow_y:
+                    self.obj.local_dy = self.obj.y - parent.y 
+                if allow_z:
+                    self.obj.local_dz = self.obj.z - parent.z
 
             # Notify controller so other views can update
             if self.on_model_changed:
                 self.on_model_changed(self.obj)
 
-            return new_pos
+            return QtCore.QPointF(nx,ny)
 
         return super().itemChange(change, value)
 
@@ -609,7 +798,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self._changing_from_code=False
 
         self._build_ui()
-        self._build_configutation()
+        self._build_configuration()
         self._build_model()
         self._build_views()
         self._apply_shapes()
@@ -617,7 +806,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self._sync_view_sizes(self.world_sizes[0],self.world_sizes[1],self.world_sizes[2])
         self._fit_all()
 
-    def _build_configutation(self):
+    def _build_configuration(self):
         self._do_evaluation=False
         self.positions_struct=MAIN_STRUCT_EXAMPLE
         self.phtv=class_treeview_functions.TreeviewFunctions(self.positions_tree,self.positions_struct,FIELDS_POSITION)
@@ -739,8 +928,20 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         # -------------------------
         # TreeWidget
         # -------------------------
+        tree_splitter = QtWidgets.QSplitter()
+        tree_splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
+        tree_top_panel = QtWidgets.QWidget() 
+        self.tree_top_layout = QtWidgets.QVBoxLayout(tree_top_panel) 
+        tree_bottom_panel = QtWidgets.QWidget() 
+        self.tree_bottom_layout = QtWidgets.QVBoxLayout(tree_bottom_panel) 
+        tree_splitter.addWidget(tree_top_panel)
+        tree_splitter.addWidget(tree_bottom_panel)      
+        tree_splitter.setSizes([400, 80])  # tree big, bottom small
+
         self.positions_tree = QtWidgets.QTreeView(self) # QTreeWidget(self)
-        self.left_layout.addWidget(self.positions_tree)
+        
+        self.tree_top_layout.addWidget(self.positions_tree)
+        self.left_layout.addWidget(tree_splitter)
         # -------------------------
         # Views
         # -------------------------
@@ -860,7 +1061,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         
         # Add Plot tracker container
         self.tracker_controls = TrackerPlotsContainerControls() 
-        self.left_layout.addWidget(self.tracker_controls)
+        self.tree_bottom_layout.addWidget(self.tracker_controls)
         self.plot_trackers={}
         self.tracker_window = TrackerWindow()
         self.tracker_controls.showTrackerWindowRequested.connect(
@@ -875,7 +1076,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.props = QtWidgets.QTextEdit()
         self.props.setReadOnly(True)
         self.props.setPlainText("Properties / debug output will go here.")
-        self.left_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
+        self.tree_bottom_layout.addWidget(self._wrap_with_label(self.props, "Properties"))
 
         # Connect toolbar actions
         self.action_fit.triggered.connect(lambda: self.zoomscroll.set_best_fit(self.view_xy,self.view_xy.scene()))
@@ -1066,6 +1267,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def _apply_shapes(self):
         # Apply shapes from structure
         for name,obj in self.objects.items():
+            self._apply_gen_style_to_obj(name,obj)
             self._apply_shapes_to_obj(name,obj)
 
     def _apply_shapes_to_obj(self,name,obj):
@@ -1081,18 +1283,36 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                 style_pen=self.phce.tracker.get_value(track+["Style","Pen","value"]) 
                 style_fill_lighter=self.phce.tracker.get_value(track+["Style","Fill Transparency","value"]) 
                 style_pen_width=self.phce.tracker.get_value(track+["Style","Pen Width","value"]) 
-                style_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
+                ostyle_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
                 if child=="XY" and points:
-                    obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
-                    has_edit_shape=False
+                    obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
+                    has_edit_shape=True
                 if child=="XZ" and points:
-                    obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
-                    has_edit_shape=False
+                    obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
+                    has_edit_shape=True
                 if child=="YZ" and points:
-                    obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]),style=style_dict)
-                    has_edit_shape=False
-        if has_edit_shape and isinstance(obj,CNCObject3D):
-            self.on_model_changed(obj)
+                    obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
+                    has_edit_shape=True
+        # if has_edit_shape and isinstance(obj,CNCObject3D):
+        #     self.on_model_changed(obj)
+    
+    def _apply_gen_style_to_obj(self,name,obj):
+        val_dict=self.phce.tracker.validate_node([name,"Style"])
+        has_edit_style=False
+        if val_dict["found"]:
+                track=val_dict["track"]
+                # Styles
+                style_fill=self.phce.tracker.get_value(track+["Fill","value"]) 
+                style_pen=self.phce.tracker.get_value(track+["Pen","value"]) 
+                style_fill_lighter=self.phce.tracker.get_value(track+["Fill Transparency","value"]) 
+                style_pen_width=self.phce.tracker.get_value(track+["Pen Width","value"]) 
+                ostyle_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
+                obj.item_xy.set_style(obj.item_xy,ostyle_dict)
+                obj.item_xz.set_style(obj.item_xz,ostyle_dict)
+                obj.item_yz.set_style(obj.item_yz,ostyle_dict)
+                has_edit_style=True
+        # if has_edit_style and isinstance(obj,CNCObject3D):
+        #     self.on_model_changed(obj)
 
     def _build_plot_trackers(self):
         for name, plot_tracker in self.plot_trackers.items():
@@ -1147,11 +1367,13 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
 
         for name,obj in self.objects.items():
             color = colors.get(obj.name, "white")
+            
+            obj_style_dict={"Fill":color,"Fill Transparency":80,"Pen":color,"Pen Width":2}
 
             obj.item_xy = ProjectedItem(
                 obj, ProjectedItem.PlaneXY,
                 on_model_changed=self.on_model_changed,
-                color=color
+                color=obj_style_dict
             )
             self.scene_xy.addItem(obj.item_xy)
             #self.items_xy[obj] = obj.item_xy
@@ -1159,7 +1381,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             obj.item_xz = ProjectedItem(
                 obj, ProjectedItem.PlaneXZ,
                 on_model_changed=self.on_model_changed,
-                color=color
+                color=obj_style_dict
             )
             self.scene_xz.addItem(obj.item_xz)
             #self.items_xz[obj] = obj.item_xz
@@ -1167,7 +1389,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             obj.item_yz = ProjectedItem(
                 obj, ProjectedItem.PlaneYZ,
                 on_model_changed=self.on_model_changed,
-                color=color
+                color=obj_style_dict
             )
             self.scene_yz.addItem(obj.item_yz)
             #self.items_yz[obj] = obj.item_yz
