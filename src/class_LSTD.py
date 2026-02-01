@@ -128,6 +128,8 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
 
     def color_process_changed(self, value:str):
         self.actual_color_process=self.DSLui.comboBox_LSTD_Image_Process.currentText()
+        self.get_selected_layers_from_checkbox()
+        self.PB_LSTD_Set_Preview()
 
     def _set_combo_value(self,combo:QComboBox,value:str):
         """Helper to set value to combo"""
@@ -143,8 +145,11 @@ class LayerSelectionToolDialog(QWidget, GuiXYZ_LSTD.Ui_Dialog_LSTD):
         self.set_preview.emit(self.selected_layers,"descrete",self.number_of_layers,self.actual_color_process)
 
     def accept(self):
+        self.actual_color_process=self.DSLui.comboBox_LSTD_Image_Process.currentText()
         self.get_selected_layers_from_checkbox()
-        self.accepted.emit(self.selected_layers,"descrete",self.number_of_layers,self.actual_color_process)
+        # Is emmited in close()
+        # self.accepted.emit(self.selected_layers,"descrete",self.number_of_layers,self.actual_color_process) 
+        self.original_color_process=self.actual_color_process
         self.original_selected_layers=self.selected_layers
         self.Dialog_LSTD.close() # close dialog
         return self.selected_layers

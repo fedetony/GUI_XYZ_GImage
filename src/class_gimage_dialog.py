@@ -556,11 +556,12 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         if not self.is_original_image:
             return
         self._do_evaluation=True
-        ok = self.tv.tracker.set_value(["image","process","value"],process)
+        ok = self.tv.tracker.set_value(["image","process","value"],process) # descrete
         ok |= self.tv.tracker.set_value(["image","number_of_colors","value"],num_colors)
         ok |= self.tv.tracker.set_value(["image","color","value"],color_selection)    
         ok |= self.tv.tracker.set_value(["image","selected_layers","value"],selected_layers)
         self._do_evaluation=False
+        self._set_combo_value(self.color_combo,color_selection)
         if ok:
             self.im_processed=self.make_processed_image()
             self.is_processed_image = True 
@@ -1043,6 +1044,7 @@ class SyncedGraphicsView(QtWidgets.QGraphicsView):
         self._ignore_scroll = False
         self._ignore_zoom = False
         self._has_image = False
+        self.zoom_factor=1.01
 
         # Connect zoom sync
         self.controller.zoom_changed.connect(self.apply_zoom)
@@ -1063,8 +1065,8 @@ class SyncedGraphicsView(QtWidgets.QGraphicsView):
         if not self._has_image or self._ignore_wheel:
             return
 
-        zoom_in = 1.25
-        zoom_out = 0.8
+        zoom_in = self.zoom_factor
+        zoom_out = 1/self.zoom_factor
         factor = zoom_in if event.angleDelta().y() > 0 else zoom_out
 
         new_zoom = self.controller.current_zoom * factor
