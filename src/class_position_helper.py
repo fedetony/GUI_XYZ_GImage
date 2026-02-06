@@ -37,14 +37,38 @@ MAIN_STRUCT_EXAMPLE={
                 ]},
                 {"Size": {"value": [700, 800, 200], "type": "list", "subtype": "float", "unit":"mm", "meta": { "constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": { "arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
-                {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": { "arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"editable":False,"constraints": { "arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": '', "type": "str",  "meta": {"hidden":False, "editable":False}}},
                 ]},
+        "TestLine": {"Color":"#a8e6a3","children":[                  
+                {"Size": {"value": [0, 400, 0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
+                #{"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
+                {"Position": {"value": [350.0, 400.0, 100.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Lock Size": {"value": [True, False, True], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
+                {"Lock Position": {"value": [False, False, False], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
+            ]},
         "Workspace": {"Color":"#a8e6a3","children":[                  
                 {"Size": {"value": [650, 700, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+            ]},
+        "Home": {"Color":"#a8e6a3","children":[                  
+                {"Size": {"value": [5, 5, 5], "type": "list", "subtype": "float", "unit":"mm", "meta": {"editable":False,"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
+                {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
+                {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
+                {"Parent": {"value": 'Workspace', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Lock Size": {"value": [True, True, True], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
+                {"Lock Position": {"value": [False, False, False], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
+                {"View Z": {"value":[80, 80, 80], "type": "list", "subtype": "int", "info":"Height in view, order of objects in view","meta": {"constraints": {"arity": 3}, "hidden":True, "editable":False}}},                
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#000000", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 2, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#043ba1", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 0, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
             ]},
         "Material": {"Color":"#d2a679","children":[                  
                 {"Size": {"value": [270, 210, 3], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
@@ -240,6 +264,12 @@ class CNCObject3D:
         self.lock_h = False
         self.lock_d = False
 
+        self.allow_user_resize = True
+        self.allow_user_repos = True
+
+        # View self position        
+        self.view_z_pos = {"xy":0,"xz":0,"yz":0}
+
     def move_to(self, x, y, z):
         if not self.lock_x:
             self.x = x
@@ -320,6 +350,22 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
     PlaneXZ = 1
     PlaneYZ = 2
 
+    PLANE_MAP = {
+    PlaneXY: {
+        "move_axes": ("x", "y"),
+        "size_axes": ("w", "h"),
+    },
+    PlaneXZ: {
+        "move_axes": ("x", "z"),
+        "size_axes": ("w", "d"),
+    },
+    PlaneYZ: {
+        "move_axes": ("y", "z"),
+        "size_axes": ("h", "d"),
+    },
+    }
+
+
     def __init__(self, obj: CNCObject3D, plane, on_model_changed, color, parent=None):
         super().__init__(parent)
         self.obj = obj
@@ -328,6 +374,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.allow_user_resize=(True,True)
         self.allow_axis_movement=(True,True)
         self.shape_style=None
+        self._last_resize_permissions = None
         if isinstance(color,dict):
             self.general_style=color
         else:
@@ -354,6 +401,11 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.handles = []
         self._create_resize_handles()
         self._update_shape()
+        self.shape_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.anchor_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        if hasattr(self, "_anchor_v"):
+            self._anchor_v.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+
 
     def set_shape(self, polygon_points, anchor=(0.5, 0.5), style=None):
         """
@@ -365,6 +417,26 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         if style:
             self.shape_style=style
         self._update_shape()
+    
+    def update_movement_permissions(self):
+        axes = self.PLANE_MAP[self.plane]["move_axes"]
+        allowed = []
+
+        for axis in axes:
+            lock_flag = getattr(self.obj, f"lock_{axis}")
+            allowed.append(not lock_flag)
+
+        self.allow_axis_movement = tuple(allowed)
+
+    def _update_resize_permissions(self):
+        axes = self.PLANE_MAP[self.plane]["size_axes"]
+        allowed = []
+
+        for axis in axes:
+            lock_flag = getattr(self.obj, f"lock_{axis}")
+            allowed.append(not lock_flag)
+
+        self.allow_user_resize = tuple(allowed)
 
     def _update_shape(self):
         if self.base_polygon is None:
@@ -393,52 +465,43 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             if pen and width:
                 shape_item.setPen(QtGui.QPen(QtGui.QColor(pen), width))
         return shape_item
+   
+    def _delete_resize_handles(self):
+        """Deletes the resize handles"""
+        for h in self.handles:
+            if h.scene():
+                h.scene().removeItem(h)
+            h.setParentItem(None)
 
-    def reset_handles(self ,allow_x=True, allow_y=True):
-        """Resets permissions for user resizing, and sets the handles accordingly"""
-        self.allow_user_resize=(allow_x,allow_y)
-        #clear handles
-        self.handles = []
-        self._create_resize_handles()
+        self.handles.clear()
 
     def _create_resize_handles(self):
-        # Right-side handle (controls width or height depending on plane)
-        if self.plane == self.PlaneXY:
-            if self.allow_user_resize[0]:
-                axis = "x"   # width
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width(), self.rect().height() / 2)
-                self.handles.append(handle)
-            if self.allow_user_resize[1]:
-                axis = "y"   # height
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width() / 2, self.rect().height())
-                self.handles.append(handle)
+        """Creates resizing handles"""
+        if not self.obj.allow_user_resize:
+            return
+        
+        size_axes = self.PLANE_MAP[self.plane]["size_axes"]
+        r = self.rect()
 
-        elif self.plane == self.PlaneXZ:
-            if self.allow_user_resize[0]:
-                axis = "x"   # width
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width(), self.rect().height() / 2)
-                self.handles.append(handle)
-            
-            if self.allow_user_resize[1]:
-                axis = "z"   # depth
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width() / 2, self.rect().height())
-                self.handles.append(handle)
+        for axis_name, allowed in zip(size_axes, self.allow_user_resize):
+            if not allowed:
+                continue
 
-        elif self.plane == self.PlaneYZ:
-            if self.allow_user_resize[0]:
-                axis = "y"   # height
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width(), self.rect().height() / 2)
-                self.handles.append(handle)
-            if self.allow_user_resize[1]:
-                axis = "z"   # depth
-                handle = ResizeHandle(self, axis, self._on_resize)
-                handle.setPos(self.rect().width() / 2, self.rect().height())
-                self.handles.append(handle)
+            # Convert size axis to logical axis for handle
+            # w → x, h → y, d → z
+            logical_axis = {
+                "w": "x",
+                "h": "y",
+                "d": "z",
+            }[axis_name]
+
+            h = ResizeHandle(self, logical_axis, self._on_resize)
+            if logical_axis == "x":
+                h.setPos(r.width(), r.height() / 2)
+            else:
+                h.setPos(r.width() / 2, r.height())
+            self.handles.append(h)
+
 
     def _on_resize(self, axis, dx, dy):
         if axis == "x" and not self.obj.lock_w:
@@ -455,10 +518,21 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
     def _build_geometry(self):
         if self.plane == self.PlaneXY:
             self.setRect(0, 0, self.obj.w, self.obj.h)
+            self.setZValue(self.obj.view_z_pos.get("xy",0))
         elif self.plane == self.PlaneXZ:
             self.setRect(0, 0, self.obj.w, self.obj.d)
+            self.setZValue(self.obj.view_z_pos.get("xz",0))
         elif self.plane == self.PlaneYZ:
             self.setRect(0, 0, self.obj.h, self.obj.d)
+            self.setZValue(self.obj.view_z_pos.get("yz",0))
+
+    def update_view_z_pos(self):        
+        if self.plane == self.PlaneXY:
+            self.setZValue(self.obj.view_z_pos.get("xy",0))
+        elif self.plane == self.PlaneXZ:
+            self.setZValue(self.obj.view_z_pos.get("xz",0))
+        elif self.plane == self.PlaneYZ:
+            self.setZValue(self.obj.view_z_pos.get("yz",0))
 
     def _create_anchor_item(self):
         # small crosshair
@@ -514,18 +588,22 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
 
         # Update anchor and handles
         self.update_anchor_visual()
-
         if not hasattr(self,"handles"):
             return
-        # for h in self.handles:
-        #     h.setPos(h.pos())  # force reposition
-        self._update_handle_positions()
+        self._update_resize_permissions()
+        if self.allow_user_resize != self._last_resize_permissions:
+            self._delete_resize_handles()
+            self._create_resize_handles()
+            self._last_resize_permissions = self.allow_user_resize
+        else:
+            self._update_handle_positions()
+
         # store for shape update 
         self._plane_w = w 
         self._plane_h = h
         # Update shape
         self._update_shape()
-
+        self.update_view_z_pos()
 
     def _update_handle_positions(self):
         r = self.rect()
@@ -542,29 +620,31 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
                 h.setPos(r.width() / 2, r.height())
 
     def contextMenuEvent(self, event):
+        # Sizes
+        if not self.obj.allow_user_repos and not self.obj.allow_user_resize:
+            return
         menu = QtWidgets.QMenu()
         lock_icon = QtGui.QIcon(":/img/Action-lock-silver-icon.png")
         unlock_icon = QtGui.QIcon(":/img/Action-lock-pink-icon.png")
-        if self.obj.parent is not None:
-            # Sizes
+        if self.obj.allow_user_resize:
             if any(self.allow_user_resize):
                 menu.addAction(lock_icon, "Lock Size", self.lock_size)
             else:                
                 menu.addAction(unlock_icon,"Unlock Size", self.lock_size)
-            # Positions
+        # Positions
+        if self.obj.allow_user_repos:
             if any(self.allow_axis_movement):
                 menu.addAction(lock_icon,"Lock Position", self.lock_position)
-                menu.addSeparator()
-                menu.addAction("Center in Parent", self.align_center)
-                menu.addSeparator()
-                menu.addAction("Align Left", self.align_left)
-                menu.addAction("Align Right", self.align_right)
-                menu.addAction("Align Top", self.align_top)
-                menu.addAction("Align Bottom", self.align_bottom)
+                if self.obj.parent is not None:
+                    menu.addSeparator()
+                    menu.addAction("Center in Parent", self.align_center)
+                    menu.addSeparator()
+                    menu.addAction("Align Left", self.align_left)
+                    menu.addAction("Align Right", self.align_right)
+                    menu.addAction("Align Top", self.align_top)
+                    menu.addAction("Align Bottom", self.align_bottom)
             else:
                 menu.addAction(unlock_icon,"Unlock Position", self.lock_position)            
-            
-
         menu.exec(event.screenPos())
 
     def lock_position(self):
@@ -579,6 +659,10 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         elif self.plane == self.PlaneYZ: 
             self.obj.lock_y=lock
             self.obj.lock_z=lock
+        # Update to apply locks in all views
+        self.obj.item_xy.update_movement_permissions()
+        self.obj.item_xz.update_movement_permissions()
+        self.obj.item_yz.update_movement_permissions()
 
     def lock_size(self):
         lock=any(self.allow_user_resize)
@@ -592,6 +676,10 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         elif self.plane == self.PlaneYZ: 
             self.obj.lock_h=lock
             self.obj.lock_d=lock
+        # Update to apply locks in all views and show/hide handles
+        self.obj.item_xy.update_from_model()
+        self.obj.item_xz.update_from_model()
+        self.obj.item_yz.update_from_model()
 
     def align_center(self):
         p = self.obj.parent
@@ -700,6 +788,8 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             allow_x=False
             allow_y=False
             allow_z=False
+            if not self.obj.allow_user_repos:
+                return
             # Update model based on plane
             if self.plane == self.PlaneXY:
                 # XY view controls X and Y
@@ -767,7 +857,7 @@ class TexturedMaterialItem(CNCObject3D):
 ###############################################################
 
 class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
-    def __init__(self):
+    def __init__(self,positions_struct=None,mode=None):
         super().__init__()
         self.setWindowTitle("Positioning Helper: Size & Coordinate Editor (XY, XZ, YZ) ")
         self.resize(1200, 800)
@@ -788,7 +878,21 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                             "zoom_out": QtGui.QIcon(":/img/Minus-icon.png"),
                             "make_gcode":QtGui.QIcon(":/img/eye-in-a-sky-icon.png"),
                             }
-
+        # Define main structure or use example
+        if isinstance(positions_struct,dict):
+            self.positions_struct=positions_struct
+        else:
+            self.positions_struct=MAIN_STRUCT_EXAMPLE
+        if mode and mode=="Tracker":
+            self.tracking_mode=True
+            self.positioning_mode=False
+        elif mode and mode=="Position":
+            self.tracking_mode=False
+            self.positioning_mode=True
+        else:
+            self.tracking_mode=True
+            self.positioning_mode=True
+            
         self.objects = []
         self.items_xy = {}
         self.items_xz = {}
@@ -808,7 +912,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
 
     def _build_configuration(self):
         self._do_evaluation=False
-        self.positions_struct=MAIN_STRUCT_EXAMPLE
         self.phtv=class_treeview_functions.TreeviewFunctions(self.positions_tree,self.positions_struct,FIELDS_POSITION)
         # attach delegate to VALUE column (1)
         delegate = class_treeview_functions.TypedItemDelegate(self.phtv)
@@ -1237,6 +1340,13 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                     m_anchor=self.phce.tracker.get_value([child,"Anchor","value"])
                     self.set_obj_size_position_anchor(child_obj,m_size,m_pos,m_anchor)
                     m_parent=self.phce.tracker.get_value([child,"Parent","value"])
+                    m_lock_size=self.phce.tracker.get_value([child,"Lock Size","value"])
+                    allow_user_resize=self.phce.tracker.get_value([child,"Size","meta[editable]"])
+                    m_lock_position=self.phce.tracker.get_value([child,"Lock Position","value"])
+                    allow_user_repos=self.phce.tracker.get_value([child,"Position","meta[editable]"])
+                    view_z_pos_list=self.phce.tracker.get_value([child,"View Z","value"])
+                    self.set_obj_view_position(child_obj,view_z_pos_list)
+                    self.set_obj_size_position_locks(child_obj,m_lock_size,m_lock_position,allow_user_resize,allow_user_repos)
                     if m_parent in [None,'','None']:                        
                         # Set world sizes as 110% machine size
                         self.world_sizes=[max(1.0*sss,size) for sss,size in zip(m_size,self.world_sizes)]    
@@ -1264,6 +1374,31 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             obj.anchor_y = anchor_list[1]
             obj.anchor_z = anchor_list[2]
     
+    def set_obj_view_position(self,obj:CNCObject3D,view_z_pos_list):        
+        if isinstance(view_z_pos_list,list) and len(view_z_pos_list)==3:
+            obj.view_z_pos.update({"xy":view_z_pos_list[0]})
+            obj.view_z_pos.update({"xz":view_z_pos_list[1]})
+            obj.view_z_pos.update({"yz":view_z_pos_list[2]})
+        
+    def set_obj_size_position_locks(self,obj:CNCObject3D,lock_size_list,lock_position_list,allow_user_resize,allow_user_repos):
+        if allow_user_resize == False:
+            obj.allow_user_resize=False
+        else:
+            obj.allow_user_resize=True
+
+        if allow_user_repos == False:
+            obj.allow_user_repos=False
+        else:
+            obj.allow_user_repos=True
+        if isinstance(lock_size_list,list) and len(lock_size_list)==3:            
+            obj.lock_w = lock_size_list[0]
+            obj.lock_h = lock_size_list[1]
+            obj.lock_d = lock_size_list[2]            
+        if isinstance(lock_position_list,list) and len(lock_position_list)==3:
+            obj.lock_x = lock_position_list[0]
+            obj.lock_y = lock_position_list[1]
+            obj.lock_z = lock_position_list[2]
+        
     def _apply_shapes(self):
         # Apply shapes from structure
         for name,obj in self.objects.items():
@@ -1518,7 +1653,7 @@ class ResizeHandle(QtWidgets.QGraphicsRectItem):
         self.setBrush(QtGui.QColor("yellow"))
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
-        self.setZValue(10)
+        self.setZValue(333)
 
         self._dragging = False
         self._last_scene_pos = None
