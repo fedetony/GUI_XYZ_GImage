@@ -28,7 +28,7 @@ style_dict = {
         }
 
 MAIN_STRUCT_EXAMPLE={
-        "Machine": {"Color":"#d0d0d0","children":[  
+        "Machine": {"children":[  
                 {"Axes": {"value": ['X','Y','Z'], "type": "list", "subtype": "str", "meta": {"editable": False }}},
                 {"Mapping": [
                     {"X": {"value": "X", "type": "str", "meta": {"options": ["X", "Y", "Z", "A", "B", "C","E","F","S"]}}},
@@ -39,6 +39,13 @@ MAIN_STRUCT_EXAMPLE={
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": { "arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [0.0, 0.0, 0.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"editable":False,"constraints": { "arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": '', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#d0d0d0", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 2, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#d0d0d0", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
                 ]},
         "TestLine": {"Color":"#a8e6a3","children":[                  
                 {"Size": {"value": [0, 400, 0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
@@ -48,13 +55,20 @@ MAIN_STRUCT_EXAMPLE={
                 {"Lock Size": {"value": [True, False, True], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
                 {"Lock Position": {"value": [False, False, False], "type": "list", "subtype": "bool", "meta": {"subtype": "bool","constraints": {"arity": 3}, "hidden":False, "editable":False}}},                
             ]},
-        "Workspace": {"Color":"#a8e6a3","children":[                  
+        "Workspace": {"children":[                  
                 {"Size": {"value": [650, 700, 100], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#a8e6a3", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 2, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#a8e6a3", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
             ]},
-        "Home": {"Color":"#a8e6a3","children":[                  
+        "Home": {"children":[                  
                 {"Size": {"value": [5, 5, 5], "type": "list", "subtype": "float", "unit":"mm", "meta": {"editable":False,"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 10.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
@@ -83,11 +97,18 @@ MAIN_STRUCT_EXAMPLE={
                         {"Fill Transparency": {"value": 0, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
                         ]},
             ]},
-        "Head": {"Color":"#8ec6ff","children":[                  
+        "Head": {"children":[                  
                 {"Size": {"value": [40, 40, 30], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [0.01,0.01,0.01], "max": [10**6,10**6,10**6]}, "decimals": 2}}},
                 {"Anchor": {"value": [0.5, 0.5, 1], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 3, "min": [0.0,0.0,0.0], "max": [1,1,1]}, "decimals": 2}}},
                 {"Position": {"value": [10.0, 10.0, 80.0], "type": "list", "subtype": "float", "unit":"mm", "meta": {"constraints": {"arity": 3, "min": [-10**6,-10**6,-10**6], "max": [10**6,10**6,10**6]}, "decimals": 3}}},
                 {"Parent": {"value": 'Machine', "type": "str",  "meta": {"hidden":False, "editable":False}}},
+                {"Style": [                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"]}}},
+                        {"Pen": {"value": "#8ec6ff", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Pen Width": {"value": 2, "type": "int",  "unit":"[1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 1, "max": 5}}}},
+                        {"Fill": {"value": "#8ec6ff", "type": "color", "meta": {"hidden":False, "editable":True}}},
+                        {"Fill Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}}}}
+                        ]},
             ]},
         "Tool": {"Color":"#ffb347","children":[                  
                 {"Tool Type": {"value": "pencil", "type": "str", "meta": {"options": ["pen","pencil","laser"]}}},
@@ -269,6 +290,9 @@ class CNCObject3D:
 
         # View self position        
         self.view_z_pos = {"xy":0,"xz":0,"yz":0}
+        
+        # Style
+        self.style_dict={"Line Type":"solid","Fill":"#FFFFFF","Fill Transparency":77,"Pen":"#000000","Pen Width":2}
 
     def move_to(self, x, y, z):
         if not self.lock_x:
@@ -375,6 +399,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.allow_axis_movement=(True,True)
         self.shape_style=None
         self._last_resize_permissions = None
+        self._is_new_style=True
         if isinstance(color,dict):
             self.general_style=color
         else:
@@ -388,7 +413,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             self.setBrush(QtGui.QColor(color).lighter(160))
             self.setPen(QtGui.QPen(QtGui.QColor(color), 2))
         else:
-            self.set_style(self,self.general_style)
+            self.apply_style_dict(self.general_style)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
@@ -451,6 +476,12 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.shape_item.setPolygon(poly)
         self.shape_item=self.set_style(self.shape_item,self.shape_style)
     
+    def _update_style(self):
+        if not self._is_new_style:
+            return
+        self.apply_style_dict(self.obj.style_dict)
+        self._is_new_style=False
+    
     def set_style(self,shape_item,shape_style):
         if shape_style:
             pen=shape_style.get("Pen","black")
@@ -465,7 +496,20 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
             if pen and width:
                 shape_item.setPen(QtGui.QPen(QtGui.QColor(pen), width))
         return shape_item
-   
+    
+    def apply_style_dict(self,ostyle_dict:dict):        
+        pen=ostyle_dict.get("Pen","black")
+        width=min(max(int(ostyle_dict.get("Pen Width",1)),1),5)
+        fill=ostyle_dict.get("Fill","white")
+        trans=ostyle_dict.get("Fill Transparency",100)
+        if fill:
+            color = QtGui.QColor(fill) 
+            if trans: 
+                color.setAlpha(trans) # modifies the color object 
+            self.setBrush(color)
+        if pen and width:
+            self.setPen(QtGui.QPen(QtGui.QColor(pen), width))
+        
     def _delete_resize_handles(self):
         """Deletes the resize handles"""
         for h in self.handles:
@@ -602,6 +646,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self._plane_w = w 
         self._plane_h = h
         # Update shape
+        self._update_style()
         self._update_shape()
         self.update_view_z_pos()
 
@@ -954,6 +999,22 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             m_anchor=self.phce.tracker.get_value([name,"Anchor","value"])
             self.set_obj_size_position_anchor(obj,m_size,m_pos,m_anchor)
             # m_parent=self.phce.tracker.get_value([name,"Parent","value"])
+            m_lock_size=self.phce.tracker.get_value([name,"Lock Size","value"])
+            allow_user_resize=self.phce.tracker.get_value([name,"Size","meta[editable]"])
+            m_lock_position=self.phce.tracker.get_value([name,"Lock Position","value"])
+            allow_user_repos=self.phce.tracker.get_value([name,"Position","meta[editable]"])
+            view_z_pos_list=self.phce.tracker.get_value([name,"View Z","value"])
+            ostyle_dict=self._get_style_dict_from_track([name])
+            for key,value in obj.style_dict.items():
+                if ostyle_dict.get(key) != value:
+                    self.set_obj_style(obj,ostyle_dict)
+                    # On next update apply the style
+                    obj.item_xy._is_new_style=True
+                    obj.item_xz._is_new_style=True
+                    obj.item_yz._is_new_style=True
+                    break
+            self.set_obj_view_position(obj,view_z_pos_list)
+            self.set_obj_size_position_locks(obj,m_lock_size,m_lock_position,allow_user_resize,allow_user_repos)
             self.on_model_changed(obj)
             self._changing_from_code=False
             # update values in views
@@ -1327,7 +1388,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
 
 
     def _build_model(self):
-        
+        """Builds the model from objects in the structure"""
         val_dict=self.phce.tracker.validate_node([])
         self.objects = {}
         if val_dict["found"] and val_dict["is_root"]:
@@ -1345,6 +1406,8 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                     m_lock_position=self.phce.tracker.get_value([child,"Lock Position","value"])
                     allow_user_repos=self.phce.tracker.get_value([child,"Position","meta[editable]"])
                     view_z_pos_list=self.phce.tracker.get_value([child,"View Z","value"])
+                    ostyle_dict=self._get_style_dict_from_track([child])
+                    self.set_obj_style(child_obj,ostyle_dict)
                     self.set_obj_view_position(child_obj,view_z_pos_list)
                     self.set_obj_size_position_locks(child_obj,m_lock_size,m_lock_position,allow_user_resize,allow_user_repos)
                     if m_parent in [None,'','None']:                        
@@ -1379,6 +1442,10 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             obj.view_z_pos.update({"xy":view_z_pos_list[0]})
             obj.view_z_pos.update({"xz":view_z_pos_list[1]})
             obj.view_z_pos.update({"yz":view_z_pos_list[2]})
+    
+    def set_obj_style(self,obj:CNCObject3D,ostyle_dict):    
+        for key,value in ostyle_dict.items():    
+            obj.style_dict.update({key:value})
         
     def set_obj_size_position_locks(self,obj:CNCObject3D,lock_size_list,lock_position_list,allow_user_resize,allow_user_repos):
         if allow_user_resize == False:
@@ -1405,6 +1472,25 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             self._apply_gen_style_to_obj(name,obj)
             self._apply_shapes_to_obj(name,obj)
 
+    def _get_style_dict_from_track(self,track:list[str])->dict:
+        """Returns a dictionary with the Style defined values"""
+        style_fill=self.phce.tracker.get_value(track+["Style","Fill","value"]) 
+        if not style_fill:
+            style_fill="#1570D8"
+        style_pen=self.phce.tracker.get_value(track+["Style","Pen","value"]) 
+        if not style_pen:
+            style_pen="#000000" 
+        style_fill_transparency=self.phce.tracker.get_value(track+["Style","Fill Transparency","value"]) 
+        if not style_fill_transparency:
+            style_fill_transparency=77
+        style_pen_width=self.phce.tracker.get_value(track+["Style","Pen Width","value"]) 
+        if not style_pen_width:
+            style_pen_width=2
+        style_line_type=self.phce.tracker.get_value(track+["Style","Line Type","value"]) 
+        if not style_line_type:
+            style_line_type="solid"
+        return {"Line Type":style_line_type,"Fill":style_fill,"Fill Transparency":style_fill_transparency,"Pen":style_pen,"Pen Width":style_pen_width}
+
     def _apply_shapes_to_obj(self,name,obj):
         val_dict=self.phce.tracker.validate_node([name,"Shape"])
         has_edit_shape=False
@@ -1414,11 +1500,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                 points=self.phce.tracker.get_value(track+["Shape Points","value"])
                 anchor=self.phce.tracker.get_value(track+["Anchor","value"]) or [0.5,0.5]
                 # Styles
-                style_fill=self.phce.tracker.get_value(track+["Style","Fill","value"]) 
-                style_pen=self.phce.tracker.get_value(track+["Style","Pen","value"]) 
-                style_fill_lighter=self.phce.tracker.get_value(track+["Style","Fill Transparency","value"]) 
-                style_pen_width=self.phce.tracker.get_value(track+["Style","Pen Width","value"]) 
-                ostyle_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
+                ostyle_dict=self._get_style_dict_from_track(track)
                 if child=="XY" and points:
                     obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
                     has_edit_shape=True
@@ -1437,11 +1519,12 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         if val_dict["found"]:
                 track=val_dict["track"]
                 # Styles
-                style_fill=self.phce.tracker.get_value(track+["Fill","value"]) 
-                style_pen=self.phce.tracker.get_value(track+["Pen","value"]) 
-                style_fill_lighter=self.phce.tracker.get_value(track+["Fill Transparency","value"]) 
-                style_pen_width=self.phce.tracker.get_value(track+["Pen Width","value"]) 
-                ostyle_dict={"Fill":style_fill,"Fill Transparency":style_fill_lighter,"Pen":style_pen,"Pen Width":style_pen_width}
+                ostyle_dict=self._get_style_dict_from_track([name])
+                # On next update apply the style
+                obj.item_xy._is_new_style=True
+                obj.item_xz._is_new_style=True
+                obj.item_yz._is_new_style=True
+
                 obj.item_xy.set_style(obj.item_xy,ostyle_dict)
                 obj.item_xz.set_style(obj.item_xz,ostyle_dict)
                 obj.item_yz.set_style(obj.item_yz,ostyle_dict)
@@ -1452,7 +1535,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def _build_plot_trackers(self):
         for name, plot_tracker in self.plot_trackers.items():
             self.tracker_window.container.add_plot(plot_tracker)
-
 
     def _plot_tracker_of_obj(self,obj:CNCObject3D):
         name=obj.name
@@ -1484,26 +1566,12 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                 xxx=step or last_x
                 if plot_tracker_value:
                     plot_tracker.add_point(pt_obj_id,pt_prop,xxx,plot_tracker_value)          
-                self.plot_trackers.update({pt_obj_id:plot_tracker})
-                
+                self.plot_trackers.update({pt_obj_id:plot_tracker})           
 
     def _build_views(self):
-        # colors = {
-        #     "Machine": "lightGray",
-        #     "Workspace": "lightGreen",
-        #     "Material": "sandyBrown",
-        #     "Head": "lightBlue",
-        #     "Tool": "orange",
-        # }
-
-        colors = {}
-        for name,val in style_dict.items():
-            colors.update({name:val.get("bg","#d0d0d0")})
-
+        """Builds The views Populating the items"""
         for name,obj in self.objects.items():
-            color = colors.get(obj.name, "white")
-            
-            obj_style_dict={"Fill":color,"Fill Transparency":80,"Pen":color,"Pen Width":2}
+            obj_style_dict=obj.style_dict
 
             obj.item_xy = ProjectedItem(
                 obj, ProjectedItem.PlaneXY,
@@ -1627,6 +1695,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
     def _fit_all(self):
         self.zoomscroll.fit_all()
 
+
 class SquareWidget(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1640,8 +1709,7 @@ class SquareWidget(QtWidgets.QWidget):
 
     def sizeHint(self):
         return QtCore.QSize(200, 200)
-
-
+    
 
 class ResizeHandle(QtWidgets.QGraphicsRectItem):
     def __init__(self, parent_item, axis, on_resize):
@@ -1691,6 +1759,7 @@ class ResizeHandle(QtWidgets.QGraphicsRectItem):
         self._dragging = False
         self._last_scene_pos = None
         super().mouseReleaseEvent(event)
+
 
 class SyncedView(QtWidgets.QGraphicsView):
     resized = QtCore.pyqtSignal()   
@@ -1814,6 +1883,7 @@ class SyncedView(QtWidgets.QGraphicsView):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.resized.emit()
+
 
 class ViewWithLabel(QtWidgets.QWidget):
     def __init__(self, view, label_text):
