@@ -4,6 +4,10 @@ import pyqtgraph as pg
 
 import math
 import logging
+from class_shape_factory import ShapeFactory
+SF=ShapeFactory()
+pencil=SF.make("pencil","down")
+
 style_dict = {            
             "Machine": {
                 "bg":"#d0d0d0",
@@ -134,7 +138,7 @@ MAIN_STRUCT_EXAMPLE={
                                 ]},
                             ]},
                             {"XZ":[
-                           {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
+                           {"Shape Points": {"value": pencil,"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0, 0], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
                             {"Style": [
                                 {"Pen": {"value": "brown", "type": "color", "meta": {"hidden":False, "editable":True}}},
@@ -144,7 +148,7 @@ MAIN_STRUCT_EXAMPLE={
                                 ]},
                            ]},
                             {"YZ":[
-                           {"Shape Points": {"value": [(0.5, 1.0),(1, 0.5),(0.0, 0.0)],"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
+                           {"Shape Points": {"value": pencil,"type": "list","subtype": "tuple","meta": {"hidden":False, "editable":False}}},
                             {"Anchor": {"value": [0.5, 0.5], "type": "list", "subtype": "float", "unit":"[0-1]", "meta": {"constraints": {"arity": 2, "min": [0.0,0.0], "max": [1,1]}, "decimals": 2}}},
                              {"Style": [
                                 {"Pen": {"value": "brown", "type": "color", "meta": {"hidden":False, "editable":True}}},
@@ -293,6 +297,8 @@ class CNCObject3D:
         
         # Style
         self.style_dict={"Line Type":"solid","Fill":"#FFFFFF","Fill Transparency":77,"Pen":"#000000","Pen Width":2}
+        # Shapes
+        self._has_shape=False
 
     def move_to(self, x, y, z):
         if not self.lock_x:
@@ -394,7 +400,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         super().__init__(parent)
         self.obj = obj
         self.plane = plane
-        self.on_model_changed = on_model_changed  # callback to notify dialog
+        self.on_model_changed = on_model_changed  # callback to notify dialog        
         self.allow_user_resize=(True,True)
         self.allow_axis_movement=(True,True)
         self.shape_style=None
@@ -422,14 +428,14 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.anchor_item = None
         self._build_geometry()
         self._create_anchor_item()
-        self.update_from_model()
+        # self.update_from_model()
         self.handles = []
         self._create_resize_handles()
         self._update_shape()
-        self.shape_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-        self.anchor_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.shape_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)        
         if hasattr(self, "_anchor_v"):
             self._anchor_v.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.update_from_model()
 
 
     def set_shape(self, polygon_points, anchor=(0.5, 0.5), style=None):
@@ -465,16 +471,33 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
 
     def _update_shape(self):
         if self.base_polygon is None:
-            return  # no custom shape yet
-        w = getattr(self, "_plane_w", self.obj.w) 
+            return
+
+        w = getattr(self, "_plane_w", self.obj.w)
         h = getattr(self, "_plane_h", self.obj.h)
+
         poly = QtGui.QPolygonF()
         for x, y in self.base_polygon:
-            px = x * w
-            py = y * h
-            poly.append(QtCore.QPointF(px, py))
+            poly.append(QtCore.QPointF(x * w, y * h))
+
+        # Tell Qt the geometry is about to change
+        self.shape_item.prepareGeometryChange()
+
         self.shape_item.setPolygon(poly)
-        self.shape_item=self.set_style(self.shape_item,self.shape_style)
+        if not self.shape_style:
+            self.shape_style=self.obj.style_dict
+        self.set_style(self.shape_item, self.shape_style)
+        # Hide parent pen/brush 
+        try:
+            self.setPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen))
+            self.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+        except Exception as eee:
+            pass
+        # Force repaint
+        self.shape_item.update()
+        self.update()  # force parent to repaint
+        if self.scene():
+            self.scene().update()  # force scene to repaint
     
     def _update_style(self):
         if not self._is_new_style:
@@ -583,6 +606,7 @@ class ProjectedItem(QtWidgets.QGraphicsRectItem):
         self.anchor_item = QtWidgets.QGraphicsLineItem(self)
         pen = QtGui.QPen(QtGui.QColor("red"), 1)
         self.anchor_item.setPen(pen)
+        self.anchor_item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
 
     def update_anchor_visual(self):
         r = self.rect()
@@ -1348,45 +1372,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         self.scene_xz.setSceneRect(0, 0, world_x, world_z)
         self.scene_yz.setSceneRect(0, 0, world_y, world_z)
 
-
-    #--------------------- Some shapes ----------------
-    @staticmethod
-    def make_hexagon():
-        pts = []
-        for i in range(6):
-            a = 2 * math.pi * i / 6
-            pts.append((0.5 + 0.5 * math.cos(a),
-                        0.5 + 0.5 * math.sin(a)))
-        return pts
-    
-    @staticmethod
-    def make_square_with_point():
-        return [
-            (0.0, 0.0),   # top-left
-            (1.0, 0.0),   # top-right
-            (1.0, 0.8),   # bottom-right
-            (0.5, 1.0),   # point
-            (0.0, 0.8)    # bottom-left
-        ]
-    
-    @staticmethod
-    def make_triangle_polygon():
-        return [
-            (0.5, 0.0),   # top center
-            (1.0, 1.0),   # bottom right
-            (0.0, 1.0)    # bottom left
-        ]
-    
-    @staticmethod
-    def make_circle_polygon(segments=24):
-        pts = []
-        for i in range(segments):
-            a = 2 * math.pi * i / segments
-            pts.append((0.5 + 0.5*math.cos(a),
-                        0.5 + 0.5*math.sin(a)))
-        return pts
-
-
     def _build_model(self):
         """Builds the model from objects in the structure"""
         val_dict=self.phce.tracker.validate_node([])
@@ -1471,6 +1456,10 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
         for name,obj in self.objects.items():
             self._apply_gen_style_to_obj(name,obj)
             self._apply_shapes_to_obj(name,obj)
+            # force scene to repaint
+            obj.item_xy.scene().update()  
+            obj.item_xz.scene().update()  
+            obj.item_yz.scene().update()  
 
     def _get_style_dict_from_track(self,track:list[str])->dict:
         """Returns a dictionary with the Style defined values"""
@@ -1491,7 +1480,7 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             style_line_type="solid"
         return {"Line Type":style_line_type,"Fill":style_fill,"Fill Transparency":style_fill_transparency,"Pen":style_pen,"Pen Width":style_pen_width}
 
-    def _apply_shapes_to_obj(self,name,obj):
+    def _apply_shapes_to_obj(self,name,obj:CNCObject3D):
         val_dict=self.phce.tracker.validate_node([name,"Shape"])
         has_edit_shape=False
         if val_dict["found"]:
@@ -1503,15 +1492,16 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                 ostyle_dict=self._get_style_dict_from_track(track)
                 if child=="XY" and points:
                     obj.item_xy.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
-                    has_edit_shape=True
+                    has_edit_shape=True                    
                 if child=="XZ" and points:
                     obj.item_xz.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
-                    has_edit_shape=True
+                    has_edit_shape=True                    
                 if child=="YZ" and points:
                     obj.item_yz.set_shape(points, anchor=(anchor[0], anchor[1]),style=ostyle_dict)
                     has_edit_shape=True
-        # if has_edit_shape and isinstance(obj,CNCObject3D):
-        #     self.on_model_changed(obj)
+                    
+        if isinstance(obj,CNCObject3D):
+            obj._has_shape=has_edit_shape
     
     def _apply_gen_style_to_obj(self,name,obj):
         val_dict=self.phce.tracker.validate_node([name,"Style"])
@@ -1529,8 +1519,6 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
                 obj.item_xz.set_style(obj.item_xz,ostyle_dict)
                 obj.item_yz.set_style(obj.item_yz,ostyle_dict)
                 has_edit_style=True
-        # if has_edit_style and isinstance(obj,CNCObject3D):
-        #     self.on_model_changed(obj)
 
     def _build_plot_trackers(self):
         for name, plot_tracker in self.plot_trackers.items():
@@ -1655,6 +1643,13 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
             self.update_tree(obj)
         self._updating=False
         self._apply_shapes_to_obj(obj.name,obj)
+        # force scene to repaint
+        obj.item_xy.update()  
+        obj.item_xz.update()  
+        obj.item_yz.update()
+        obj.item_xy.scene().update()  
+        obj.item_xz.scene().update()  
+        obj.item_yz.scene().update()
     
     def update_tree(self,obj: CNCObject3D):
         name=obj.name
