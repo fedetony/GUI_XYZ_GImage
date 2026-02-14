@@ -59,9 +59,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.canIuseCH=False  
         self.Set_Required_actions_to_CH(None,None,None)
         try:            
-            isok=self.CH.check_command_config_file_Content(self.CH.Interfacefilename,self.CH.Required_interface,False,Logcheck)
+            isok=self.CH.load_and_set_config_from_yaml(self.CH.yaml_filename,False,Logcheck)
+            #isok=self.CH.check_command_config_file_Content(self.CH.Interfacefilename,self.CH.Required_interface,False,Logcheck)
             if isok==True:
-                self.InterfaceConfigallids=self.CH.Load_command_config_from_file(self.CH.Interfacefilename)
+                self.InterfaceConfigallids=self.CH.InterfaceConfigallids.copy() #self.CH.Load_command_config_from_file(self.CH.Interfacefilename)
                 isok=self.CH.check_id_match_configs(self.CH.Configdata,self.InterfaceConfigallids)
                 if isok==True:                    
                     self.Int_Config=self.CH.get_interface_config(self.InterfaceConfigallids,self.CH.id)
@@ -79,9 +80,9 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             
         
         try:            
-            isok=self.CH.check_command_config_file_Content(self.CH.Readfilename,self.CH.Required_read,False,Logcheck)
+            #isok=self.CH.check_command_config_file_Content(self.CH.Readfilename,self.CH.Required_read,False,Logcheck)
             if isok==True:
-                self.ReadConfigallids=self.CH.Load_command_config_from_file(self.CH.Readfilename)
+                self.ReadConfigallids=self.CH.ReadConfigallids.copy()#self.CH.Load_command_config_from_file(self.CH.Readfilename)
                 isok=self.CH.check_id_match_configs(self.CH.Configdata,self.ReadConfigallids)
                 if isok==True:
                     allRead_Config=self.CH.get_interface_config(self.ReadConfigallids,self.CH.id)
@@ -313,7 +314,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 self.is_tinyg=selid
                 log.info("Selecting Default interface from file Configuration! ID:"+str(selid))         
         
-        self.CH.Set_new_Interface(self.is_tinyg,True) #refresh config on disconnection
+        self.CH.set_new_interface(self.is_tinyg,True) #refresh config on disconnection
 
         InterfaceName=self.CH.getGformatforAction('interfaceName')
         log.info("Changed Interface to id "+ str(self.CH.id)+' ->'+InterfaceName)  
