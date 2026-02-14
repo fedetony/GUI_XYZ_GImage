@@ -11,6 +11,84 @@ import class_File_Dialogs
 from PyQt6.QtWidgets import *
 from PyQt6 import QtWidgets, QtGui, QtCore
 
+import platform
+import os
+
+if platform.system() == "Linux":
+    import grp
+    import getpass
+
+# Add logger
+st_fun_name="PSerialTerminal"
+from class_LogHandler import get_appPath, LM ,init_logger_manager
+try:
+    log = LM.get_logger_with_handler(st_fun_name,
+                                     "debug",
+                                     True,
+                                     "%(asctime)s [%(levelname)s] (%(name)s) %(message)s")
+    log.info(f"{st_fun_name} Logger started")
+except (AttributeError, ImportError):
+    LM = init_logger_manager(None)
+    log = LM.get_logger(__name__)
+    log.info("Serial terminal initialized...")
+
+def check_serial_permissions(port):
+    system = platform.system()
+
+    if system == "Linux":
+        return check_linux_permissions(port)
+
+    elif system == "Darwin":  # macOS
+        return True, "macOS does not require group changes"
+
+    elif system == "Windows":
+        return True, "Windows does not use group permissions"
+
+    return True, "Unknown OS"
+
+def check_linux_permissions(port):
+    try:
+        st = os.stat(port)
+        gid = st.st_gid
+        group = grp.getgrgid(gid).gr_name
+        user = getpass.getuser()
+
+        user_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+
+        if group not in user_groups:
+            return False, group
+
+        return True, group
+
+    except Exception:
+        return True, None
+
+class HistoryLineEdit(QtWidgets.QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.history = []
+        self.history_index = -1
+
+    def keyPressEvent(self, event):
+        key = event.key()
+
+        if key == QtCore.Qt.Key.Key_Up:
+            if self.history:
+                self.history_index = max(0, self.history_index - 1)
+                self.setText(self.history[self.history_index])
+            return
+
+        if key == QtCore.Qt.Key.Key_Down:
+            if self.history:
+                self.history_index = min(len(self.history), self.history_index + 1)
+                if self.history_index == len(self.history):
+                    self.clear()
+                else:
+                    self.setText(self.history[self.history_index])
+            return
+
+        super().keyPressEvent(event)
+
 class SerialReader(QtCore.QThread):
     received = QtCore.pyqtSignal(str)
 
@@ -46,7 +124,7 @@ class SerialTerminalDialog(QtWidgets.QDialog):
         self.text_console = QtWidgets.QTextEdit()
         self.text_console.setReadOnly(True)
 
-        self.input_line = QtWidgets.QLineEdit()
+        self.input_line = HistoryLineEdit()
         self.input_line.returnPressed.connect(self.send_data)
 
         # --- NEW: Baudrate Combo ---
@@ -86,6 +164,12 @@ class SerialTerminalDialog(QtWidgets.QDialog):
         self.save_btn = QtWidgets.QPushButton("Save")
         self.save_btn.setIcon(QtGui.QIcon(":/img/Floppy-Small-icon.png"))
         self.save_btn.clicked.connect(self.save_text)
+        # Disable Qt's automatically auto-default behavior to all QPushButtons         
+        # Enter triggers the default
+        for btn in (self.connect_btn, self.refresh_btn, self.clear_btn, self.save_btn):
+            btn.setDefault(False)
+            btn.setAutoDefault(False)
+
 
         # Layout (top bar)
         top = QtWidgets.QHBoxLayout()
@@ -150,7 +234,7 @@ class SerialTerminalDialog(QtWidgets.QDialog):
 
     def connect_serial(self):
         port = self.port_box.currentText()
-        baud = int(self.combo_baud.currentText())   # <-- NEW
+        baud = int(self.combo_baud.currentText())
 
         try:
             self.ser = serial.Serial(port, baudrate=baud, timeout=0.1)
@@ -160,9 +244,44 @@ class SerialTerminalDialog(QtWidgets.QDialog):
 
             self.connect_btn.setText("Disconnect")
             self.append_text(f"[Connected to {port} @ {baud} baud]")
+            log.info(f"Serial connection stablished: {port} @ {baud} baud")
+            return True
 
         except Exception as e:
-            self.append_text(f"[Connection error] {e}")
+            amsg=f"Serial connection error on {port}: {e}"
+            log.error(amsg)
+            self.append_text(amsg)
+            # Base error message
+            amsg = f"Could not open serial port:\n{port}\n\nError:\n{e}"            
+            # --- Linux-specific permission check ---
+            import platform
+            if platform.system() == "Linux" and "Permission denied" in str(e):
+                ok, group = check_serial_permissions(port)
+                user = getpass.getuser()
+                if not ok:
+                    amsg += (
+                        f"\nYour user does not have permission to access this serial device.\n"
+                        f"The device belongs to group: '{group}'.\n"
+                        f"Your user: '{user}' is not in that group.\n\n"
+                        f"To fix this, run in a Terminal:\n\n"
+                        f"    sudo usermod -a -G {group} {user}\n\n"
+                        f"Then log out and log back in."
+                    )
+                else:
+                    amsg += (
+                        f"\nYour user does not have permission to access this serial device.\n"
+                        f"The device belongs to group: '{group}'.\n"
+                        f"Your user: '{user}' is in that group.\n\n"
+                        f"Then log out and log back in to gain access."
+                    )
+                # --- Show the message box ---
+                msgbox = QtWidgets.QMessageBox()
+                msgbox.setWindowTitle("Serial Connection Error")
+                msgbox.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                msgbox.setText(amsg)
+                msgbox.exec()
+            
+            return False
 
     def disconnect_serial(self):
         if self.reader:
@@ -177,6 +296,7 @@ class SerialTerminalDialog(QtWidgets.QDialog):
         self.text_console.append(text)
 
     def send_data(self):
+        data = ""
         if self.ser and self.ser.is_open:
             data = self.input_line.text()
             try:
@@ -184,7 +304,21 @@ class SerialTerminalDialog(QtWidgets.QDialog):
                 self.append_text(f"[TX] {data}")
             except Exception as e:
                 self.append_text(f"[Error writing] {e}")
+            # Save to history if not empty
+            if data.strip():
+                history = self.input_line.history
+                # Avoid adding duplicate consecutive commands
+                if not history or history[-1] != data:
+                    history.append(data)
+                    # Keep only last 100 entries
+                    max_h = 100
+                    if len(history) > max_h:
+                        history[:] = history[-max_h:]
+                # Reset index to end
+                self.input_line.history_index = len(history)
+
         self.input_line.clear()
+
 
     def closeEvent(self, event):
         self.disconnect_serial()

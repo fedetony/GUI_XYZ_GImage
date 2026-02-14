@@ -1,0 +1,8 @@
+{
+    "1A86:7523": "CH340 USB-Serial (Arduino Nano clone)",
+    "2341:0043": "Arduino Uno",
+    "2341:0010": "Arduino Mega 2560",
+    "2A03:0043": "Arduino Uno (Genuino)",
+    "0403:6001": "FTDI FT232R USB UART",
+    "10C4:EA60": "Silicon Labs CP2102 USB-UART"
+}
