@@ -16,4 +16,6 @@ src/temp/*
 /src/logs
 /src/test_*
 /src/typed_tree_demo.py
+/src/Devices
+/scripts
 test_*

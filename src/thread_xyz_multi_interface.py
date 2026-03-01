@@ -25,19 +25,20 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     def __init__(self, 
                  port, 
                  baudrate, 
-                 rx_queue, 
-                 kill_event,
-                 grbl_event_hold,
-                 grbl_event_resume,
-                 grbl_event_status,
-                 grbl_event_softreset,
-                 grbl_event_stop,
-                 IsRunning_event,
+                 rx_queue:queue.Queue, 
+                 kill_event:threading.Event,
+                 grbl_event_hold:threading.Event,
+                 grbl_event_resume:threading.Event,
+                 grbl_event_status:threading.Event,
+                 grbl_event_softreset:threading.Event,
+                 grbl_event_stop:threading.Event,
+                 IsRunning_event:threading.Event,
                  grbl_event_running_command,
                  CH:class_CH.Command_Handler):
         threading.Thread.__init__(self, name="XYZ M thread")
         self.CH=CH
-        self.rx_queue = rx_queue        
+        self.rx_queue = rx_queue   
+        self.read_queue = queue.Queue()     
         self.IsRunning_event=IsRunning_event
         self.killer_event = kill_event
         self.grbl_event_running_command=grbl_event_running_command
@@ -1078,21 +1079,43 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 self.port_write(Gcode,isok)                 
         
         if  self.grbl_event_status.is_set() and not self.grbl_event_softreset.is_set() and not self.grbl_event_stop.is_set():             
-            grbl_out = self.readline_fromserial(buff=4*256)     
-                    
+            grbl_out = self.readline_fromserial(buff=4*256)                         
             self.data=self.Process_Read_Data(grbl_out,self.show_ok)                
+            self.read_queue.put(self.data.copy())
             time.sleep(waittime)  
             #self.grbl_event_status.clear()              
         return self.data
     
+    # def Run_Read_Values(self):
+    #     """
+    #     Non-blocking raw serial reader.
+    #     Reads one line if available and pushes it into read_queue.
+    #     No parsing, no status logic.
+    #     """
+    #     try:
+    #         if self.ser_port.in_waiting > 0:
+    #             raw = self.ser_port.readline()
+    #             if raw:
+    #                 self.read_queue.put(raw)
+    #     except Exception as e:
+    #         log.error(f"Error in Run_Read_Values: {e}")
+
 
     def Run_Read_Values(self):
         '''
         Reads serial and Process the information, stores received info in self.data
         '''        
-        self.Send_Multi_Read(0,self.show_ok)         # do not report ok-> False             
-        grbl_out = self.readline_fromserial()
-        self.data=self.Process_Read_Data(grbl_out,self.show_ok) 
+        try:
+            if self.ser_port.in_waiting > 0:                
+                grbl_out = self.readline_fromserial(buff=4*256)
+                self.data=self.Process_Read_Data(grbl_out,self.show_ok) 
+                self.read_queue.put(self.data.copy())
+            else:
+                self.Send_Multi_Read(0,self.show_ok)         # do not report ok-> False             
+        except Exception as e:
+            log.error(f"Error in Run_Read_Values: {e}")
+        
+        
     
     def Read_Config_Parameter(self,Param,Showlog=True):
         '''

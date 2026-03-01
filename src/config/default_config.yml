@@ -799,7 +799,7 @@ read:
     - ''
     - ''
     positionResponseRead:
-    - r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d{8})[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]
+    - r'[<](\w*),MPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),WPos:([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),([+-]?[0-9]*[.][0-9]+),Ctl:(\d+)[>]'[1{STATUS}][2{MXPOS}][3{MYPOS}][4{MZPOS}][5{MAPOS}][6{XPOS}][7{YPOS}][8{ZPOS}][9{APOS}][10{CTL}]
     - ''
     - r'X:([+-]?[0-9]*[.][0-9]+)\sY:([+-]?[0-9]*[.][0-9]+)\sZ:([+-]?[0-9]*[.][0-9]+)\sE:([+-]?[0-9]*[.][0-9]+)\sCount\sX:([+-]?[0-9]*)\sY:([+-]?[0-9]*)\sZ:([+-]?[0-9]*)'[1{XPOS}][2{YPOS}][3{ZPOS}][4{EPOS}][5{MXPOS}][6{MYPOS}][7{MZPOS}]
     - ''
@@ -1210,6 +1210,24 @@ behavior:
     - 'True'
     - ''
     - 'True'
+    maxBufferBytes:
+    - '128'
+    - '254'
+    - '0'
+    - '0'
+    - '128'
+    maxInFlight:
+    - '1'
+    - '1'
+    - '4'
+    - '1'
+    - '1'
+    statusRate:
+    - '0.2'
+    - '0.2'
+    - '0.2'
+    - '0.2'
+    - '0.2'
   info:
     interfaceId:
     - '0'
@@ -1353,6 +1371,26 @@ behavior:
     - '*(1)'
     - '*(1)'
     - '*(1)'
+    maxBufferBytes:
+    - Max Buffer size for Flow control to ensure we do not overflow the device buffer.
+      Set 0 for non-buffered machines!
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    maxInFlight:
+    - Uses value to ensure we do not send more lines than the firmware can track before
+      acknowledging.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    statusRate:
+    - Status polling time in seconds. Time to wait until next data polling.
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
   type:
     interfaceId:
     - '0'
@@ -1492,3 +1530,21 @@ behavior:
     - '*(1)'
     - '*(1)'
     - '*(1)'
+    maxBufferBytes:
+    - int
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    maxInFlight:
+    - int
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    statusRate:
+    - float
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'

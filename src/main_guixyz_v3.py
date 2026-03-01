@@ -1571,6 +1571,50 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             #print("Is XYZRobot in port "+ XYZRobot_port + "?")
         #finally:
         #    self.App_Close_Event()
+        
+    # def Start_XYZ_Thread(self):
+    #     XYZRobot_port = self.COMPort
+    #     Baudrate = int(self.COMBaudRate)
+
+    #     # 1. Start machine wrapper (unchanged)
+    #     self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate,
+    #                             self.killer_event, self.IsRunning_event)
+    #     self.xyz_thread.start()
+
+    #     # 2. Create SerialTransport
+    #     self.transport = SerialTransport(self.xyz_thread.ser_read_thread)
+
+    #     # 3. Load protocol config from CH
+    #     behavior = self.xyz_thread.ser_read_thread.Int_Config["Behavior"]
+    #     self.protocol = ProtocolEngine(ProtocolConfig(behavior))
+
+    #     # 4. Create new GCodeStreamer
+    #     self.stream_event_stop = threading.Event()
+    #     self.stream_event_stop.clear()
+
+    #     self.xyz_gcodestream_thread = GCodeStreamer(
+    #         self.transport,
+    #         self.protocol,
+    #         self.killer_event,
+    #         self.stream_event_stop
+    #     )
+    #     self.xyz_gcodestream_thread.start()
+
+    #     # 5. Start XYZ_Update with protocol instead of xyz_thread
+    #     self.xyz_update_thread = XYZ_Update(
+    #         self.ST,
+    #         self.protocol,                 # <── NEW: pass protocol, not xyz_thread
+    #         self.xyz_gcodestream_thread,
+    #         self.killer_event
+    #     )
+    #     self.xyz_update_thread.start()
+
+    #     # 6. Image thread unchanged
+    #     ...
+
+    #     # 7. Home machine (unchanged)
+    #     self.xyz_thread.home_offset_xyz(self.x_pos, self.y_pos, self.z_pos)
+
 
     def Show_Message(self,title,text):
         msg=QMessageBox()
