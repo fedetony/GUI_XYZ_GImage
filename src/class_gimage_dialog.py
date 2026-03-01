@@ -14,6 +14,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtGui import QPixmap, QPainter
 
 import logging
+import threading
 import os
 import json
 from copy import deepcopy
@@ -29,6 +30,9 @@ from class_treeview_functions import TypedItemDelegate, TreeviewFunctions, USER_
 from class_struct_tracker import TreeStructTracker
 from class_struct_conditioner import ConditionEngine
 from class_LSTD import LayerSelectionToolDialog
+from thread_gimage_plugin_handler import GImagePluginHandler
+from class_CH import Command_Handler
+
 ap=get_appPath()
 img_path=os.path.join(ap,"img")
 config_path=os.path.join(ap,"config")
@@ -48,7 +52,7 @@ FIELDS_GIMAGE=[
 class GimageGcodeGenerator(QtWidgets.QMainWindow):
     closed = QtCore.pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, actual_interface_id=None):
         super().__init__(parent)
         log.info("... Started")
         self.setWindowTitle("Gimage G-Code Generator")
@@ -56,6 +60,14 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # -------------------------
         #Initialize Variables
         # -------------------------
+        if actual_interface_id is not None:
+            self.actual_interface_id=actual_interface_id
+        else:
+            self.actual_interface_id="0"
+        self.ch=Command_Handler(self.actual_interface_id)
+        # create Signal Tracker
+        self.st=class_ST.SignalTracker()  
+        self.killer_event=threading.Event()
         self.tv=None
         self.cm=None
         self.color_selection_list=['Black&White','Red','Green','Blue','RGB','Not Red','Not Green','Not Blue']
@@ -407,6 +419,42 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.color_combo.currentTextChanged.connect(self.on_color_changed)
 
         self.action_layer_helper.triggered.connect(self.open_layer_helper)
+
+        self.action_make_gcode.triggered.connect(self.make_gcode)
+        # gimage signals
+        self.st.gimage_progress.connect(self.on_gimage_progress)
+        self.st.gimage_status.connect(self.on_gimage_status)
+        self.st.gimage_finished.connect(self.on_gimage_finished)
+        self.st.gimage_error.connect(self.on_gimage_error)
+    
+    def on_gimage_progress(self, percent, stat):
+        self.gimage_progressbar.setValue(percent)
+        # optional: update a label with stats
+        # self.label_stats.setText(f"{stat.get('lines_done',0)} / {stat.get('lines_total',0)}")
+
+    def on_gimage_status(self, msg):
+        # self.label_status.setText(msg)
+        pass
+
+    def on_gimage_finished(self, filepath):
+        # Load only on demand, or show a message
+        QMessageBox.information(self, "G-code ready", f"G-code saved to:\n{filepath}")
+        # Optionally: open in external editor
+
+    def on_gimage_error(self, msg):
+        QMessageBox.critical(self, "G-image Error", msg)
+        log.error(f"Gimage Error detected: {msg}")
+    
+    def make_gcode(self):
+        if self.is_processed_image:
+            # Here emit signal to main with configuration dict or create       
+            self.killer_event.clear()     
+            gph=GImagePluginHandler(self.im_processed,
+                                    self.main_struct.copy(),
+                                    self.ch,
+                                    self.killer_event,
+                                    self.st)
+            gph.start()
 
     def open_layer_helper(self):
         if not self.is_original_image:
