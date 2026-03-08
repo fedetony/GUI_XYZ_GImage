@@ -9,7 +9,9 @@ class PluginRegistry:
 
     @classmethod
     def get(cls, name):
-        return cls._plugins.get(name)
+        if isinstance(name,str):
+            return cls._plugins.get(name)
+        return None
 
     @classmethod
     def all(cls):

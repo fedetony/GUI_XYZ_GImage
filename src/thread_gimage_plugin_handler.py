@@ -31,6 +31,7 @@ import os
 from gimage.plugins.loader import load_plugins_from_path
 from gimage.plugins.registry import PluginRegistry 
 from class_ST import SignalTracker
+from class_struct_tracker import TreeStructTracker
 
 class GImagePluginHandler(threading.Thread):
     def __init__(self, 
@@ -49,6 +50,7 @@ class GImagePluginHandler(threading.Thread):
         self.ch = command_handler           
         self.progress_callback = progress_callback
         self.status_callback = status_callback
+        self.struct_tracker =TreeStructTracker(self.config)
 
         self.actions_queue = Queue()        # queue of action dicts
         self.killer_event = killer_event
@@ -75,8 +77,7 @@ class GImagePluginHandler(threading.Thread):
         try:
             self.log.info("GImageGcodeGenerator started")
             self.emit_status("Starting image processing")
-
-            technique_name = self.config["technique"]
+            technique_name = self.struct_tracker.get_value(["technique","technique_type","value"])
             plugin_cls = PluginRegistry.get(technique_name)
             if plugin_cls is None:
                 self.log.error(f"Technique '{technique_name}' not found")
@@ -86,7 +87,8 @@ class GImagePluginHandler(threading.Thread):
 
             plugin = plugin_cls(
                                 image=self.image,
-                                config=self.config,
+                                config=self.struct_tracker,   
+                                ch=self.ch,                             
                                 emit_action=self.actions_queue.put,
                                 emit_progress=self.emit_progress,
                                 emit_status=self.emit_status,
@@ -100,16 +102,19 @@ class GImagePluginHandler(threading.Thread):
             # Now convert actions to G-code using CommandHandler
             gcode_lines = []
             line_number = 0
+            available_actions=self.ch.getListofActions()
+            def has_action(action):
+                return action in available_actions
             while not self.actions_queue.empty() and (not self.killer_event.is_set() or not self._stop_event.is_set()):
                 action = self.actions_queue.get()
                 line_number += 1
                 action["linenumber"] = line_number
-                if not self.ch.has_action(action["action"]):
-                    self.log.warning(f"Unknown action: {action['action']}")
+                if not has_action(action["action"]):
+                    if action["action"]:
+                        self.log.warning(f"Unknown action: {action['action']}")
                     continue
-                format=self.ch.getGformatforAction(action)
-                gcode_line = self.ch.get
-                if gcode_line is not None:
+                gcode_line, parameters_ok = self.ch.Get_Gcode_for_Action(action["action"],action["parameters"])
+                if gcode_line is not None and parameters_ok:
                     gcode_lines.append(gcode_line)
 
             self.result_gcode = "\n".join(gcode_lines)
