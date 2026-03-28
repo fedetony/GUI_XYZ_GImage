@@ -2,6 +2,10 @@
 /bckup
 /src/temp
 /src/__pycache__
+/src/gimage/__pycache__
+/src/gimage/plugins/__pycache__
+__pycache__/
+*.pyc
 /.vscode
 /src/temp/__last_run__.log
 .gitignore
@@ -13,6 +17,8 @@ src/temp/*
 /src/temp/__last_run__.log
 /src/test/
 /src/__pycache__/*
+/src/gimage/__pycache__/*
+/src/gimage/plugins/__pycache__/*
 /src/logs
 /src/test_*
 /src/typed_tree_demo.py

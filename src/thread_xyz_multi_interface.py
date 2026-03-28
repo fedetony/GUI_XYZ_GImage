@@ -1645,15 +1645,6 @@ class XYZMulti:
     def send_queue_gcode(self,gcode,isok=True,ending='\n',logcmd=False):            
         self.ser_read_thread.queue_write(gcode,isok,ending,logcmd)  
 
-    def send_queue_command(self,action,Parameters,Parammustok=True):            
-        Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters,Parammustok)
-        if isok==True or Parammustok==False:
-            isok=True
-            self.ser_read_thread.queue_write(Gcode,isok)            
-        else:
-            log.error('Command not Added to queue!')    
-
-
     def send_immediate_command(self,action,Parameters,Parammustok=True):            
         Gcode,isok=self.CH.Get_Gcode_for_Action(action,Parameters,Parammustok)
         if isok==True or Parammustok==False:

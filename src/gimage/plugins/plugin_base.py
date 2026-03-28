@@ -8,11 +8,15 @@ class GImageTechniqueBase:
                  image:Image.Image, 
                  config:TreeStructTracker, 
                  ch:Command_Handler,
+                 machine,
+                 tool,
                  emit_action, 
                  emit_progress, 
                  emit_status, 
                  killer_event:threading.Event, 
                  stop_event:threading.Event):
+        self.machine = machine
+        self.tool = tool
         self.image = image
         self.config = config
         self.emit_action = emit_action

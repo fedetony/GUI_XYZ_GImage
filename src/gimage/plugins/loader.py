@@ -4,6 +4,8 @@ import inspect
 import os
 
 from .plugin_base import GImageTechniqueBase
+from .plugin_machine_base import GImageMachineBase
+from .plugin_tool_base import GImageToolBase
 from .registry import PluginRegistry
 
 def load_plugins_from_path(path):
@@ -25,4 +27,8 @@ def load_plugins_from_path(path):
         # scan for plugin classes
         for name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, GImageTechniqueBase) and obj is not GImageTechniqueBase:
+                PluginRegistry.register(obj)
+            elif issubclass(obj, GImageMachineBase) and obj is not GImageMachineBase:
+                PluginRegistry.register(obj)
+            elif issubclass(obj, GImageToolBase) and obj is not GImageToolBase:
                 PluginRegistry.register(obj)
