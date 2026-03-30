@@ -17,12 +17,14 @@ class LineingTechnique(GImageTechniqueBase):
 
         # --- Load configuration ---
         cfg = self.config
-        resolution = cfg.get_value(["technique", "resolution", "value"])[0]
-        direction   = cfg.get_value(["technique", "direction", "value"])[0]  # e.g. "horizontal"
-        threshold   = cfg.get_value(["technique", "threshold", "value"])[0]  # grayscale threshold
-        feedrate    = cfg.get_value(["technique", "feedrate", "value"])[0]
+        resolution = cfg.get_value(["technique","resolution", "value"])
+        direction   = cfg.get_value(["technique", "direction", "value"])  # e.g. "horizontal"
+        threshold   = cfg.get_value(["technique", "threshold", "value"])  # grayscale threshold
+        feedrate    = cfg.get_value(["technique", "feedrate", "value"])
 
         width, height = self.image.width, self.image.height
+        # Set machine Feedrate
+        self.machine.move(rapid=False,F=feedrate)
 
         # --- Main raster loop ---
         for y in range(height):
@@ -38,7 +40,7 @@ class LineingTechnique(GImageTechniqueBase):
             # Move to start of line
             x0 = next(iter(x_range))
             Ximg, Yimg = self._pixel_to_xy(x0, y, resolution)
-            self.emit_action(self.machine.move_to(Ximg, Yimg, rapid=True))
+            self.emit_action(self.machine.move(rapid=True, X=Ximg, Y=Yimg))
 
             # Tool up at start of each line
             self.emit_action(self.tool.up())
@@ -60,7 +62,7 @@ class LineingTechnique(GImageTechniqueBase):
                         drawing = True
 
                     # draw move
-                    self.emit_action(self.machine.move_to(Ximg, Yimg, rapid=False))
+                    self.emit_action(self.machine.move(rapid=False,X=Ximg, Y=Yimg))
 
                 else:
                     if drawing:

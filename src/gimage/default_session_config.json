@@ -5,7 +5,10 @@
       "unit": "",
       "type": "str",
       "info": "Machine type (laser, cnc, plotter, etc.)",
-      "user_modifiable": false
+      "user_modifiable": false,
+      "meta":{
+        "editable":false
+      }
     },
 
     "name": {
@@ -53,13 +56,13 @@
     },
 
     "home_position": {
-      "value": [0, 0],
+      "value": [0, 0, 0],
       "unit": "mm",
       "type": "list",
       "subtype": "float",
       "meta":{
         "constraints": {
-          "arity": 2
+          "arity": 3
            }
       },
       "info": "Machine home position in workspace coordinates"
@@ -72,7 +75,10 @@
       "unit": "",
       "type": "str",
       "info": "Tool type (pencil, laser, cutter, etc.)",
-      "user_modifiable": false
+      "user_modifiable": false,
+      "meta":{
+        "editable":false
+      }
     },
 
     "tool_tip_shape": {
@@ -207,7 +213,7 @@
       "info": "Processing technique",
       "user_modifiable": false,
       "meta":{
-      "options": ["vectorize", "engrave", "stipple", "outline"]
+        "editable":false
       }
     },
 
@@ -274,7 +280,37 @@
         "hidden":false,
         "conditions": "me_set('meta[hidden]',False) if 'Z' in node_get('machine[axes[value]]') else me_set('meta[hidden]',True)"
       }
-    }
+    },
+    "lines_per_mm": { 
+      "value": 5.0, 
+      "unit": "lines/mm", 
+      "type": "float",
+      "info": "Lines per mm desnsity for output image",
+      "meta":{
+        "hidden":false
+      } 
+    },
+    "direction": { 
+      "value": "horizontal", 
+      "unit": "", 
+      "type": "str",
+      "info": "Direction to make passes for linening and rastering",
+      "meta": { 
+        "hidden":false,
+        "options": ["horizontal","vertical","diagonal","spiralin","spiralout"] 
+      }
+      },
+      "recovery_distance": { 
+        "value": 2.0, 
+        "unit": "mm", 
+        "type": "float",
+        "info": "Additional distance without power to change speed and direction and not over expose corners",
+        "meta": { 
+          "hidden":false,
+          "options": ["horizontal","vertical","diagonal","spiralin","spiralout"] 
+        } 
+      }
+
   },
 
   "image": {
@@ -369,6 +405,13 @@
       "unit": "",
       "type": "str",
       "info": "Output G-code file path"
+    },
+
+    "gcode_floating_decimals": {
+      "value": 3,
+      "unit": "",
+      "type": "int",
+      "info": "Sets the number of decimals for float parameters X,Y,Z in gcode."
     },
 
     "image_size": {

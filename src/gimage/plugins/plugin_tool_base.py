@@ -8,6 +8,10 @@ class GImageToolBase:
                  ):
         self.ch=ch
         self.config=config
+        self.set_init_config()
+
+    def set_init_config(self):
+        pass
 
     def down(self, **kwargs):
         raise NotImplementedError

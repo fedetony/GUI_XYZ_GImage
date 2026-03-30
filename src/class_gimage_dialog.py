@@ -415,8 +415,11 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.action_fit.triggered.connect(self.on_fit_clicked)
         self.action_zoom_in.triggered.connect(self.on_zoom_in_clicked)
         self.action_zoom_out.triggered.connect(self.on_zoom_out_clicked)
-
+        #Combos
         self.color_combo.currentTextChanged.connect(self.on_color_changed)
+        self.machine_combo.currentTextChanged.connect(self.on_machine_changed)
+        self.tool_combo.currentTextChanged.connect(self.on_tool_changed)
+        self.technique_combo.currentTextChanged.connect(self.on_technique_changed)
 
         self.action_layer_helper.triggered.connect(self.open_layer_helper)
 
@@ -484,7 +487,38 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
                     self.set_processed_image_to_view()
                 if self.is_original_image:
                     QtCore.QTimer.singleShot(0, new_process_image)
+    
+    def on_technique_changed(self,value):
+        """Technique setting changed, if different apply to config and refresh Treeview"""
+        track=["technique","technique_type","value"]
+        machine_selection=self.tv.tracker.get_value(track)
+        if machine_selection != value:
+            if not self._change_setting_trigger_evaluate_conditions(track,value):
+                log.warning(f"Unable to set {value} to {track}")
 
+    def on_tool_changed(self,value):
+        """Tool setting changed, if different apply to config and refresh Treeview"""
+        track=["tool","tool_type","value"]
+        machine_selection=self.tv.tracker.get_value(track)
+        if machine_selection != value:
+            if not self._change_setting_trigger_evaluate_conditions(track,value):
+                log.warning(f"Unable to set {value} to {track}")
+    
+    def on_machine_changed(self,value):
+        """Machine setting changed, if different apply to config and refresh Treeview"""
+        track=["machine","machine_type","value"]
+        machine_selection=self.tv.tracker.get_value(track)
+        if machine_selection != value:
+            if not self._change_setting_trigger_evaluate_conditions(track,value):
+                log.warning(f"Unable to set {value} to {track}")
+    
+    def _change_setting_trigger_evaluate_conditions(self,track,value):
+    
+        self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
+        was_set=self.tv.tracker.set_value(track,value)
+        self._do_evaluation=False
+        return was_set
+    
     def on_zoom_in_clicked(self):
         factor = 1.25
         new_zoom = self.zoom_controller.current_zoom * factor

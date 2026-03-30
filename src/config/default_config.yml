@@ -440,6 +440,36 @@ actions:
     - G4 [&&(1)][S{S}]||[P{P}]
     - G4 [&&(1)][S{S}]||[P{P}]
     - G4 S{S}
+    feedrate:
+    - G1 F{F}
+    - G1 F{F}
+    - G1 F{F}
+    - G1 F{F}
+    - G1 F{F}
+    laserspindleCWON:
+    - M3 S{S}
+    - M3 S{S}
+    - M3 [&&(1)][S{S}]||[O{O}]
+    - M3 S{S}
+    - M3 S{S}
+    laserspindleCWOFF:
+    - M3 S0
+    - M5
+    - M3 S0
+    - M3 S0
+    - M3 S0
+    laserspindleCCWON:
+    - M4 S{S}
+    - M4 S{S}
+    - M4 [&&(1)][S{S}]||[O{O}]
+    - M4 S{S}
+    - M4 S{S}
+    laserspindleCCWOFF:
+    - M4 S0
+    - M5
+    - M4 S0
+    - M5
+    - M5
     cleanTool:
     - ''
     - ''
@@ -723,6 +753,30 @@ actions:
     - ''
     - ''
     - ''
+    laserspindleCWON:
+    - 'Turns laser on, or Spindle in Clockwise Direction'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    laserspindleCWOFF:
+    - 'Turns laser or spindle off'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    laserspindleCCWON:
+    - 'Turns laser on, or Spindle in Counter-Clockwise Direction'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    laserspindleCCWOFF:
+    - 'Turns laser or spindle off'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
+    - '*(0)'
     movingstatusReport:
     - add spaces if matches statusReport
     - ''

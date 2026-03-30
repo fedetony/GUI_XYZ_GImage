@@ -13,7 +13,7 @@ from class_LogHandler import get_appPath, LM ,init_logger_manager
 try:
     log = LM.get_logger_with_handler(ggg_fun_name,
                                      "debug",
-                                     True,
+                                     False, # Blocks GUI if true
                                      "%(asctime)s [%(levelname)s] (%(name)s) %(message)s")
     log.info(f"{ggg_fun_name} Logger started")
 except (AttributeError, ImportError):
@@ -27,7 +27,7 @@ gimage_plugins_path = os.path.join(gimage_path,"plugins")
 # gimage/plugins/loader.py
 import importlib.util
 import inspect
-PROCESS_QUEUE_SIZE=100
+PROCESS_QUEUE_SIZE=5000
 
 from gimage.plugins.loader import load_plugins_from_path
 from gimage.plugins.registry import PluginRegistry 
@@ -108,6 +108,14 @@ class GImagePluginHandler(threading.Thread):
             machine_type   = self.struct_tracker.get_value(["machine", "machine_type", "value"])
             tool_type      = self.struct_tracker.get_value(["tool", "tool_type", "value"])
 
+            ##############################
+            ##############################
+            # To be removed
+            # Not connected yet interface and machine selection within Gimage
+            self.ch.set_id("4") # Grbl 1.1k-ORTUR 
+            ##############################
+            ##############################
+
             # Retrieve plugin classes
             plugin_cls  = PluginRegistry.get(technique_name)
             machine_cls = PluginRegistry.get(machine_type)
@@ -153,7 +161,7 @@ class GImagePluginHandler(threading.Thread):
             self.emit_progress(100, {"lines_total": self.line_number})
 
         except Exception as e:
-            self.log.exception("Error in GImageGcodeGenerator")
+            self.log.exception(f"Error in GImageGcodeGenerator: {e}")
             self.emit_status(f"Error: {e}")
 
     def prepare_temp_files(self):
