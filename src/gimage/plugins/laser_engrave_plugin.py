@@ -20,7 +20,8 @@ class RasterTechnique(GImageTechniqueBase):
 
         width_mm, height_mm, _ = cfg.get_value(["output","image_size","value"])
         offset_x, offset_y, _  = cfg.get_value(["output","image_offset","value"])
-        decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
+        gcode_floating_decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
+        gcode_minimize_code= cfg.get_value(["output","gcode_minimize_code","value"]) or True
         
         #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
 
@@ -58,10 +59,12 @@ class RasterTechnique(GImageTechniqueBase):
 
         def rr(value:float):
             """Helper to set number of decimals to the gcode coordinates"""
-            return float(f"{value:.{decimals}f}")
+            return float(f"{value:.{gcode_floating_decimals}f}")
 
         # --- MAIN LOOP ---
         last_power=0
+        last_Xmm=-1e9
+        last_Ymm=-1e9
         for line_index, line in enumerate(scan):
 
             self.check_stop()
@@ -75,10 +78,10 @@ class RasterTechnique(GImageTechniqueBase):
             y_min, y_max = min(ys), max(ys)
 
             # Default start/end
-            start_x = offset_x + x_min * step
-            start_y = offset_y + y_min * step
-            end_x   = offset_x + x_max * step
-            end_y   = offset_y + y_max * step
+            start_x = rr(offset_x + x_min * step)
+            start_y = rr(offset_y + y_min * step)
+            end_x   = rr(offset_x + x_max * step)
+            end_y   = rr(offset_y + y_max * step)
 
             # Overscan only for horizontal/vertical
             if direction == "horizontal" and all(y == y_min for y in ys):
@@ -91,8 +94,9 @@ class RasterTechnique(GImageTechniqueBase):
 
             # Move to start of line
             self.emit_action(self.tool.up())
-            self.emit_action(self.machine.move(rapid=True,X=rr(start_x), Y=rr(start_y)))
-
+            self.emit_action(self.machine.move(rapid=True,X=start_x, Y=start_y))
+            last_Xmm=start_x
+            last_Ymm=start_y
             drawing = False
 
             # --- PROCESS PIXELS IN THIS LINE ---
@@ -100,23 +104,46 @@ class RasterTechnique(GImageTechniqueBase):
                 pixel = img.getpixel((x, y))
                 power = self._pixel_to_power(pixel, min_power, max_power, mode)
 
-                Xmm = offset_x + x * step
-                Ymm = offset_y + y * step
+                Xmm = rr(offset_x + x * step)
+                Ymm = rr(offset_y + y * step)
 
                 if power > 0:
                     if not drawing:
                         self.emit_action(self.tool.down(power))
                         drawing = True
-                    if power != last_power:
-                        self.emit_action(
-                            self.machine.move(rapid=False, X=rr(Xmm), Y=rr(Ymm), S=int(power))
-                        )
-                        last_power=power
+
+                    if not gcode_minimize_code:
+                        # Full G-code always
+                        self.emit_action(self.machine.move(
+                            rapid=False, X=Xmm, Y=Ymm, S=int(power)
+                        ))
                     else:
-                        self.emit_action(
-                            self.machine.move(rapid=False, X=rr(Xmm), Y=rr(Ymm))
-                        )
+                        # --- MINIMIZED G-CODE MODE ---
+                        dx = (Xmm != last_Xmm)
+                        dy = (Ymm != last_Ymm)
+                        dp = (power != last_power)
+
+                        # Nothing changed → skip
+                        if not dx and not dy and not dp:
+                            pass
+
+                        else:
+                            params = {}
+                            if dx: params["X"] = Xmm
+                            if dy: params["Y"] = Ymm
+                            if dp: params["S"] = int(power)
+
+                            self.emit_action(self.machine.move(
+                                rapid=False, **params
+                            ))
+
+                    # Update last values
+                    last_power = power
+                    last_Xmm = Xmm
+                    last_Ymm = Ymm
+
                 else:
+                    # Power == 0 → lift tool if needed
                     if drawing:
                         self.emit_action(self.tool.up())
                         drawing = False
@@ -126,7 +153,9 @@ class RasterTechnique(GImageTechniqueBase):
                 self.emit_action(self.tool.up())
 
             # Move to overscan end
-            self.emit_action(self.machine.move(rapid=True,X=rr(end_x), Y=rr(end_y)))
+            self.emit_action(self.machine.move(rapid=True,X=end_x, Y=end_y))
+            last_Xmm=end_x 
+            last_Ymm=end_y
 
             # Progress
             percent = int((line_index / max(1, total_lines - 1)) * 100)

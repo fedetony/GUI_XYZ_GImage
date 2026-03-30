@@ -19,7 +19,7 @@ class LaserTool(GImageToolBase):
         """
         return {
             "action": "laserspindleCWON",
-            "parameters": {"S": power}
+            "parameters": {"S": int(power)}
         }
 
     def up(self):

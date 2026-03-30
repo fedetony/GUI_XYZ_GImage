@@ -414,6 +414,13 @@
       "info": "Sets the number of decimals for float parameters X,Y,Z in gcode."
     },
 
+    "gcode_minimize_code": {
+      "value": true,
+      "unit": "",
+      "type": "bool",
+      "info": "Avoids same coordinate values to be given several times in gcode."
+    },
+    
     "image_size": {
       "value": [100, 100, 0],
       "unit": "mm",

@@ -39,6 +39,12 @@ config_path=os.path.join(ap,"config")
 temp_path=os.path.join(ap,"temp")
 gimage_path=os.path.join(ap,"gimage")
 
+# Set PIL logger not to interfere or chat
+logging.getLogger("PIL").setLevel(logging.WARNING)
+logging.getLogger("PIL.TiffImagePlugin").setLevel(logging.ERROR)
+logging.getLogger("PIL.PngImagePlugin").setLevel(logging.ERROR)
+logging.getLogger("PIL.JpegImagePlugin").setLevel(logging.ERROR)
+
 log = LM.get_new_logger_propagating_to_root("Gimage","debug")
 
 FIELDS_GIMAGE=[

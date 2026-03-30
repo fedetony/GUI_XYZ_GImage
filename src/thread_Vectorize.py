@@ -39,6 +39,7 @@ class Vectorization(threading.Thread):
         self.Pbar_Set_Status(0)
         self.Pbarini=0
         self.Pbarend=100
+        self.last_color_joined_pieces=None # store result in class
 
     def Pbar_Set_Status(self,val):
         if  self.Pbarupdate is not None and int(val)>=0 and int(val)<=100:      
@@ -376,7 +377,7 @@ class Vectorization(threading.Thread):
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
         color_joined_pieces=vect.vectorize(im,16,epsilon)
-
+        self.last_color_joined_pieces=color_joined_pieces
         svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
 
         self.Pbarini = 0
@@ -792,12 +793,17 @@ class Vectorization(threading.Thread):
         G-code generation.
         """
         # (0,0) is the upper left corner
-        y = im.height - y
-        x = Resolution * x
-        y = Resolution * y
-        # Add robot image origin position
-        y = y + Img_ini_pos[1] + Robot_XYZ[1]
-        x = x + Img_ini_pos[0] + Robot_XYZ[0]
+        # Flip Y (image → Cartesian)
+        y = (im.height - 1) - y
+
+        # Scale
+        x = x * Resolution
+        y = y * Resolution
+
+        # Add offsets
+        x += Img_ini_pos[0] + Robot_XYZ[0]
+        y += Img_ini_pos[1] + Robot_XYZ[1]
+
         return [x, y]
            
     def Get_color_joined_pieces_from_rgba_image(self, im, opaque=None, keep_every_point=False,epsilon=None):
@@ -937,6 +943,7 @@ class Vectorization(threading.Thread):
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
         color_joined_pieces=vect.vectorize(im,16,epsilon)
+        self.last_color_joined_pieces=color_joined_pieces
       
         self.Set_Progress_Percentage(100,100,0,100)
         return color_joined_pieces
@@ -1087,7 +1094,6 @@ class Vectorization(threading.Thread):
             color layers.
 
         """
-
         [Img_ini_pos, Robot_XYZ, Resolution, Feedrate] = Gimageinfo
         s = StringIO()
 
@@ -1104,40 +1110,164 @@ class Vectorization(threading.Thread):
             sss += 1
 
             for shape in shapes:
-                s.write(TouchOFFgcode)
-                s.write(" G1")
-
                 for sub_shape in shape:
 
-                    # --- FIRST POINT (start of sub-shape) ---
-                    first_edge = sub_shape[0]
-                    (x, y) = first_edge[0]
+                    if not sub_shape:
+                        continue
 
+                    # --- Build ordered point list from edges ---
+                    pts = [sub_shape[0][0]] + [e[1] for e in sub_shape]
+
+                    # --- Move to first point with tool OFF ---
+                    s.write(TouchOFFgcode)
+                    x, y = pts[0]
                     x, y = self.Transform_pixel_coord_to_image_coord(
                         im, x, y, Img_ini_pos, Robot_XYZ, Resolution
                     )
+                    s.write(f"G0 X{x:.3f} Y{y:.3f} F{Feedrate:.3f}{addon}")
 
-                    s.write(f" X{x:.3f} Y{y:.3f}")
-                    s.write(f" F{Feedrate:.3f}{addon}")
+                    # --- Tool ON ---
                     s.write(TouchONgcode)
 
-                    # --- REMAINING POINTS ---
-                    for edge in sub_shape:
-                        (x, y) = edge[0]
-
+                    # --- Trace remaining points ---
+                    for (x, y) in pts[1:]:
                         x, y = self.Transform_pixel_coord_to_image_coord(
                             im, x, y, Img_ini_pos, Robot_XYZ, Resolution
                         )
+                        s.write(f"G1 X{x:.3f} Y{y:.3f} F{Feedrate:.3f}{addon}")
 
-                        s.write(f"G1 X{x:.3f} Y{y:.3f}")
-                        s.write(f" F{Feedrate}{addon}")
-
+                    # --- Tool OFF at end ---
                     s.write(TouchOFFgcode)
 
-        if self.printprocess:
-            print('Amount of color layers processed:', lenlist)
+        return s.getvalue()    
+    
+    def Vectorized_color_joined_pieces_to_gcode_contiguous_file(
+        self, im, color_joined_pieces, Gimageinfo,
+        TouchONgcode, TouchOFFgcode,
+        output_path,
+        addon="\n"
+    ):
+        """
+        Convert joined vector paths into contiguous, streamed G‑code toolpaths.
 
-        return s.getvalue()
+        This function takes the output of the vectorizer—`color_joined_pieces`, a
+        dictionary mapping RGBA colors to lists of vector shapes—and converts each
+        shape into a continuous G‑code toolpath. The output is written incrementally
+        to a file, allowing extremely large toolpaths (hundreds of thousands of
+        lines) to be generated without storing the entire G‑code program in memory.
+
+        Each color entry contains one or more shapes, and each shape contains one or
+        more sub‑shapes. A sub‑shape is represented as a list of edges:
+
+            [
+                [ ((x0,y0),(x1,y1)), ((x1,y1),(x2,y2)), ... ],   # sub‑shape 1
+                [ ... ],                                         # sub‑shape 2
+                ...
+            ]
+
+        This function reconstructs each sub‑shape into an ordered point list:
+            [p0, p1, p2, ...]
+        where p0 = first edge start, and each subsequent point is the end of the
+        corresponding edge. This produces a clean, continuous polyline suitable for
+        plotting, engraving, or robotic drawing.
+
+        For each sub‑shape:
+            • The tool is lifted (TouchOFFgcode)
+            • A rapid move (G0) is issued to the first point
+            • The tool is lowered (TouchONgcode)
+            • All remaining points are traced using G1 moves
+            • The tool is lifted again at the end
+
+        Pixel coordinates are transformed into robot/world coordinates using
+        `Transform_pixel_coord_to_image_coord`, which:
+            1. Flips the Y‑axis (image → Cartesian)
+            2. Applies resolution scaling (pixels → world units)
+            3. Applies image‑origin offsets
+            4. Applies robot XY offsets
+
+        Parameters
+        ----------
+        im : PIL.Image
+            The original RGBA image. Only its height is used for Y‑axis flipping.
+        color_joined_pieces : dict
+            Mapping RGBA tuples → list of shapes → list of sub‑shapes → list of edges.
+        Gimageinfo : list or tuple
+            [Img_ini_pos, Robot_XYZ, Resolution, Feedrate]
+                Img_ini_pos : (x, y) world‑space origin of the image
+                Robot_XYZ   : (X, Y, Z) robot position (X,Y used)
+                Resolution  : pixel‑to‑world scaling factor
+                Feedrate    : default G‑code feedrate
+        TouchONgcode : str
+            G‑code snippet that activates the tool (pen down, laser on, etc.).
+        TouchOFFgcode : str
+            G‑code snippet that deactivates the tool (pen up, laser off, etc.).
+        output_path : str
+            Path to the output .gcode file. G‑code is streamed directly to this file.
+        addon : str, optional
+            Line ending or extra formatting appended after each G‑code command.
+
+        Returns
+        -------
+        str
+            The path to the generated G‑code file.
+
+        Notes
+        -----
+        - This function streams G‑code directly to disk, making it suitable for very
+        large vectorized images (hundreds of thousands of lines).
+        - The function respects `killer_event` and stops early if cancellation is
+        requested.
+        - The vectorizer output preserves contour order; this function preserves that
+        order unless additional sorting is applied upstream.
+        """
+        [Img_ini_pos, Robot_XYZ, Resolution, Feedrate] = Gimageinfo
+
+        lenlist = len(color_joined_pieces)
+        sss = 0
+
+        with open(output_path, "w", encoding="utf-8") as f:
+
+            for color, shapes in color_joined_pieces.items():
+
+                if self.killer_event.is_set():
+                    break
+
+                self.improcess_percentage = self.Set_Progress_Percentage(
+                    sss, lenlist, self.Pbarini, self.Pbarend
+                )
+                sss += 1
+
+                for shape in shapes:
+                    for sub_shape in shape:
+
+                        if not sub_shape:
+                            continue
+
+                        # Build ordered point list
+                        pts = [sub_shape[0][0]] + [e[1] for e in sub_shape]
+
+                        # Move to first point with tool OFF
+                        f.write(TouchOFFgcode)
+                        x, y = pts[0]
+                        x, y = self.Transform_pixel_coord_to_image_coord(
+                            im, x, y, Img_ini_pos, Robot_XYZ, Resolution
+                        )
+                        f.write(f"G0 X{x:.3f} Y{y:.3f} F{Feedrate:.3f}{addon}")
+
+                        # Tool ON
+                        f.write(TouchONgcode)
+
+                        # Trace remaining points
+                        for (x, y) in pts[1:]:
+                            x, y = self.Transform_pixel_coord_to_image_coord(
+                                im, x, y, Img_ini_pos, Robot_XYZ, Resolution
+                            )
+                            f.write(f"G1 X{x:.3f} Y{y:.3f} F{Feedrate:.3f}{addon}")
+
+                        # Tool OFF
+                        f.write(TouchOFFgcode)
+
+        return output_path
 
 
     
@@ -1676,6 +1806,7 @@ def main():
         print(f"File {fileinput} does not exist")
         return 
     fileoutput=fileinput.replace('.jpg','.svg').replace('.png','.svg')
+    gcodefileoutput=fileinput.replace('.jpg','.gcode').replace('.png','.gcode')
     imageRGBA = Image.open(fileinput).quantize(colors=16, method=2).convert('RGBA')    
     print('Processing image of size',imageRGBA.size)    
     kill_ev = threading.Event()
@@ -1684,11 +1815,30 @@ def main():
     Vectorize.start()
     Vectorize.printprocess=True
     # svg_image = Vectorize.rgba_image_to_svg_contiguous(im=imageRGBA)
+    Img_ini_pos=(0,0)
+    Robot_XYZ=[0,0,5]
+    Resolution=100/3840
+    Feedrate= 333
+    Gimageinfo =[Img_ini_pos, Robot_XYZ, Resolution, Feedrate]
+                # Img_ini_pos : (x, y) world‑space origin of the image
+                # Robot_XYZ   : (X, Y, Z) robot position (X,Y used)
+                # Resolution  : pixel‑to‑world scaling factor
+                # Feedrate    : default G‑code feedrate
     svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA)
+    if Vectorize.last_color_joined_pieces:
+        Vectorize.Vectorized_color_joined_pieces_to_gcode_contiguous_file(
+            imageRGBA,
+            Vectorize.last_color_joined_pieces,
+            Gimageinfo,
+            'G1 Z0',
+            'G1 Z3.3',
+            gcodefileoutput,
+            )
     #svg_image = rgba_image_to_svg_pixels(image)
     Vectorize.Save_svg_text_file(svg_image,fileoutput)
     Vectorize.join()
-    print(f"Finished .... check {fileoutput}")
+    print(f"Finished .... check \n{fileoutput}\n{gcodefileoutput}")
+    
 
         
 if __name__ == '__main__':
