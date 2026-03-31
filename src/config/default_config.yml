@@ -67,6 +67,12 @@ actions:
     - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}]'
     - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ E{E}][ F{F}][ R{R}][ S{S}][ H{H}]'
     - '[&&(1)][ X{X}][ Y{Y}][ Z{Z}][ A{A}]'
+    modalcoordSet:
+    - '[&&(1)][X{X} ][Y{Y} ][Z{Z} ][A{A} ][S{S} ][F{F} ]'
+    - '[&&(1)][X{X} ][Y{Y} ][Z{Z} ][E{E} ][S{S} ][F{F} ]'
+    - '[&&(1)][X{X} ][Y{Y} ][Z{Z} ][E{E} ][F{F} ][S{S} ]'
+    - '[&&(1)][X{X} ][Y{Y} ][Z{Z} ][E{E} ][F{F} ][R{R} ][S{S} ][H{H} ]'
+    - '[&&(1)][X{X} ][Y{Y} ][Z{Z} ][A{A} ][S{S} ][F{F} ]'
     arcSet:
     - ' X{X} Y{Y} I{I} J{J}'
     - ' [&&(3)]{coordXYZSet}[ R{R}]||{coordIJKSet}'

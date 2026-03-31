@@ -61,6 +61,7 @@ class GImagePluginHandler(threading.Thread):
         self.registered_plugins=list(PluginRegistry.all().keys())
         self.log.info(f"Loaded plugins: {self.registered_plugins}")
         self.line_number=0
+        self.processed_lines=0
 
     def stop(self):
         self._stop_event.set()
@@ -281,8 +282,8 @@ class GImagePluginHandler(threading.Thread):
 
         # Store final G-code in memory
         self.result_gcode = "\n".join(gcode_lines)
-
-        self.log.info(f"Finished processing a {total_actions} elements queue")
+        self.processed_lines += total_actions
+        self.log.info(f"Finished processing a {total_actions} elements queue -> Processed {self.processed_lines}")
 
     def put_and_process(self, item, block: bool = True, timeout: float | None = None) -> None:
         """

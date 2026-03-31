@@ -4,37 +4,26 @@ from thread_Vectorize import *
 import os
 import tempfile
 
-class LineingTechnique(GImageTechniqueBase):
+class VectorizeTechnique(GImageTechniqueBase):
     name = "vectorize" #must match the name in the technique combo
 
     def process(self):
         print(f"Entered {self.name} plugin")
         #Get configuration Value
         mytechnique=self.config.get_value(["technique","technique_type","value"])
-        #self.root_node=self.config.get_root()
-        # validation=self.config.validate_node(["technique"])
-        # self.technique_node=self.config.([])
-        # available_actions=self.ch.getListofActions()
-        # available_parameters=self.ch.Get_list_of_all_parameters_in_interface(self.ch.id)
-        # print("Interface:",self.ch.get_name_from_id(self.ch.id))
-        # print("available_actions",available_actions)
-        # print("available_parameters",available_parameters)
-        #Add action to queue
-        # setattr(self.tool,"min_power",1)
-        # setattr(self.tool,"max_power",1000)
-        # down=self.tool.down()
-        # print("ch->",dir(self.ch))
+        
         self.emit_action({"action": "Message", "parameters":{"msg": "Starting vectorize_thread"}})
         cfg = self.config
         interface_name=self.ch.get_name_from_id(self.ch.id)
         self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
         # --- CONFIG ---
         lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
-        fill     = cfg.get_value(["technique","fill","value"])
         self.mode = "continuous" # cfg.get_value(["image","mode","value"])  # "continuous" or "threshold"
-
+        rdp_shape_simplification= cfg.get_value(["technique","rdp_shape_simplification","value"]) or 1
         self.min_power, self.max_power = cfg.get_value(["technique","power_range","value"])
         feedrange = cfg.get_value(["technique","feedrate_range","value"])
+        vectorization_method = cfg.get_value(["technique","vectorization_method","value"]) or "opencv"
+        merging_shape_factor = cfg.get_value(["technique","merging_shape_factor","value"]) or 0
         self.feedrate = cfg.get_value(["technique","rate","value"])
         if feedrange:
             self.min_rate,self.max_rate=feedrange
@@ -45,6 +34,7 @@ class LineingTechnique(GImageTechniqueBase):
         self.offset_x, self.offset_y, _  = cfg.get_value(["output","image_offset","value"])
         self.gcode_floating_decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
         self.gcode_minimize_code= cfg.get_value(["output","gcode_minimize_code","value"]) or True
+        
         
         #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
 
@@ -84,9 +74,16 @@ class LineingTechnique(GImageTechniqueBase):
         vectorize_thread=Vectorization(img,self.killer_event,Pbar=progress_bar)
         vectorize_thread.start()
         vectorize_thread.printprocess=True #debugging
-                            
-        svg_image = vectorize_thread.vectorizer_rgba_image_to_svg_contiguous(im=img)
-        vectorize_thread.Save_svg_text_file(svg_image,self.svg_path)
+        if vectorization_method == "opencv":                    
+            svg_image = vectorize_thread.vectorizer_rgba_image_to_svg_contiguous(
+                im=img,
+                epsilon=rdp_shape_simplification,
+                merge_strength=merging_shape_factor
+                )
+            vectorize_thread.Save_svg_text_file(svg_image,self.svg_path)
+        elif vectorization_method == "classic":                    
+            svg_image = vectorize_thread.rgba_image_to_svg_contiguous(im=img, epsilon=rdp_shape_simplification)
+            vectorize_thread.Save_svg_text_file(svg_image,self.svg_path)
 
         self._to_gcode_contiguous_emit(img,vectorize_thread.last_color_joined_pieces)
         
@@ -106,7 +103,7 @@ class LineingTechnique(GImageTechniqueBase):
         for color, shapes in color_joined_pieces.items():
 
             self.check_stop()
-
+            
             # --- Compute power + feedrate from color ---
             pixel = self.safe_pixel_from_color(color) # color is rgba
             power = self._pixel_to_power(pixel, self.min_power, self.max_power, self.mode)
@@ -114,7 +111,7 @@ class LineingTechnique(GImageTechniqueBase):
             # IMPORTANT: use base feedrate, not previous feedrate
             feedrate = self._pixel_to_feedrate(pixel, self.feedrate,
                                             self.min_rate, self.max_rate, self.mode)
-
+            self.emit_action(self.machine.a_set("Message",msg=f"New Color({color})/Layer with S{power} F{feedrate}"))
             # --- Progress ---
             percent = int((sss / max(1, lenlist - 1)) * 100)
             self.emit_progress(percent, {"color_index": sss, "colors_total": lenlist})
@@ -125,6 +122,7 @@ class LineingTechnique(GImageTechniqueBase):
             last_ymm = None
             last_power = None
             last_rate = feedrate
+            last_modal = None
 
             for shape in shapes:
                 self.check_stop()
@@ -144,16 +142,18 @@ class LineingTechnique(GImageTechniqueBase):
                     )
 
                     self.emit_action(self.tool.up())
-                    self.emit_action(self.machine.move(rapid=True, X=x, Y=y, F=feedrate))
+                    rapid=True
+                    self.emit_action(self.machine.move(rapid=rapid, X=x, Y=y, F=feedrate))
 
                     last_xmm = x
                     last_ymm = y
                     last_power = None
                     last_rate = feedrate
+                    last_modal = rapid
 
                     # --- Tool ON ---
                     self.emit_action(self.tool.down(power))
-
+                    rapid=False
                     # --- Trace remaining points ---
                     for (x, y) in pts[1:]:
                         self.check_stop()
@@ -164,13 +164,14 @@ class LineingTechnique(GImageTechniqueBase):
 
                         if not gcode_minimize_code:
                             self.emit_action(self.machine.move(
-                                rapid=False, X=x, Y=y, S=int(power), F=feedrate
+                                rapid=rapid, X=x, Y=y, S=int(power), F=feedrate
                             ))
                         else:
                             dx = (x != last_xmm)
                             dy = (y != last_ymm)
                             dp = (power != last_power)
                             df = (feedrate != last_rate)
+                            dmod = (rapid != last_modal) 
 
                             if dx or dy or dp or df:
                                 params = {}
@@ -179,15 +180,21 @@ class LineingTechnique(GImageTechniqueBase):
                                 if dp: params["S"] = int(power)
                                 if df: params["F"] = int(feedrate)
 
-                                self.emit_action(self.machine.move(
-                                    rapid=False, **params
-                                ))
+                                if dmod:
+                                    self.emit_action(self.machine.move(
+                                        rapid=rapid, **params
+                                    ))
+                                else:
+                                    self.emit_action(self.machine.a_set(
+                                        "modalcoordSet", **params
+                                    ))
 
                         # update last values
                         last_xmm = x
                         last_ymm = y
                         last_power = power
                         last_rate = feedrate
+                        last_modal = rapid
 
                     # --- Tool OFF ---
                     self.emit_action(self.tool.up())

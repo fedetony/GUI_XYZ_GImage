@@ -13,6 +13,7 @@ from collections import defaultdict
 import os
 import cv2 # opencv pip install opencv-python-headless or pip install opencv-python with imshow
 import copy
+import pyclipper
 
 #from Scipy.ndimage import label
 EPSILON = 0 #0.05 # RDP resolution 
@@ -236,7 +237,7 @@ class Vectorization(threading.Thread):
         return shapes
 
 
-    def rgba_image_to_svg_contiguous(self, im, opaque=None, keep_every_point=False,epsilon=None):
+    def rgba_image_to_svg_contiguous(self, an_image, opaque=None, keep_every_point=False,epsilon=None):
         """
         Full vectorization pipeline: convert an RGBA image into a contiguous SVG.
 
@@ -268,7 +269,7 @@ class Vectorization(threading.Thread):
 
         Parameters
         ----------
-        im : PIL.Image
+        an_image : PIL.Image
             The input image in RGBA mode.
         opaque : bool, optional
             If True, fully transparent pixels (alpha == 0) are ignored during
@@ -297,7 +298,7 @@ class Vectorization(threading.Thread):
         # collect contiguous pixel groups
         self.Pbarini = 0
         self.Pbarend = 25
-        color_pixel_lists = self.collect_contiguous_pixel_groups(im, opaque, keep_every_point)
+        color_pixel_lists = self.collect_contiguous_pixel_groups(an_image, opaque, keep_every_point)
 
         # calculate clockwise edges of pixel groups
         self.Pbarini = 25
@@ -315,11 +316,13 @@ class Vectorization(threading.Thread):
        
         for color in color_joined_pieces:
             color_joined_pieces[color] = self.sort_shapes_by_shortest_path(color_joined_pieces[color])
-
+        
+        self.last_color_joined_pieces=color_joined_pieces
+        
         # Write svg format
         self.Pbarini = 75
         self.Pbarend = 100
-        svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
+        svg = self.write_color_joined_pieces_to_svg_contiguous(an_image, color_joined_pieces)
 
         self.Pbarini = 0
         self.Pbarend = 100
@@ -329,7 +332,7 @@ class Vectorization(threading.Thread):
 
         return svg
     
-    def vectorizer_rgba_image_to_svg_contiguous(self, im, epsilon = 0):
+    def vectorizer_rgba_image_to_svg_contiguous(self, im, epsilon = 0, merge_strength=0):
         """
         Full vectorization pipeline: convert an RGBA image into a contiguous SVG.
 
@@ -376,7 +379,7 @@ class Vectorization(threading.Thread):
         if epsilon is None:
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
-        color_joined_pieces=vect.vectorize(im,16,epsilon)
+        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength)
         self.last_color_joined_pieces=color_joined_pieces
         svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
 
@@ -717,36 +720,34 @@ class Vectorization(threading.Thread):
         """
         s = StringIO()
         s.write(self.svg_header(*im.size))
-        # Copy the original data 
-        c_j_p=copy.deepcopy(color_joined_pieces)
-        lenlist = len(c_j_p.items())
-        sss = 0
 
-        for color, shapes in c_j_p.items():
-            if self.killer_event.is_set():
-                break
+        for color, shapes in color_joined_pieces.items():
+            r, g, b, a = color
 
-            self.improcess_percentage = self.Set_Progress_Percentage(
-                sss, lenlist, self.Pbarini, self.Pbarend
-            )
-            sss += 1
+            # group per color
+            s.write(f'<g id="color_{r}_{g}_{b}" fill="rgb({r},{g},{b})" fill-opacity="{a/255:.3f}" stroke="none">\n')
 
             for shape in shapes:
-                s.write(""" <path d=" """)
                 for sub_shape in shape:
-                    here = sub_shape.pop(0)[0]
-                    s.write(""" M %d,%d """ % here)
-                    for edge in sub_shape:
-                        here = edge[0]
-                        s.write(""" L %d,%d """ % here)
-                    s.write(""" Z """)
-                s.write(
-                    """ " style="fill:rgb%s; fill-opacity:%.3f; stroke:none;" />\n"""
-                    % (color[0:3], float(color[3]) / 255)
-                )
+                    if not sub_shape:
+                        continue
 
-        s.write("""</svg>\n""")
-        return s.getvalue()    
+                    # starting point
+                    start = sub_shape[0][0]
+                    s.write(f'<path d="M {start[0]:.3f},{start[1]:.3f} ')
+
+                    # edges
+                    for edge in sub_shape:
+                        x, y = edge[1]
+                        s.write(f'L {x:.3f},{y:.3f} ')
+
+                    s.write('Z" />\n')
+
+            s.write('</g>\n')
+
+        s.write('</svg>')
+        return s.getvalue()
+ 
 
     def Transform_pixel_coord_to_image_coord(self, im, x, y, Img_ini_pos, Robot_XYZ, Resolution=1):
         """
@@ -895,7 +896,7 @@ class Vectorization(threading.Thread):
 
         return color_joined_pieces
     
-    def vectorizer_get_color_joined_pieces_from_rgba_image(self, im,epsilon=None):
+    def vectorizer_get_color_joined_pieces_from_rgba_image(self, im,epsilon=None,merge_strength=0):
         """
         Run the full vectorization pipeline and return joined vector paths
         without generating SVG output.
@@ -942,7 +943,7 @@ class Vectorization(threading.Thread):
         if epsilon is None:
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
-        color_joined_pieces=vect.vectorize(im,16,epsilon)
+        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength)
         self.last_color_joined_pieces=color_joined_pieces
       
         self.Set_Progress_Percentage(100,100,0,100)
@@ -1774,9 +1775,16 @@ class Vectorizer:
         return ordered
 
     # --- MAIN ENTRY ---
-    def vectorize(self, im, colors=16, epsilon=1.0):
+    def vectorize(self, im, colors=16, epsilon=1.0, merge_strength=1.0, clockwise=False):
         """
         Full pipeline: quantize → mask → contours → shapes → simplify → sort
+        merge_strength : float
+            Controls how aggressively shapes are merged.
+            - 0.0 → no merging (raw OpenCV contours)
+            - 0.5 → light merging (remove speckles)
+            - 1.0 → moderate merging (merge small gaps)
+            - 2.0+ → strong merging (behaves like flood‑fill) 
+
         """
         im_q = self.quantize_image(im, colors)
         pixels = np.array(im_q)
@@ -1791,11 +1799,165 @@ class Vectorizer:
             contours = self.find_contours(mask)
             shapes = self.contours_to_shapes(contours)
             shapes = self.simplify_shapes(shapes, epsilon)
+            shapes = self.merge_shapes(shapes, merge_strength,clockwise)
             shapes = self.sort_shapes(shapes)
+            shapes = self.remove_empty_shapes(shapes)
             if shapes:
                 color_joined_pieces[tuple(color)] = shapes
 
         return color_joined_pieces
+    
+    def remove_empty_shapes(self, shapes):
+        cshapes=[]
+        for iii,sub_shape in enumerate(shapes):
+            if isinstance(sub_shape,(list,tuple)) and len(sub_shape)>0:
+               cshapes.append(sub_shape)
+        return cshapes 
+    
+    def polygon_to_shape(self, poly , clockwise=True):
+        """
+        Convert a pyclipper polygon (list of [x,y]) into your internal
+        shape/subshape/edge format:
+            shape = [ subshape ]
+            subshape = [ (p0,p1), (p1,p2), ... ]
+        """
+        if not poly or len(poly) < 3:
+            return None
+
+        # ensure tuples
+        pts = [(float(x), float(y)) for (x, y) in poly]
+        # enforce clockwise orientation
+        pts = self.ensure_direction(pts,clockwise)
+
+        # build edges
+        edges = [(pts[i], pts[i+1]) for i in range(len(pts)-1)]
+
+        return [edges]   # one subshape
+    
+    def ensure_direction(self, pts, clockwise=True):
+        """
+        Ensure polygon points follow the desired winding direction.
+
+        SVG uses winding direction to determine fill behavior:
+        - Clockwise (CW) polygons are treated as filled regions.
+        - Counter-clockwise (CCW) polygons are treated as holes.
+
+        Parameters
+        ----------
+        pts : list of (x, y)
+            Polygon vertices in order.
+        clockwise : bool
+            True  → enforce clockwise orientation
+            False → enforce counter-clockwise orientation
+
+        Returns
+        -------
+        list of (x, y)
+            Polygon with enforced winding direction.
+        """
+        if len(pts) < 3:
+            return pts
+
+        # Compute signed area (shoelace-like test)
+        area = 0.0
+        for i in range(len(pts)):
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % len(pts)]
+            area += (x2 - x1) * (y2 + y1)
+
+        is_ccw = area > 0
+
+        # If we want CW but got CCW → reverse
+        if clockwise and is_ccw:
+            pts = list(reversed(pts))
+
+        # If we want CCW but got CW → reverse
+        if not clockwise and not is_ccw:
+            pts = list(reversed(pts))
+
+        return pts
+
+    def merge_shapes(self, shapes, merge_strength=0.0,clockwise=True):
+        """
+            Merge nearby or fragmented shapes into larger unified regions.
+
+        Uses polygon offset + union + reverse offset to merge shapes that are
+        close together. merge_strength controls how aggressively shapes are merged.
+
+        This function performs polygon union on all shapes of the same color.
+        It works by:
+            1. Converting each shape (list of subshapes/edges) into a polygon.
+            2. Offsetting (inflating) polygons by `merge_strength` to close gaps.
+            3. Performing a union operation to merge overlapping/adjacent shapes.
+            4. Offsetting (deflating) the merged polygons back to original size.
+            5. Converting the merged polygons back into your shape/subshape format.
+
+        Parameters
+        ----------
+        shapes : list
+            A list of shapes, where each shape is a list of subshapes,
+            and each subshape is a list of edges [(p0,p1), (p1,p2), ...].
+        merge_strength : float
+            Controls how aggressively shapes are merged.
+            - 0.0 → no merging (raw OpenCV contours)
+            - 0.5 → light merging (remove speckles)
+            - 1.0 → moderate merging (merge small gaps)
+            - 2.0+ → strong merging (behaves like flood‑fill)
+
+        Returns
+        -------
+        list
+            A new list of merged shapes in the same format as the input.
+        """
+        if merge_strength <= 0:
+            return shapes
+
+        # --- Convert shapes → polygons -----------------------------------------
+        polygons = []
+        for shape in shapes:
+            for sub in shape:
+                if not sub:
+                    continue
+                pts = [sub[0][0]] + [e[1] for e in sub]
+                if len(pts) < 3:
+                    continue
+                poly = [(int(p[0]), int(p[1])) for p in pts]
+                polygons.append(poly)
+
+        if not polygons:
+            return []
+
+        # --- Inflate polygons ---------------------------------------------------
+        pc = pyclipper.PyclipperOffset()
+        for poly in polygons:
+            pc.AddPath(poly, pyclipper.JT_MITER, pyclipper.ET_CLOSEDPOLYGON)
+        inflated = pc.Execute(merge_strength)
+
+        # --- Union inflated polygons -------------------------------------------
+        clip = pyclipper.Pyclipper()
+        clip.AddPaths(inflated, pyclipper.PT_SUBJECT, True)
+        unioned = clip.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
+
+        # --- Deflate back -------------------------------------------------------
+        pc2 = pyclipper.PyclipperOffset()
+        for poly in unioned:
+            pc2.AddPath(poly, pyclipper.JT_MITER, pyclipper.ET_CLOSEDPOLYGON)
+        final_polys = pc2.Execute(-merge_strength)
+
+        # --- Convert polygons → shapes -----------------------------------------
+        merged_shapes = []
+        for poly in final_polys:
+            if not poly:
+                continue
+            poly = pyclipper.CleanPolygon(poly)
+            if len(poly) < 3:
+                continue
+            shape = self.polygon_to_shape(poly,clockwise)
+            if shape:
+                merged_shapes.append(shape)
+
+        return merged_shapes
+
 
 def main():
     import class_LogHandler
@@ -1824,7 +1986,7 @@ def main():
                 # Robot_XYZ   : (X, Y, Z) robot position (X,Y used)
                 # Resolution  : pixel‑to‑world scaling factor
                 # Feedrate    : default G‑code feedrate
-    svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA)
+    svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA,epsilon=1,merge_strength=1)
     if Vectorize.last_color_joined_pieces:
         Vectorize.Vectorized_color_joined_pieces_to_gcode_contiguous_file(
             imageRGBA,
