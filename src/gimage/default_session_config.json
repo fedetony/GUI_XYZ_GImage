@@ -308,7 +308,7 @@
       "value": "opencv", 
       "unit": "", 
       "type": "str",
-      "info": "Filling mode includes: none,hatch,crosshatch,spiral,offset",
+      "info": "Method to produce the vector output: opencv (fast,very good) or classic(pixel by pixel, slow).",
       "meta": { 
         "hidden":false,
         "options": ["opencv","classic"],

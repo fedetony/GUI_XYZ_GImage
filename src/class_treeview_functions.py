@@ -2084,7 +2084,7 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
         subtype = node.get("subtype") or meta.get("subtype", "")
         return valtype,subtype
 
-    def createEditor(self, parent, option, index):
+    def _createEditor_full(self, parent, option, index):
         stored = index.data(USER_ROLE) or {}
         meta=self._get_meta(stored)
         t,_ = self._get_type_subtype(stored)
@@ -2275,11 +2275,18 @@ class TypedItemDelegate(QtWidgets.QStyledItemDelegate):
         node = stored.get("node", {})
         t = node.get("type")
 
+        # Special case: color editor
         if t == "color":
-            return ColorEditor(parent=parent)
+            editor = ColorEditor(parent=parent)
+            # Connect colorChanged → commitData(editor)
+            editor.colorChanged.connect(lambda _c: self.commitData.emit(editor))
+            # Connect colorChanged → closeEditor(editor)
+            editor.colorChanged.connect(lambda _c: self.closeEditor.emit(editor))
+            editor.installEventFilter(self)
+            return editor
 
-        # fallback to your existing logic
-        return super().createEditor(parent, option, index)
+        # Otherwise use your full logic
+        return self._createEditor_full(parent, option, index)
     
     def eventFilter(self, editor, event):
         # Prevent commit when editor loses focus (because dialog opens)

@@ -332,7 +332,7 @@ class Vectorization(threading.Thread):
 
         return svg
     
-    def vectorizer_rgba_image_to_svg_contiguous(self, im, epsilon = 0, merge_strength=0):
+    def vectorizer_rgba_image_to_svg_contiguous(self, im, epsilon = 0, merge_strength=0, do_sort=True):
         """
         Full vectorization pipeline: convert an RGBA image into a contiguous SVG.
 
@@ -379,7 +379,7 @@ class Vectorization(threading.Thread):
         if epsilon is None:
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
-        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength)
+        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength,do_sort=do_sort)
         self.last_color_joined_pieces=color_joined_pieces
         svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
 
@@ -725,6 +725,8 @@ class Vectorization(threading.Thread):
             r, g, b, a = color
 
             # group per color
+            #s.write(f'<g id="color_{r}_{g}_{b}" fill="rgb({r},{g},{b})" fill-opacity="{a/255:.3f}">\n')
+
             s.write(f'<g id="color_{r}_{g}_{b}" fill="rgb({r},{g},{b})" fill-opacity="{a/255:.3f}" stroke="none">\n')
 
             for shape in shapes:
@@ -896,7 +898,7 @@ class Vectorization(threading.Thread):
 
         return color_joined_pieces
     
-    def vectorizer_get_color_joined_pieces_from_rgba_image(self, im,epsilon=None,merge_strength=0):
+    def vectorizer_get_color_joined_pieces_from_rgba_image(self, im,epsilon=None,merge_strength=0,do_sort=True):
         """
         Run the full vectorization pipeline and return joined vector paths
         without generating SVG output.
@@ -943,7 +945,7 @@ class Vectorization(threading.Thread):
         if epsilon is None:
             epsilon=EPSILON
         vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
-        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength)
+        color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength,do_sort=do_sort)
         self.last_color_joined_pieces=color_joined_pieces
       
         self.Set_Progress_Percentage(100,100,0,100)
@@ -1775,7 +1777,7 @@ class Vectorizer:
         return ordered
 
     # --- MAIN ENTRY ---
-    def vectorize(self, im, colors=16, epsilon=1.0, merge_strength=1.0, clockwise=False):
+    def vectorize(self, im, colors=16, epsilon=1.0, merge_strength=1.0, clockwise=False, do_sort=True):
         """
         Full pipeline: quantize → mask → contours → shapes → simplify → sort
         merge_strength : float
@@ -1800,7 +1802,8 @@ class Vectorizer:
             shapes = self.contours_to_shapes(contours)
             shapes = self.simplify_shapes(shapes, epsilon)
             shapes = self.merge_shapes(shapes, merge_strength,clockwise)
-            shapes = self.sort_shapes(shapes)
+            if do_sort:
+                shapes = self.sort_shapes(shapes)
             shapes = self.remove_empty_shapes(shapes)
             if shapes:
                 color_joined_pieces[tuple(color)] = shapes
@@ -1933,30 +1936,66 @@ class Vectorizer:
             pc.AddPath(poly, pyclipper.JT_MITER, pyclipper.ET_CLOSEDPOLYGON)
         inflated = pc.Execute(merge_strength)
 
-        # --- Union inflated polygons -------------------------------------------
+        # --- CLEAN + FILTER inflated polygons (critical!) -----------------------
+        cleaned = []
+        for p in inflated:
+            p = pyclipper.CleanPolygon(p)
+            if len(p) >= 3:
+                cleaned.append(p)
+
+        # If nothing survives, skip merging for this color
+        if not cleaned:
+            return []
+
+        inflated = cleaned
+
+        # --- Union inflated polygons (tree version) -------------------------------
         clip = pyclipper.Pyclipper()
         clip.AddPaths(inflated, pyclipper.PT_SUBJECT, True)
-        unioned = clip.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
+        tree = clip.Execute2(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
 
-        # --- Deflate back -------------------------------------------------------
+        # --- Deflate back ---------------------------------------------------------
         pc2 = pyclipper.PyclipperOffset()
-        for poly in unioned:
-            pc2.AddPath(poly, pyclipper.JT_MITER, pyclipper.ET_CLOSEDPOLYGON)
-        final_polys = pc2.Execute(-merge_strength)
+        pc2.AddPaths(pyclipper.PolyTreeToPaths(tree), pyclipper.JT_MITER, pyclipper.ET_CLOSEDPOLYGON)
+        final_tree = pc2.Execute2(-merge_strength)
 
-        # --- Convert polygons → shapes -----------------------------------------
+        # --- Convert polygons → shapes (outer + holes) ----------------------------
         merged_shapes = []
-        for poly in final_polys:
-            if not poly:
-                continue
-            poly = pyclipper.CleanPolygon(poly)
-            if len(poly) < 3:
-                continue
-            shape = self.polygon_to_shape(poly,clockwise)
-            if shape:
-                merged_shapes.append(shape)
+        for child in final_tree.Childs:
+            rings = self.extract_rings_from_tree(child, clockwise)
+            if rings:
+                merged_shapes.append(rings)
+
 
         return merged_shapes
+    
+    def extract_rings_from_tree(self, node, clockwise=True):
+        """
+        Recursively extract outer and hole rings from a pyclipper PolyTree node.
+        Returns a list of subshapes (each subshape is a list of edges).
+        """
+        rings = []
+
+        # Extract this contour
+        if node.Contour:
+            pts = [(float(x), float(y)) for x, y in node.Contour]
+
+            # Outer rings must be CW, holes must be CCW
+            if node.IsHole:
+                pts = self.ensure_direction(pts, clockwise=False)
+            else:
+                pts = self.ensure_direction(pts, clockwise=True)
+
+            # Convert to edges
+            edges = [(pts[i], pts[i+1]) for i in range(len(pts)-1)]
+            rings.append(edges)
+
+        # Recurse into children
+        for child in node.Childs:
+            rings.extend(self.extract_rings_from_tree(child, clockwise))
+
+        return rings
+
 
 
 def main():
@@ -1976,7 +2015,8 @@ def main():
     Vectorize=Vectorization(imageRGBA,kill_ev)
     Vectorize.start()
     Vectorize.printprocess=True
-    # svg_image = Vectorize.rgba_image_to_svg_contiguous(im=imageRGBA)
+    # Works but is veeeeeeeeeeeery sloooooooow
+    #svg_image = Vectorize.rgba_image_to_svg_contiguous(an_image=imageRGBA)
     Img_ini_pos=(0,0)
     Robot_XYZ=[0,0,5]
     Resolution=100/3840
