@@ -14,6 +14,7 @@ import os
 import cv2 # opencv pip install opencv-python-headless or pip install opencv-python with imshow
 import copy
 import pyclipper
+from gimage.plugins._math_tranforming_helpers import *
 
 #from Scipy.ndimage import label
 EPSILON = 0 #0.05 # RDP resolution 
@@ -1658,7 +1659,6 @@ class Vectorization(threading.Thread):
 
         return color_joined_pieces
 
-
 class Vectorizer:
     def __init__(self, progress_function=None,pini=None,pend=None):
         self.pini=pini
@@ -1807,8 +1807,201 @@ class Vectorizer:
             shapes = self.remove_empty_shapes(shapes)
             if shapes:
                 color_joined_pieces[tuple(color)] = shapes
+        if len(color_joined_pieces)==0:
+            return color_joined_pieces
+        color_joined_pieces=self.reorder_colors_by_area(color_joined_pieces)
+        color_joined_pieces=self.small_detail_removal(color_joined_pieces)
+        return color_joined_pieces
+
+    def reorder_colors_by_area(self, color_joined_pieces):
+        """
+        Reorder colors by the area of their largest outer polygon.
+        Largest area = background (bottom layer)
+        Smallest area = top layer
+        """
+
+        def polygon_area_of_shape(shape):
+            # shape[0] is the outer ring
+            outer = shape[0]
+            pts = [outer[0][0]] + [e[1] for e in outer]
+            # Shoelace formula
+            area = 0
+            for i in range(len(pts)):
+                x1, y1 = pts[i]
+                x2, y2 = pts[(i+1) % len(pts)]
+                area += x1 * y2 - x2 * y1
+            return abs(area) / 2
+
+        # Compute max area per color
+        color_areas = {}
+        for color, shapes in color_joined_pieces.items():
+            if not shapes:
+                color_areas[color] = 0
+            else:
+                color_areas[color] = max(polygon_area_of_shape(s) for s in shapes)
+
+        # Sort by area descending (largest = background)
+        ordered_colors = sorted(color_areas.keys(), key=lambda c: -color_areas[c])
+
+        # Rebuild dictionary
+        new_dict = {color: color_joined_pieces[color] for color in ordered_colors}
+        return new_dict
+
+    def reorder_colors_by_containment(self, color_joined_pieces):
+        """
+        (Slow)
+        Reorder colors based on geometric containment:
+        - Large shapes that contain others go BELOW
+        - Small shapes inside others go ABOVE
+        - Produces correct layer order for subtraction and rendering
+        """
+
+        if not color_joined_pieces:
+            return color_joined_pieces
+
+        # --- STEP 1: Extract bounding boxes for each color -------------------------
+        def get_bounds_for_color(shapes):
+            bounds = []
+            for shape in shapes:
+                outer = shape[0]  # outer ring
+                pts = [outer[0][0]] + [e[1] for e in outer]
+                xs = [p[0] for p in pts]
+                ys = [p[1] for p in pts]
+                bounds.append((min(xs), min(ys), max(xs), max(ys)))
+            return bounds
+
+        color_bounds = {
+            color: get_bounds_for_color(shapes)
+            for color, shapes in color_joined_pieces.items()
+        }
+
+        # --- STEP 2: Bounding-box containment test --------------------------------
+        def box_contains(a, b):
+            ax1, ay1, ax2, ay2 = a
+            bx1, by1, bx2, by2 = b
+            return ax1 <= bx1 and ay1 <= by1 and ax2 >= bx2 and ay2 >= by2
+
+        # --- STEP 3: Build containment graph --------------------------------------
+        colors = list(color_joined_pieces.keys())
+        graph = {c: set() for c in colors}
+
+        for A in colors:
+            for B in colors:
+                if A == B:
+                    continue
+                # If ANY shape of A contains ANY shape of B → A must be BELOW B
+                if any(box_contains(a_box, b_box)
+                    for a_box in color_bounds[A]
+                    for b_box in color_bounds[B]):
+                    graph[A].add(B)
+
+        # --- STEP 4: Topological sort (bottom → top) ------------------------------
+        visited = set()
+        order = []
+
+        def dfs(node):
+            if node in visited:
+                return
+            visited.add(node)
+            for nxt in graph[node]:
+                dfs(nxt)
+            order.append(node)
+
+        for c in colors:
+            dfs(c)
+
+        # order is bottom → top
+        ordered_colors = order
+
+        # --- STEP 5: Rebuild dictionary in correct order --------------------------
+        new_dict = {color: color_joined_pieces[color] for color in ordered_colors}
+        return new_dict
+
+    def small_detail_removal(self,color_joined_pieces):
+        mcjp={}
+        for color in color_joined_pieces:
+            cjp = self.subtract_nested_shapes(
+                color_joined_pieces,
+                background_color=color, 
+                clockwise=True)
+            mcjp[color]=cjp[color]
+        return mcjp
+
+    def subtract_nested_shapes(self, color_joined_pieces, background_color, clockwise=True):
+        """
+        Subtract all shapes of other colors from the background color.
+        This gives the background proper holes so it no longer covers everything.
+
+        Parameters
+        ----------
+        color_joined_pieces : dict
+            { (r,g,b,a) : [shapes] }
+        background_color : tuple
+            The color tuple (r,g,b,a) representing the background.
+        clockwise : bool
+            Orientation for output rings.
+
+        Returns
+        -------
+        dict
+            Updated color_joined_pieces with background shapes corrected.
+        """
+
+        if background_color not in color_joined_pieces:
+            return color_joined_pieces  # nothing to do
+
+        # --- 1. Collect background polygons ---------------------------------------
+        bg_shapes = color_joined_pieces[background_color]
+        bg_polys = []
+
+        for shape in bg_shapes:
+            for sub in shape:
+                pts = [sub[0][0]] + [e[1] for e in sub]
+                if len(pts) >= 3:
+                    bg_polys.append([(int(p[0]), int(p[1])) for p in pts])
+
+        if not bg_polys:
+            return color_joined_pieces
+
+        # --- 2. Collect all other polygons ----------------------------------------
+        other_polys = []
+
+        for color, shapes in color_joined_pieces.items():
+            if color == background_color:
+                continue
+            for shape in shapes:
+                for sub in shape:
+                    pts = [sub[0][0]] + [e[1] for e in sub]
+                    # if len(pts) >= 3:
+                    other_polys.append([(int(p[0]), int(p[1])) for p in pts])
+
+        # If no other shapes, nothing to subtract
+        if not other_polys:
+            return color_joined_pieces
+
+        # --- 3. Boolean difference: background - others ---------------------------
+        clip = pyclipper.Pyclipper()
+        clip.AddPaths(bg_polys, pyclipper.PT_SUBJECT, True)
+        clip.AddPaths(other_polys, pyclipper.PT_CLIP, True)
+
+        result_tree = clip.Execute2(
+            pyclipper.CT_DIFFERENCE,
+            pyclipper.PFT_NONZERO,
+            pyclipper.PFT_NONZERO
+        )
+
+        # --- 4. Convert PolyTree → shapes (outer + holes) -------------------------
+        new_bg_shapes = []
+        for child in result_tree.Childs:
+            rings = self.extract_rings_from_tree(child, clockwise)
+            if rings:
+                new_bg_shapes.append(rings)
+
+        # --- 5. Replace background entry ------------------------------------------
+        color_joined_pieces[background_color] = new_bg_shapes
 
         return color_joined_pieces
+
     
     def remove_empty_shapes(self, shapes):
         cshapes=[]
@@ -1995,7 +2188,7 @@ class Vectorizer:
             rings.extend(self.extract_rings_from_tree(child, clockwise))
 
         return rings
-
+    
 
 
 def main():
@@ -2026,7 +2219,7 @@ def main():
                 # Robot_XYZ   : (X, Y, Z) robot position (X,Y used)
                 # Resolution  : pixel‑to‑world scaling factor
                 # Feedrate    : default G‑code feedrate
-    svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA,epsilon=1,merge_strength=1)
+    svg_image = Vectorize.vectorizer_rgba_image_to_svg_contiguous(im=imageRGBA,epsilon=0,merge_strength=0)
     if Vectorize.last_color_joined_pieces:
         Vectorize.Vectorized_color_joined_pieces_to_gcode_contiguous_file(
             imageRGBA,

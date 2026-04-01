@@ -125,35 +125,79 @@ class VectorizeFillTechnique(GImageTechniqueBase):
                 self.check_stop()
                 brightness = pixel / 255 # [0-1]
                 new_shape = None
-                if self.fill_method == "none":
-                    new_shape = self.generate_none_fill(shape, self.spacing)
-
-                elif self.fill_method == "hatch":
+                closed_shape = self.generate_none_fill(shape, self.spacing)
+                if self.fill_method == "hatch":
                     angle = 90 * brightness
-                    new_shape = self.generate_hatch_fill(shape, self.spacing, angle)
+                    new_shape = self.generate_hatch_fill(closed_shape, self.spacing, angle)
 
                 elif self.fill_method == "crosshatch":
                     angle = 45 + 90 * brightness
                     spacing = self.spacing * (1 + brightness)
-                    new_shape = self.generate_crosshatch_fill(shape, spacing, angle)
+                    new_shape = self.generate_crosshatch_fill(closed_shape, spacing, angle)
 
-                # elif self.fill_method == "spiral":
-                #     spacing = self.spacing * (1 + brightness)
-                #     new_shape = self.generate_spiral_fill(shape, spacing)
+                elif self.fill_method == "spiral":
+                    spacing = self.spacing * (1 + brightness)
+                    new_shape = self.generate_spiral_fill(closed_shape, spacing)
 
                 elif self.fill_method == "offset":
                     spacing = self.spacing * (1 + brightness)
-                    new_shape = self.generate_offset_fill(shape, spacing)
+                    new_shape = self.generate_offset_fill(closed_shape, spacing)
+                
+                elif self.fill_method == "concentric":
+                    spacing = self.spacing * (1 + brightness)
+                    new_shape = self.generate_concentric_fill(closed_shape, spacing)
+                
+                elif self.fill_method == "contour_hatch":
+                    angle = 90 * brightness
+                    new_shape = self.generate_contour_hatched_fill(closed_shape, self.spacing, angle,False)
+
+                elif self.fill_method == "contour_crosshatch":
+                    angle = 45 + 90 * brightness
+                    spacing = self.spacing * (1 + brightness)
+                    new_shape = self.generate_contour_hatched_fill(closed_shape, spacing, angle,True)
 
                 else:
-                    new_shape = shape
+                    new_shape = closed_shape
 
                 # NOW iterate over subshapes
                 for sub_shape in new_shape:
                     self.check_stop()
                     # draw each segment
                     self.draw_subshapes(sub_shape, power, feedrate, im, img_ini_pos, robot_xyz, resolution)
-                    
+
+    def normalize_winding(self, shape):
+        normalized = []
+        for sub in shape:
+            pts = self.subshape_to_points(sub)
+            area = polygon_area(pts)
+
+            # Outer boundary should be CW (area < 0)
+            if area > 0:
+                sub = self.reverse_subshape(sub)
+
+            normalized.append(sub)
+
+        return normalized
+    
+    def classify_subshapes(self, shape):
+        outers = []
+        holes = []
+        for sub in shape:
+            pts = self.subshape_to_points(sub)
+            area = polygon_area(pts)
+
+            # If your coordinate system is image-like (y down), flip the logic:
+            if area >= 0:
+                outers.append(sub)   # outer
+            else:
+                holes.append(sub)    # hole
+
+        return outers, holes
+
+
+    def reverse_subshape(self, sub):
+        return [(b, a) for (a, b) in reversed(sub)]
+       
 
     def draw_subshapes(self, sub_shape, power, feedrate, im, img_ini_pos, robot_xyz, resolution):
         if not sub_shape:
@@ -189,44 +233,56 @@ class VectorizeFillTechnique(GImageTechniqueBase):
             self.check_stop()
             x, y = self.transform_px_to_im_xy(im, x, y, img_ini_pos, robot_xyz, resolution)
 
-            if not self.gcode_minimize_code:
-                self.emit_action(self.machine.move(
-                    rapid=rapid, X=x, Y=y, S=int(power), F=feedrate
-                ))
-            else:
-                dx = (x != last_xmm)
-                dy = (y != last_ymm)
-                dp = (power != last_power)
-                df = (feedrate != last_rate)
-                dmod = (rapid != last_modal) 
-
-                if dx or dy or dp or df:
-                    params = {}
-                    if dx: params["X"] = x
-                    if dy: params["Y"] = y
-                    if dp: params["S"] = int(power)
-                    if df: params["F"] = int(feedrate)
-
-                    if dmod:
-                        self.emit_action(self.machine.move(
-                            rapid=rapid, **params
-                        ))
-                    else:
-                        self.emit_action(self.machine.a_set(
-                            "modalcoordSet", **params
-                        ))
-
-            # update last values
-            last_xmm = x
-            last_ymm = y
-            last_power = power
-            last_rate = feedrate
-            last_modal = rapid
+            last_vect=(last_xmm,last_ymm,last_power,last_rate,last_modal)
+            last_vect=self._do_draw(rapid,x,y,power,feedrate,last_vect)
+            last_xmm,last_ymm,last_power,last_rate,last_modal=last_vect
 
         # --- Tool OFF ---
         if not self.is_up:
             self.emit_action(self.tool.up())
         self.is_up=True
+
+    def _do_draw(self,
+                 rapid,
+                 x,
+                 y,
+                 power,
+                 feedrate,last_vect):
+        last_xmm,last_ymm,last_power,last_rate,last_modal=last_vect
+        if not self.gcode_minimize_code:
+            self.emit_action(self.machine.move(
+                rapid=rapid, X=x, Y=y, S=int(power), F=feedrate
+            ))
+        else:
+            dx = (x != last_xmm)
+            dy = (y != last_ymm)
+            dp = (power != last_power)
+            df = (feedrate != last_rate)
+            dmod = (rapid != last_modal) 
+
+            if dx or dy or dp or df:
+                params = {}
+                if dx: params["X"] = x
+                if dy: params["Y"] = y
+                if dp: params["S"] = int(power)
+                if df: params["F"] = int(feedrate)
+
+                if dmod:
+                    self.emit_action(self.machine.move(
+                        rapid=rapid, **params
+                    ))
+                else:
+                    self.emit_action(self.machine.a_set(
+                        "modalcoordSet", **params
+                    ))
+
+        # update last values
+        last_xmm = x
+        last_ymm = y
+        last_power = power
+        last_rate = feedrate
+        last_modal = rapid
+        return last_xmm,last_ymm,last_power,last_rate,last_modal
 
     def merge_fragments_serpentine(self, fragments):
         # Remove empty or tiny fragments
@@ -342,41 +398,34 @@ class VectorizeFillTechnique(GImageTechniqueBase):
 
         new_shape = []
 
-        for subshape in shape:
+        # 1. Split into outer boundaries and holes
+        outers, holes = self.classify_subshapes(shape)
+
+        for outer in outers:
             self.check_stop()
 
-            # Convert subshape → point list 
-            pts = self.subshape_to_points(subshape)
-
-            # Compute polygon area
+            pts = self.subshape_to_points(outer)
             area = polygon_area(pts)
 
-            # Minimum area threshold
             hatch_distance = spacing * self.overlap
-
-            # must fit at least 2 hatch lines
-            min_thickness = self.fill_min_lines * max(hatch_distance,spacing)
-
-            # area threshold
+            min_thickness = self.fill_min_lines * max(hatch_distance, spacing)
             min_hatch_area = self.fill_area_factor * (min_thickness ** 2)
 
-            # If too small → keep original contour
             if area < min_hatch_area:
-                new_shape.append(subshape)
+                new_shape.append(outer)
                 continue
 
-            # Rotate THIS subshape
+            # Rotate polygon
             rot_pts = rotate_polygon(pts, angle_deg)
 
             # Bounding box
             minx, maxx, miny, maxy = bbox(rot_pts)
 
-            # If shape is too thin → don't hatch
             if maxy - miny <= min_thickness or maxx - minx <= min_thickness:
-                new_shape.append(subshape)
+                new_shape.append(outer)
                 continue
 
-            # Generate scanlines
+            # 2. Generate scanlines
             segments = []
             y = miny
             while y <= maxy:
@@ -386,114 +435,190 @@ class VectorizeFillTechnique(GImageTechniqueBase):
                     segments.append([(xs[i], y), (xs[i+1], y)])
                 y += hatch_distance
 
-            # Rotate segments back
+            # Rotate back
             segments = rotate_segments(segments, -angle_deg)
 
-            # Merge into serpentine
+            # 3. Subtract holes from hatch lines
+            if holes:
+                segments = self.subtract_holes_from_segments(segments, holes)
+
+            # 4. Merge serpentine
             merged = self.merge_serpentine(segments)
 
-            # Convert to subshape format
             new_shape.append(self.points_to_subshape(merged))
 
         return new_shape
+
+    def subtract_holes_from_segments(self, segments, holes):
+        result = []
+        for seg in segments:
+            clipped = [seg]
+            for hole in holes:
+                clipped2 = []
+                for c in clipped:
+                    clipped2.extend(clip_polyline_to_polygon(c, hole, invert=True))
+                clipped = clipped2
+            result.extend(clipped)
+        return result
     
     def generate_crosshatch_fill(self, shape, spacing, angle_deg=45):
         s1 = self.generate_hatch_fill(shape, spacing, angle_deg)
         s2 = self.generate_hatch_fill(shape, spacing, angle_deg + 90)
         return s1 + s2
 
+    def generate_concentric_fill(self, shape, spacing):
+        # 1. Split into outer boundaries and holes
+        outers, holes = self.classify_subshapes(shape)
+
+        concentric = []
+
+        # 2. Draw only outer contours (SVG behavior)
+        for outer in outers:
+            concentric.append(outer)
+
+        # 3. Generate inward offset rings (hole-aware)
+        rings = self.generate_offset_fill(shape, spacing)
+
+        # 4. Add rings
+        concentric.extend(rings)
+
+        return concentric
+
+    def generate_contour_hatched_fill(self, shape, spacing, angle_deg, is_crosshatch=False):
+        outers, holes = self.classify_subshapes(shape)
+
+        hatched = []
+
+        # 1) Draw only outer contours (SVG behavior)
+        for sub in outers:
+            hatched.append(sub)
+
+        # 2) Add hatch or crosshatch (already hole-aware)
+        if not is_crosshatch:
+            fills = self.generate_hatch_fill(shape, spacing, angle_deg)
+        else:
+            fills = self.generate_crosshatch_fill(shape, spacing, angle_deg)
+
+        hatched.extend(fills)
+        return hatched
 
     def generate_spiral_fill(self, shape, spacing):
         scale = 1000
 
-        # 1. Flatten polygon
-        flat = self.flatten_shape_to_polygon(shape)
-        flat = list(dict.fromkeys(flat))  # remove duplicates
+        # 1. Split into outer boundaries and holes
+        outers, holes = self.classify_subshapes(shape)
 
-        if len(flat) < 3:
-            return []
-
-        # 2. Simplify polygon (scaled)
-        tolerance = spacing * scale
-        scaled = [(int(x*scale), int(y*scale)) for x,y in flat]
-        cleaned = pyclipper.CleanPolygon(scaled, tolerance)
-
-        if not cleaned or len(cleaned) < 3:
-            return []
-
-        # unscale
-        flat = [(x/scale, y/scale) for x,y in cleaned]
-
-        # 3. Compute centroid safely
-        cx, cy = polygon_centroid(flat)
-
-        # 4. Generate spiral
-        spiral = generate_spiral(cx, cy, spacing)
-
-        # 5. Decimate spiral BEFORE clipping
-        spiral = spiral[::5]
-
-        # 6. Clip spiral to polygon
-        clipped = clip_polyline_to_polygon(spiral, flat)
-
-        # 7. Decimate clipped segments
         final = []
-        for seg in clipped:
-            if len(seg) > 3:
-                final.append(seg[::3])
+
+        # Process each outer boundary independently
+        for outer in outers:
+
+            # Flatten outer ring
+            flat = self.subshape_to_points(outer)
+            flat = list(dict.fromkeys(flat))
+
+            if len(flat) < 3:
+                continue
+
+            # 2. Simplify polygon (scaled)
+            tolerance = spacing * scale
+            scaled = [(int(x*scale), int(y*scale)) for x,y in flat]
+            cleaned = pyclipper.CleanPolygon(scaled, tolerance)
+
+            if not cleaned or len(cleaned) < 3:
+                continue
+
+            # unscale
+            flat = [(x/scale, y/scale) for x,y in cleaned]
+
+            # 3. Compute centroid safely
+            cx, cy = polygon_centroid(flat)
+
+            # 4. Generate a dense spiral
+            minx = min(p[0] for p in flat)
+            maxx = max(p[0] for p in flat)
+            miny = min(p[1] for p in flat)
+            maxy = max(p[1] for p in flat)
+
+            max_radius = max(maxx - minx, maxy - miny) * 1.5
+            spiral = generate_spiral(cx, cy, spacing * self.overlap, max_radius=max_radius)
+
+            # 5. Clip spiral to outer boundary, segment-by-segment
+            clipped = []
+            for i in range(len(spiral)-1):
+                seg = [spiral[i], spiral[i+1]]
+                clipped_seg = clip_polyline_to_polygon(seg, flat)
+                if clipped_seg:
+                    clipped.extend(clipped_seg)
+
+            # 6. Subtract holes
+            if holes:
+                clipped = self.subtract_holes_from_segments(clipped, holes)
+
+            # 7. Decimate AFTER clipping
+            for seg in clipped:
+                if len(seg) > 3:
+                    final.append(seg[::3])
 
         return final
 
     def generate_offset_fill(self, shape, spacing):
-        return shape
         scale = 1000
+        spacing = spacing * self.overlap
 
-        # 1. Flatten
-        flat = self.flatten_shape_to_polygon(shape)
+        # 1. Split into outer boundaries and holes
+        outers, holes = self.classify_subshapes(shape)
 
-        # 2. Simplify polygon
+        # Convert all rings to scaled integer paths
+        def scale_path(sub):
+            pts = self.subshape_to_points(sub)
+            return [(int(x*scale), int(y*scale)) for x,y in pts]
+
+        outer_paths = [scale_path(o) for o in outers]
+        hole_paths  = [scale_path(h) for h in holes]
+
+        # 2. Clean each ring
         tolerance = spacing * scale
-        scaled = [(int(x*scale), int(y*scale)) for x,y in flat]
-        cleaned = pyclipper.CleanPolygon(scaled, tolerance)
+        outer_paths = [pyclipper.CleanPolygon(p, tolerance) for p in outer_paths]
+        hole_paths  = [pyclipper.CleanPolygon(p, tolerance) for p in hole_paths]
 
-        if not cleaned or len(cleaned) < 3:
+        # Remove empties
+        outer_paths = [p for p in outer_paths if len(p) >= 3]
+        hole_paths  = [p for p in hole_paths if len(p) >= 3]
+
+        if not outer_paths:
             return []
 
-        current = [cleaned]
-        result = []
+        # 3. Build a compound polygon (outer + holes)
+        pc = pyclipper.Pyclipper()
+        pc.AddPaths(outer_paths, pyclipper.PT_SUBJECT, True)
+        pc.AddPaths(hole_paths,  pyclipper.PT_SUBJECT, True)
 
-        # 3. Limit number of layers
+        # 4. Offset inward repeatedly
+        result = []
+        current = outer_paths + hole_paths
         max_layers = int(2000 / spacing)
         layers = 0
 
         while current and layers < max_layers:
-            next_level = []
+            off = pyclipper.PyclipperOffset()
+            off.AddPaths(current, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+            res = off.Execute(-spacing * scale)
 
-            for p in current:
-                off = pyclipper.PyclipperOffset()
-                off.AddPath(p, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-                res = off.Execute(-spacing * scale)
+            if not res:
+                break
 
-                for r in res:
-                    # unscale
-                    pts = [(x/scale, y/scale) for x,y in r]
+            # Convert each offset ring to subshape
+            for r in res:
+                pts = [(x/scale, y/scale) for x,y in r]
+                pts = pts[::3]  # decimate
+                if len(pts) > 3:
+                    result.append(self.points_to_subshape(pts))
 
-                    # decimate
-                    pts = pts[::3]
-
-                    if len(pts) > 3:
-                        # convert to subshape format
-                        subshape = self.points_to_subshape(pts)
-                        result.append(subshape)
-
-                next_level.extend(res)
-
-            current = next_level
+            current = res
             layers += 1
 
         return result
-
-
     
     def flatten_shape_to_polygon(self,shape):
         """
@@ -512,11 +637,34 @@ class VectorizeFillTechnique(GImageTechniqueBase):
                 pts.append(seg[1])
 
         return pts
-
     
-    def generate_none_fill(self,shape, spacing, **kwargs):
-        return shape
+    def generate_none_fill(self, shape, spacing, **kwargs):
+        closed = []
+        if not shape:
+            return shape
 
+        for sub in shape:
+            if not sub:
+                continue
+
+            # A valid polygon needs at least 3 points (i.e., 3 edges)
+            if len(sub) < 3:
+                closed.append(sub)
+                continue
+
+            start = sub[0][0]
+            end   = sub[-1][1]
+
+            # Already closed?
+            if start == end:
+                closed.append(sub)
+                continue
+
+            # Close loop
+            sub = sub + [ ((end[0], end[1]), (start[0], start[1])) ]
+            closed.append(sub)
+
+        return closed
 
     
 class ProgressWrapper:

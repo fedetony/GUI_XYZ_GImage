@@ -161,43 +161,65 @@ class VectorizeTechnique(GImageTechniqueBase):
                         x, y = self.transform_px_to_im_xy(
                             im, x, y, img_ini_pos, robot_xyz, resolution
                         )
+                        last_vect=(last_xmm,last_ymm,last_power,last_rate,last_modal)
+                        last_vect=self._do_draw(rapid,x,y,power,feedrate,last_vect)
+                        last_xmm,last_ymm,last_power,last_rate,last_modal=last_vect
+                        
+                    # Close loop (like SVG "Z")
+                    x, y = pts[0]
+                    x, y = self.transform_px_to_im_xy(
+                        im, x, y, img_ini_pos, robot_xyz, resolution
+                    )
 
-                        if not gcode_minimize_code:
-                            self.emit_action(self.machine.move(
-                                rapid=rapid, X=x, Y=y, S=int(power), F=feedrate
-                            ))
-                        else:
-                            dx = (x != last_xmm)
-                            dy = (y != last_ymm)
-                            dp = (power != last_power)
-                            df = (feedrate != last_rate)
-                            dmod = (rapid != last_modal) 
-
-                            if dx or dy or dp or df:
-                                params = {}
-                                if dx: params["X"] = x
-                                if dy: params["Y"] = y
-                                if dp: params["S"] = int(power)
-                                if df: params["F"] = int(feedrate)
-
-                                if dmod:
-                                    self.emit_action(self.machine.move(
-                                        rapid=rapid, **params
-                                    ))
-                                else:
-                                    self.emit_action(self.machine.a_set(
-                                        "modalcoordSet", **params
-                                    ))
-
-                        # update last values
-                        last_xmm = x
-                        last_ymm = y
-                        last_power = power
-                        last_rate = feedrate
-                        last_modal = rapid
+                    last_vect = (last_xmm, last_ymm, last_power, last_rate, last_modal)
+                    rapid=False
+                    last_vect = self._do_draw(rapid, x, y, power, feedrate, last_vect)
+                    last_xmm, last_ymm, last_power, last_rate, last_modal = last_vect
 
                     # --- Tool OFF ---
                     self.emit_action(self.tool.up())
+
+    def _do_draw(self,
+                 rapid,
+                 x,
+                 y,
+                 power,
+                 feedrate,last_vect):
+        last_xmm,last_ymm,last_power,last_rate,last_modal=last_vect
+        if not self.gcode_minimize_code:
+            self.emit_action(self.machine.move(
+                rapid=rapid, X=x, Y=y, S=int(power), F=feedrate
+            ))
+        else:
+            dx = (x != last_xmm)
+            dy = (y != last_ymm)
+            dp = (power != last_power)
+            df = (feedrate != last_rate)
+            dmod = (rapid != last_modal) 
+
+            if dx or dy or dp or df:
+                params = {}
+                if dx: params["X"] = x
+                if dy: params["Y"] = y
+                if dp: params["S"] = int(power)
+                if df: params["F"] = int(feedrate)
+
+                if dmod:
+                    self.emit_action(self.machine.move(
+                        rapid=rapid, **params
+                    ))
+                else:
+                    self.emit_action(self.machine.a_set(
+                        "modalcoordSet", **params
+                    ))
+
+        # update last values
+        last_xmm = x
+        last_ymm = y
+        last_power = power
+        last_rate = feedrate
+        last_modal = rapid
+        return last_xmm,last_ymm,last_power,last_rate,last_modal
 
     def transform_px_to_im_xy(self, im, x, y, img_ini_pos, robot_xyz, resolution=1):
         """

@@ -341,13 +341,13 @@
       }
       },
     "fill_method": { 
-      "value": "offset", 
+      "value": "concentric", 
       "unit": "", 
       "type": "str",
-      "info": "Filling mode includes: none,hatch,crosshatch,spiral,offset",
+      "info": "Filling mode includes: none,hatch,crosshatch,spiral,offset,concentric,contour_hatch,contour_crosshatch",
       "meta": { 
         "hidden":false,
-        "options": ["none","hatch","crosshatch","spiral","offset"],
+        "options": ["none","hatch","crosshatch","spiral","offset","concentric","contour_hatch","contour_crosshatch"],
         "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'vectorize_fill' else me_set('meta[hidden]',True)" 
       }
       },
