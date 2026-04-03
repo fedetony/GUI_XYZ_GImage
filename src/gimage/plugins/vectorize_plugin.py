@@ -152,7 +152,7 @@ class VectorizeTechnique(GImageTechniqueBase):
                     last_modal = rapid
 
                     # --- Tool ON ---
-                    self.emit_action(self.tool.down(power))
+                    self.emit_action(self.tool.down(power=power))
                     rapid=False
                     # --- Trace remaining points ---
                     for (x, y) in pts[1:]:

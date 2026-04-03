@@ -116,15 +116,15 @@ class GImagePluginHandler(threading.Thread):
             self.ch.set_id("4") # Grbl 1.1k-ORTUR 
             ##############################
             ##############################
-
+            self.status_tracker={}
             # Retrieve plugin classes
             plugin_cls  = PluginRegistry.get(technique_name)
             machine_cls = PluginRegistry.get(machine_type)
             tool_cls    = PluginRegistry.get(tool_type)
 
             # Instantiate machine and tool plugins
-            machine = machine_cls(ch=self.ch, config=self.struct_tracker)
-            tool    = tool_cls(ch=self.ch, config=self.struct_tracker)
+            machine = machine_cls(ch=self.ch, config=self.struct_tracker,status=self.status_tracker)
+            tool    = tool_cls(ch=self.ch, config=self.struct_tracker,status=self.status_tracker)
 
             # Validate technique plugin
             if plugin_cls is None:
@@ -144,7 +144,8 @@ class GImagePluginHandler(threading.Thread):
                 emit_progress=self.emit_progress,
                 emit_status=self.emit_status,
                 killer_event=self.killer_event,
-                stop_event=self._stop_event
+                stop_event=self._stop_event,
+                status=self.status_tracker,
             )
             # Prepare the temp files
             self.prepare_temp_files()

@@ -58,7 +58,7 @@ class LineingTechnique(GImageTechniqueBase):
                 if should_draw:
                     if not drawing:
                         # start stroke
-                        self.emit_action(self.tool.down(self._power_from_pixel(pixel)))
+                        self.emit_action(self.tool.down(power=self._power_from_pixel(pixel)))
                         drawing = True
 
                     # draw move

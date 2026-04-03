@@ -109,7 +109,7 @@ class RasterTechnique(GImageTechniqueBase):
 
                 if power > 0:
                     if not drawing:
-                        self.emit_action(self.tool.down(power))
+                        self.emit_action(self.tool.down(power=power))
                         drawing = True
 
                     if not gcode_minimize_code:

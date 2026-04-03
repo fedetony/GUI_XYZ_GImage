@@ -5,10 +5,12 @@ class GImageToolBase:
     def __init__(self,  
                  config:TreeStructTracker, 
                  ch:Command_Handler,
+                 status:dict,
                  ):
         self.ch=ch
         self.config=config
         self.set_init_config()
+        self.status=status
 
     def set_init_config(self):
         pass
@@ -16,5 +18,8 @@ class GImageToolBase:
     def down(self, **kwargs):
         raise NotImplementedError
 
-    def up(self):
+    def up(self, **kwargs):
         raise NotImplementedError
+    
+    def status_update(self,**kwargs):
+        pass

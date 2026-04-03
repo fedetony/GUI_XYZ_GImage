@@ -223,7 +223,7 @@ class VectorizeFillTechnique(GImageTechniqueBase):
 
         # Tool ON
         if self.is_up:
-            self.emit_action(self.tool.down(power))
+            self.emit_action(self.tool.down(power=power))
         self.is_up=False
 
         rapid = False
@@ -590,9 +590,12 @@ class VectorizeFillTechnique(GImageTechniqueBase):
             return []
 
         # 3. Build a compound polygon (outer + holes)
-        pc = pyclipper.Pyclipper()
-        pc.AddPaths(outer_paths, pyclipper.PT_SUBJECT, True)
-        pc.AddPaths(hole_paths,  pyclipper.PT_SUBJECT, True)
+        try:
+            pc = pyclipper.Pyclipper()
+            pc.AddPaths(outer_paths, pyclipper.PT_SUBJECT, True)
+            pc.AddPaths(hole_paths,  pyclipper.PT_SUBJECT, True)
+        except:
+            return []
 
         # 4. Offset inward repeatedly
         result = []

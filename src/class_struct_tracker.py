@@ -275,7 +275,7 @@ class TreeStructTracker(QtCore.QObject):
     def __init__(self, struct: dict):
         super().__init__()
         self.struct = struct
-    
+
     def _navigate(self, track: list):
         """
         Navigate the structure following the track.
@@ -309,12 +309,26 @@ class TreeStructTracker(QtCore.QObject):
 
             # --- dict node ---
             if isinstance(node, dict):
-                if k not in node:
-                    return None, None, None
-                node = node[k]
+                if k not in node: 
+                    if "children" not in node:
+                        return None, None, None
+                if k in node:
+                    node = node[k]
+                    continue
                 # auto-descend into children
                 if isinstance(node, dict) and "children" in node and k not in ("meta", "children"):
-                    node = node["children"]
+                    node = node["children"] # now is a list
+                    # Normal list-of-single-key-dicts
+                    found = False
+                    for entry in node:
+                        if isinstance(entry, dict) and k in entry:
+                            parent = entry
+                            key = k
+                            node = entry[k]
+                            found = True
+                            break
+                    if not found:
+                        return None, None, None
 
             # --- list node ---
             elif isinstance(node, list):
@@ -333,6 +347,8 @@ class TreeStructTracker(QtCore.QObject):
                 found = False
                 for entry in node:
                     if isinstance(entry, dict) and k in entry:
+                        parent = entry
+                        key = k
                         node = entry[k]
                         found = True
                         break

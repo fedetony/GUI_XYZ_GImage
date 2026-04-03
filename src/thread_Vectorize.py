@@ -1972,33 +1972,36 @@ class Vectorizer:
             for shape in shapes:
                 for sub in shape:
                     pts = [sub[0][0]] + [e[1] for e in sub]
-                    # if len(pts) >= 3:
-                    other_polys.append([(int(p[0]), int(p[1])) for p in pts])
+                    if len(pts) >= 3:
+                        other_polys.append([(int(p[0]), int(p[1])) for p in pts])
 
         # If no other shapes, nothing to subtract
         if not other_polys:
             return color_joined_pieces
 
         # --- 3. Boolean difference: background - others ---------------------------
-        clip = pyclipper.Pyclipper()
-        clip.AddPaths(bg_polys, pyclipper.PT_SUBJECT, True)
-        clip.AddPaths(other_polys, pyclipper.PT_CLIP, True)
+        try:
+            clip = pyclipper.Pyclipper()
+            clip.AddPaths(bg_polys, pyclipper.PT_SUBJECT, True)
+            clip.AddPaths(other_polys, pyclipper.PT_CLIP, True)
 
-        result_tree = clip.Execute2(
-            pyclipper.CT_DIFFERENCE,
-            pyclipper.PFT_NONZERO,
-            pyclipper.PFT_NONZERO
-        )
+            result_tree = clip.Execute2(
+                pyclipper.CT_DIFFERENCE,
+                pyclipper.PFT_NONZERO,
+                pyclipper.PFT_NONZERO
+            )
 
-        # --- 4. Convert PolyTree → shapes (outer + holes) -------------------------
-        new_bg_shapes = []
-        for child in result_tree.Childs:
-            rings = self.extract_rings_from_tree(child, clockwise)
-            if rings:
-                new_bg_shapes.append(rings)
+            # --- 4. Convert PolyTree → shapes (outer + holes) -------------------------
+            new_bg_shapes = []
+            for child in result_tree.Childs:
+                rings = self.extract_rings_from_tree(child, clockwise)
+                if rings:
+                    new_bg_shapes.append(rings)
 
-        # --- 5. Replace background entry ------------------------------------------
-        color_joined_pieces[background_color] = new_bg_shapes
+            # --- 5. Replace background entry ------------------------------------------
+            color_joined_pieces[background_color] = new_bg_shapes
+        except Exception as eee:
+            print(f"Pyclipper Refused: {eee}")
 
         return color_joined_pieces
 
