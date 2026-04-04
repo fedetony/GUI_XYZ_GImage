@@ -37,7 +37,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["linear"]}}},
                         {"Pen": {"value": "#4d0404", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["linear"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["linear"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["linear"]}}},
+                        {"Line Transparency": {"value": 180, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["linear"]}}},
                         ]}},
             ]},    
         "arc_cw": {"children":[                  
@@ -48,7 +48,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["arc_cw"]}}},
                         {"Pen": {"value": "#4d0404", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["arc_cw"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["arc_cw"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["arc_cw"]}}},
+                        {"Line Transparency": {"value": 180, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["arc_cw"]}}},
                         ]}},
             ]},
         "arc_ccw": {"children":[                  
@@ -59,7 +59,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["arc_ccw"]}}},
                         {"Pen": {"value": "#4d0404", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["arc_ccw"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["arc_ccw"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["arc_ccw"]}}},
+                        {"Line Transparency": {"value": 180, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["arc_ccw"]}}},
                         ]}},
             ]},   
         "frame": {"children":[                  
@@ -72,7 +72,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["frame"]}}},
                         {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["frame"]}}},
                         {"Fill Color": {"value": "#a8e6a3", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["frame_fill"]}}},
-                        {"Fill Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["frame_fill"]}}}
+                        {"Fill Transparency": {"value": 120, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["frame_fill"]}}}
                         ]}},
             ]},
         "grid": {"children":[                  
@@ -92,7 +92,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["axes"]}}},
                         {"Pen": {"value": "#127bb8", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["axes"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["axes"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["axes"]}}},
+                        {"Line Transparency": {"value": 233, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["axes"]}}},
                         ]}},
             ]},
         "rulers": {"children":[                  
@@ -102,7 +102,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["rulers"]}}},
                         {"Pen": {"value": "#777777", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["rulers"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["rulers"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["rulers"]}}},
+                        {"Line Transparency": {"value": 120, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["rulers"]}}},
                         ]}},
             ]}, 
         "render": {"children":[                  
@@ -112,7 +112,7 @@ STYLE_STRUCT_EXAMPLE={
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["render"]}}},
                         {"Pen": {"value": "#BBBBBB", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["render"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["render"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["render"]}}},
+                        {"Line Transparency": {"value": 120, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["render"]}}},
                         ]}},
             ]},            
         }
@@ -148,21 +148,28 @@ except (AttributeError, ImportError):
     log = LM.get_logger(__name__)
     log.info("Application starting...")
 
+from dataclasses import dataclass
+
+@dataclass(slots=True)
 class Motion:
-    def __init__(self, raw):
-        self.raw = raw          # original line
-        self.type = None        # "rapid", "linear", "arc_cw", "arc_ccw", "other"
-        self.x = None
-        self.y = None
-        self.z = None
-        self.i = None
-        self.j = None
-        self.k = None
-        self.r = None
-        self.f = None
-        self.s = None
-        self.e = None
-        self.comment = None
+    raw: str = ""  # original line
+    type: str = "other" # "rapid", "linear", "arc_cw", "arc_ccw", "other"
+    x: float | None = None  # linear
+    y: float | None = None  # linear
+    z: float | None = None  # linear
+    a: float | None = None  # rotary
+    b: float | None = None  # rotary
+    c: float | None = None  # rotary
+    i: float | None = None  # arcs
+    j: float | None = None  # arcs
+    k: float | None = None  # arcs
+    h: float | None = None  # helical
+    r: float | None = None  # arcs radii
+    f: float | None = None  # feedrate
+    s: float | None = None  # Power
+    e: float | None = None  # Extruder
+    cmd: str = ""
+    comment: str = ""
 
 class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     closed = QtCore.pyqtSignal()
@@ -1366,7 +1373,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             if not parts:
                 return None
 
-        m = Motion(raw)
+        m = Motion()
+        m.raw = raw
 
         # Command (G0, G1, G2, G3, M3, M5, etc.)
         m.cmd = parts[0].upper()
