@@ -4,6 +4,7 @@ import resources_rc
 import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
+from class_simulation_slider import TripleSlider,DualSliderWidget
 
 conditions={"rapid": "me_set('meta[hidden]',False) if node_get('rapid[Show[value]]') else me_set('meta[hidden]',True)",
             "linear": "me_set('meta[hidden]',False) if node_get('linear[Show[value]]') else me_set('meta[hidden]',True)",
@@ -14,6 +15,7 @@ conditions={"rapid": "me_set('meta[hidden]',False) if node_get('rapid[Show[value
             "grid": "me_set('meta[hidden]',False) if node_get('grid[Show[value]]') else me_set('meta[hidden]',True)",
             "axes": "me_set('meta[hidden]',False) if node_get('axes[Show[value]]') else me_set('meta[hidden]',True)",
             "rulers": "me_set('meta[hidden]',False) if node_get('rulers[Show[value]]') else me_set('meta[hidden]',True)",
+            "render": "me_set('meta[hidden]',False) if node_get('render[Show[value]]') else me_set('meta[hidden]',True)",
             }
 STYLE_STRUCT_EXAMPLE={
         "rapid": {"children":[                  
@@ -102,7 +104,17 @@ STYLE_STRUCT_EXAMPLE={
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["rulers"]}}},
                         {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["rulers"]}}},
                         ]}},
-            ]},             
+            ]}, 
+        "render": {"children":[                  
+                {"Show": {"value": True, "type": "bool", "unit":"", "meta": {}}},
+                {"Style": {"meta": {"hidden":False, "conditions": conditions["render"]}, 
+                           "children":[                        
+                        {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["render"]}}},
+                        {"Pen": {"value": "#BBBBBB", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["render"]}}},
+                        {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["render"]}}},
+                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["render"]}}},
+                        ]}},
+            ]},            
         }
 
 FIELDS_POSITION=[
@@ -421,6 +433,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         
         progressbar_layout = QtWidgets.QVBoxLayout()
         progressbar_layout.addWidget(self.job_progress)
+        # -------------------------
+        # Triple slider
+        # -------------------------
+        # self.sim_slider = TripleSlider()
+        self.sim_slider =DualSliderWidget() #<- nicer
+        progressbar_layout.addWidget(self.sim_slider)
 
         # -------------------------
         # Main Layout
@@ -480,7 +498,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                     self.show_status[child]=m_show
                 self.set_showing() # sets checkboxes according to self.show_status 
     
-    def apply_style_changes(self,child):
+    def apply_style_changes(self, child):
         if child == "grid":
             self.apply_grid_style()
         elif child == "rulers":
@@ -489,6 +507,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.apply_axes_style()
         elif child == "frame":
             self.apply_frame_style()
+        elif child == "render":
+            self.apply_render_style()
+
 
     def _get_style_dict_from_track(self, track: list[str]) -> dict:
         """Returns a dictionary with the Style-defined values."""
@@ -702,14 +723,25 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         max_index = len(motions) - 1
         self.sim_start_spin.setRange(0, max_index)
         self.sim_end_spin.setRange(0, max_index)
-        self.sim_end_spin.setValue(max_index)
         self.sim_pos_spin.setRange(0, max_index)
+        self.sim_slider.setRange(0,max_index)
+        self.sim_end_spin.setValue(max_index)
 
         # Reset simulation index
         self.sim_index = 0
         self.redraw_sim_position()
         # Set progress bar
         self.update_job_progressbar(self.sim_index,end=self.sim_end_spin.value(),start=self.sim_start_spin.value())
+        #Wait other objects to load
+        self.setup_triple_slider()
+        #Fit view
+        self.fit_view()
+
+    def setup_triple_slider(self):
+        self.sim_slider.setStart(self.sim_start_spin.value())
+        self.sim_slider.setEnd(self.sim_end_spin.value())
+        self.sim_slider.setPosition(self.sim_pos_spin.value())
+
 
     def compute_bounds(self):
         xs = []
@@ -774,6 +806,17 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.frame_toggle.stateChanged.connect(self.on_frame_toggle_clicked)
         self.ruler_toggle.stateChanged.connect(self.on_rulers_toggle_clicked)
         self.axes_toggle.stateChanged.connect(self.on_axes_toggle_clicked)
+        #Triple slider
+        # Sync slider → spinboxes
+        self.sim_slider.startChanged.connect(self.sim_start_spin.setValue)
+        self.sim_slider.endChanged.connect(self.sim_end_spin.setValue)
+        self.sim_slider.posChanged.connect(self.sim_pos_spin.setValue)
+
+        # Sync spinboxes → slider
+        self.sim_start_spin.valueChanged.connect(self.sim_slider.setStart)
+        self.sim_end_spin.valueChanged.connect(self.sim_slider.setEnd)
+        self.sim_pos_spin.valueChanged.connect(self.sim_slider.setPosition)
+
 
     def fit_view(self):
         pxmin, pymin, pxmax, pymax = self.bounds_padded(0.2)
@@ -830,6 +873,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_pos_spin.blockSignals(True)
         self.sim_pos_spin.setValue(row)
         self.sim_pos_spin.blockSignals(False)
+        self.sim_slider.setPosition(row)
 
         self.sim_index = row
         self.redraw_sim_position()
@@ -936,7 +980,57 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         # Redraw
         self.job_box.update()
+    
+    def apply_render_style(self):
+        if not self.motions:
+            return
 
+        # Remove old SVG item
+        if self.svg_item is not None:
+            self.scene.removeItem(self.svg_item)
+            self.svg_item = None
+
+        # Visibility check using your tested logic
+        if not self.is_motion_type_visible("render"):
+            return
+
+        # Re-render SVG with updated style
+        self.render_svg()
+
+
+    def render_svg(self):
+        if not self.motions:
+            return
+
+        # Remove old SVG item
+        if self.svg_item is not None:
+            self.scene.removeItem(self.svg_item)
+            self.svg_item = None
+
+        # Visibility check
+        if not self.is_motion_type_visible("render"):
+            return
+
+        # Build SVG with style
+        svg = self.motions_to_svg(self.motions)
+        svg_bytes = svg.encode("utf-8")
+
+        renderer = QtSvg.QSvgRenderer(svg_bytes)
+        item = QtSvgWidgets.QGraphicsSvgItem()
+        item.setSharedRenderer(renderer)
+        item.setZValue(self.layer_overlay["render_svg"])
+
+        # Add new SVG item
+        self.scene.addItem(item)
+
+        # # Fit view (optional)
+        # self.view.fitInView(
+        #     self.scene.itemsBoundingRect(),
+        #     QtCore.Qt.AspectRatioMode.KeepAspectRatio
+        # )
+
+        # Store reference
+        self.svg_item = item
 
     def add_work_box(self):
         xmin, ymin, xmax, ymax = self.bounds_padded(padding_per=0.2)
@@ -1113,6 +1207,47 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         return motions
 
     def motions_to_svg(self, motions):
+        # -----------------------------------------
+        # 1. Visibility check (use your tested logic)
+        # -----------------------------------------
+        if not self.is_motion_type_visible("render"):
+            # Return an empty SVG container
+            xmin, ymin, xmax, ymax = self.get_job_bounds()
+            width  = xmax - xmin
+            height = ymax - ymin
+            return f"""
+            <svg xmlns="http://www.w3.org/2000/svg"
+                version="1.1"
+                viewBox="{xmin} {ymin} {width} {height}">
+            </svg>
+            """
+
+        # -----------------------------------------
+        # 2. Get style dict and build QPen
+        # -----------------------------------------
+        style = self._get_style_dict_from_track(["render"])
+        pen = self.make_pen_from_style(style)
+
+        # If style says "none", produce empty SVG
+        if pen.style() == QtCore.Qt.PenStyle.NoPen:
+            xmin, ymin, xmax, ymax = self.get_job_bounds()
+            width  = xmax - xmin
+            height = ymax - ymin
+            return f"""
+            <svg xmlns="http://www.w3.org/2000/svg"
+                version="1.1"
+                viewBox="{xmin} {ymin} {width} {height}">
+            </svg>
+            """
+
+        # -----------------------------------------
+        # 3. Convert QPen → SVG attributes
+        # -----------------------------------------
+        svg_style = self.pen_to_svg_attributes(pen)
+
+        # -----------------------------------------
+        # 4. Build SVG path commands
+        # -----------------------------------------
         path_cmds = []
         last_x = last_y = 0
         xmin, ymin, xmax, ymax = self.get_job_bounds()
@@ -1120,196 +1255,88 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         height = ymax - ymin
 
         for m in motions:
-            # Skip non-motion commands
             if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw"):
                 continue
 
             x = m.x if m.x is not None else last_x
             y = m.y if m.y is not None else last_y
 
-            # Rapid move (G0)
             if m.type == "rapid":
                 path_cmds.append(f"M {x} {y}")
 
-            # Linear move (G1)
             elif m.type == "linear":
                 path_cmds.append(f"L {x} {y}")
 
-            # Arc moves (G2/G3)
             elif m.type in ("arc_cw", "arc_ccw"):
-                # SVG arc uses: A rx ry x-axis-rotation large-arc-flag sweep-flag x y
-                # We approximate radius from I/J or R
                 if m.r is not None:
                     r = m.r
                 else:
-                    # Compute radius from I/J offsets
                     dx = m.i if m.i is not None else 0
                     dy = m.j if m.j is not None else 0
-                    r = (dx**2 + dy**2) ** 0.5
+                    r = (dx*dx + dy*dy)**0.5
 
                 sweep = 1 if m.type == "arc_cw" else 0
                 path_cmds.append(f"A {r} {r} 0 0 {sweep} {x} {y}")
 
             last_x, last_y = x, y
-        # FINAL SVG WITH CORRECT VIEWBOX 
+
+        # -----------------------------------------
+        # 5. Build final SVG
+        # -----------------------------------------
+        dash_attr = (
+            f'stroke-dasharray="{svg_style["dasharray"]}"'
+            if svg_style["dasharray"] else ""
+        )
+
         svg = f"""
-                <svg xmlns="http://www.w3.org/2000/svg"
-                    version="1.1"
-                    viewBox="{xmin} {ymin} {width} {height}">
-                    <path d="{' '.join(path_cmds)}"
-                        stroke="#bbbbbb"
-                        stroke-width="0.4"
-                        stroke-opacity="0.6"
-                        fill="none" />
-                </svg>
-                """
-        # svg = f"""
-        #     <svg xmlns="http://www.w3.org/2000/svg"
-        #         version="1.1"
-        #         viewBox="{xmin} {ymin} {width} {height}">
+        <svg xmlns="http://www.w3.org/2000/svg"
+            version="1.1"
+            viewBox="{xmin} {ymin} {width} {height}">
+            <path d="{' '.join(path_cmds)}"
+                stroke="{svg_style['stroke']}"
+                stroke-width="{svg_style['stroke_width']}"
+                stroke-opacity="{svg_style['stroke_opacity']}"
+                {dash_attr}
+                fill="none" />
+        </svg>
+        """
 
-        #         <g transform="scale(1,-1) translate(0, {-height})">
-        #             <path d="{' '.join(path_cmds)}"
-        #                 stroke="black"
-        #                 stroke-width="0.5"
-        #                 fill="none" />
-        #         </g>
-
-        #     </svg>
-        #     """
         return svg
 
-    # def motions_to_svg(self, motions):
-    #     xmin, ymin, xmax, ymax = self.get_job_bounds()
-    #     width  = xmax - xmin
-    #     height = ymax - ymin
 
-    #     svg_paths = []
-    #     last_x = last_y = 0
+    def pen_to_svg_attributes(self, pen: QtGui.QPen):
+        # Handle "none"
+        if pen.style() == QtCore.Qt.PenStyle.NoPen:
+            return {
+                "stroke": "none",
+                "stroke_width": "0",
+                "stroke_opacity": "0",
+                "dasharray": ""
+            }
 
-    #     for m in motions:
-    #         if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw"):
-    #             continue
+        color = pen.color()
+        width = pen.widthF()
 
-    #         x = m.x if m.x is not None else last_x
-    #         y = m.y if m.y is not None else last_y
+        stroke = color.name()  # "#RRGGBB"
+        opacity = color.alpha() / 255.0
 
-    #         # -----------------------------
-    #         # Get style for this motion
-    #         # -----------------------------
-    #         style = self._get_style_dict_from_track([m.type])
+        # Dash patterns
+        dasharray = ""
+        if pen.style() == QtCore.Qt.PenStyle.DashLine:
+            dasharray = "5,5"
+        elif pen.style() == QtCore.Qt.PenStyle.DotLine:
+            dasharray = "1,4"
+        elif pen.style() == QtCore.Qt.PenStyle.DashDotLine:
+            dasharray = "5,5,1,5"
+        elif pen.style() == QtCore.Qt.PenStyle.DashDotDotLine:
+            dasharray = "5,5,1,5,1,5"
 
-    #         # Visibility override
-    #         if not self.is_motion_type_visible(m.type):
-    #             style["Line Type"] = "none"
-
-    #         # Build pen using your style logic
-    #         pen = self.make_pen_from_style(style, m)
-
-    #         # Skip invisible segments
-    #         if pen.style() == QtCore.Qt.PenStyle.NoPen:
-    #             last_x, last_y = x, y
-    #             continue
-
-    #         # -----------------------------
-    #         # Invert the color
-    #         # -----------------------------
-    #         c = pen.color()
-    #         inv_r = 255 - c.red()
-    #         inv_g = 255 - c.green()
-    #         inv_b = 255 - c.blue()
-    #         inv_a = c.alphaF()
-
-    #         stroke_color = f"rgb({inv_r},{inv_g},{inv_b})"
-    #         stroke_opacity = inv_a
-    #         stroke_width = pen.widthF()
-
-    #         # -----------------------------
-    #         # Line type → SVG dash array
-    #         # -----------------------------
-    #         dasharray = "none"
-    #         if pen.style() == QtCore.Qt.PenStyle.DashLine:
-    #             dasharray = "5,5"
-    #         elif pen.style() == QtCore.Qt.PenStyle.DotLine:
-    #             dasharray = "1,4"
-    #         elif pen.style() == QtCore.Qt.PenStyle.DashDotLine:
-    #             dasharray = "5,3,1,3"
-    #         elif pen.style() == QtCore.Qt.PenStyle.DashDotDotLine:
-    #             dasharray = "5,3,1,3,1,3"
-
-    #         # -----------------------------
-    #         # Build SVG path command
-    #         # -----------------------------
-    #         if m.type == "rapid":
-    #             d = f"M {x} {y}"
-
-    #         elif m.type == "linear":
-    #             d = f"M {last_x} {last_y} L {x} {y}"
-
-    #         elif m.type in ("arc_cw", "arc_ccw"):
-    #             if m.r is not None:
-    #                 r = m.r
-    #             else:
-    #                 dx = m.i if m.i is not None else 0
-    #                 dy = m.j if m.j is not None else 0
-    #                 r = (dx**2 + dy**2) ** 0.5
-
-    #             sweep = 1 if m.type == "arc_cw" else 0
-    #             d = f"M {last_x} {last_y} A {r} {r} 0 0 {sweep} {x} {y}"
-
-    #         # -----------------------------
-    #         # Add styled + inverted path
-    #         # -----------------------------
-    #         svg_paths.append(
-    #             f'<path d="{d}" '
-    #             f'stroke="{stroke_color}" '
-    #             f'stroke-opacity="{stroke_opacity}" '
-    #             f'stroke-width="{stroke_width}" '
-    #             f'stroke-dasharray="{dasharray}" '
-    #             f'fill="none" />'
-    #         )
-
-    #         last_x, last_y = x, y
-
-    #     # -----------------------------
-    #     # Final SVG
-    #     # -----------------------------
-    #     svg = f"""
-    #     <svg xmlns="http://www.w3.org/2000/svg"
-    #         version="1.1"
-    #         viewBox="{xmin} {ymin} {width} {height}">
-    #         {'\n'.join(svg_paths)}
-    #     </svg>
-    #     """
-
-    #     return svg
-
-
-    def render_svg(self):
-
-        # Later: convert motions → SVG → QGraphicsSvgItem
-        if not self.motions:
-            return
-        # Remove old SVG item if it exists
-        if self.svg_item is not None:
-            self.scene.removeItem(self.svg_item)
-            self.svg_item = None
-        svg = self.motions_to_svg(self.motions)
-        svg_bytes = svg.encode("utf-8")
-
-        self.clear_scene(False)
-
-        renderer = QtSvg.QSvgRenderer(svg_bytes)
-        item = QtSvgWidgets.QGraphicsSvgItem()
-        
-        item.setSharedRenderer(renderer)
-        item.setZValue(self.layer_overlay["render_svg"])
-        self.scene.addItem(item)
-        
-        self.view.fitInView(self.scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-        # Store reference
-        self.svg_item = item
-
+        return {
+            "stroke": stroke,
+            "stroke_width": str(width),
+            "stroke_opacity": str(opacity),
+            "dasharray": dasharray
+        }
 
     def parse_gcode_line(self,line):
 
@@ -1605,11 +1632,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         self.sim_index = start
 
-        self.sim_pos_spin.blockSignals(True)
-        self.sim_pos_spin.setValue(start)
-        self.sim_pos_spin.blockSignals(False)
-
-        self.redraw_sim_position()
+        self.update_sim_position(self.sim_index)
 
 
     def sim_jump_end(self):
@@ -1626,11 +1649,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_index = end
 
         # Update spinbox
-        self.sim_pos_spin.blockSignals(True)
-        self.sim_pos_spin.setValue(end)
-        self.sim_pos_spin.blockSignals(False)
-
-        self.redraw_sim_position()
+        self.update_sim_position(self.sim_index)
         
     def sim_step_forward(self):
         if not self.motions:
@@ -1641,12 +1660,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         if self.sim_index < end and self.sim_index < max_index:
             self.sim_index += 1
-
-            self.sim_pos_spin.blockSignals(True)
-            self.sim_pos_spin.setValue(self.sim_index)
-            self.sim_pos_spin.blockSignals(False)
-
-            self.redraw_sim_position()
+            self.update_sim_position(self.sim_index)
         else:
             self.sim_pause()
 
@@ -1658,13 +1672,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         if self.sim_index > start and self.sim_index > 0:
             self.sim_index -= 1
-
             # Update spinbox without triggering jump
-            self.sim_pos_spin.blockSignals(True)
-            self.sim_pos_spin.setValue(self.sim_index)
-            self.sim_pos_spin.blockSignals(False)
-
-            self.redraw_sim_position()
+            self.update_sim_position(self.sim_index)
 
     def redraw_sim_position(self):
         m = self.motions[self.sim_index]
@@ -1730,6 +1739,22 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.sim_start_spin.setValue(0)
             self.sim_end_spin.setValue(max_index)
 
+    def update_sim_position(self, index):
+        """Sets position to index"""
+        self.sim_index = index
+
+        # Update spinbox
+        self.sim_pos_spin.blockSignals(True)
+        self.sim_pos_spin.setValue(index)
+        self.sim_pos_spin.blockSignals(False)
+
+        # Update slider
+        self.sim_slider.setPosition(index)
+
+        # Redraw
+        self.redraw_sim_position()
+
+
     def layer_changed(self):
         if not self.layers:
             return
@@ -1747,6 +1772,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_end_spin.setValue(end)
         self.sim_start_spin.blockSignals(False)
         self.sim_end_spin.blockSignals(False)
+        self.sim_slider.setStart(start)
+        self.sim_slider.setEnd(end)
 
         # Jump to start of layer
         self.sim_index = start
