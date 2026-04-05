@@ -5,6 +5,11 @@ import class_treeview_functions
 import class_struct_tracker
 import class_struct_conditioner
 from class_simulation_slider import TripleSlider,DualSliderWidget
+import math
+import tempfile
+import os
+import colorsys
+from collections import defaultdict
 
 conditions={"rapid": "me_set('meta[hidden]',False) if node_get('rapid[Show[value]]') else me_set('meta[hidden]',True)",
             "linear": "me_set('meta[hidden]',False) if node_get('linear[Show[value]]') else me_set('meta[hidden]',True)",
@@ -107,6 +112,10 @@ STYLE_STRUCT_EXAMPLE={
             ]}, 
         "render": {"children":[                  
                 {"Show": {"value": True, "type": "bool", "unit":"", "meta": {}}},
+                {"Show Rapid": {"value": False, "type": "bool", "unit":"", "meta": {}}},
+                {"Show Linear": {"value": True, "type": "bool", "unit":"", "meta": {}}},
+                {"Show ArcCW": {"value": True, "type": "bool", "unit":"", "meta": {}}},
+                {"Show ArcCCW": {"value": True, "type": "bool", "unit":"", "meta": {}}},
                 {"Style": {"meta": {"hidden":False, "conditions": conditions["render"]}, 
                            "children":[                        
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["render"]}}},
@@ -170,6 +179,7 @@ class Motion:
     e: float | None = None  # Extruder
     cmd: str = ""
     comment: str = ""
+    layer_id: int | None = None  # internal layer assignment
 
 class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     closed = QtCore.pyqtSignal()
@@ -206,7 +216,25 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.job_ymax=333
         self.svg_height = 666
         maxlevel=9999
-        self.layer_overlay={"grid":maxlevel-3,"frame":maxlevel-2,"rulers":maxlevel-1,"axes":maxlevel-1,"render_svg":-3333,"toolhead":maxlevel}
+        maxlevel = 1000
+        self.layer_overlay = {
+            "grid":        maxlevel - 900,
+            "frame":       maxlevel - 800,
+            "rulers":      maxlevel - 700,
+            "axes":        maxlevel - 700,
+            "render_svg":  maxlevel - 500,
+            "simulation":  maxlevel - 200,
+            "stream":      maxlevel - 200,
+            "toolhead":    maxlevel,
+        }
+        self.fixed_layer_mapping={
+            "rapid":1, 
+            "linear":2, 
+            "arc_cw":3, 
+            "arc_ccw":4,
+            "other":0
+        }
+        self._persistant_values={}
         self.sim_running = False
         self.sim_timer = QtCore.QTimer()
         self.sim_timer.setInterval(30)  # 30ms per step (~33 FPS)
@@ -401,6 +429,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.color_mapping_mode_combo.addItem("Feedrate", "feedrate")
         self.color_mapping_mode_combo.addItem("Z heights", "layerheight")
         self.color_mapping_mode_combo.addItem("None", "none")
+        index = self.color_mapping_mode_combo.currentIndex()
+        mode = self.color_mapping_mode_combo.itemData(index)
+        self.color_mapping_mode=mode
 
         self.grid_toggle = QtWidgets.QCheckBox("Grid")
         self.grid_toggle.setChecked(True)
@@ -718,14 +749,14 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Set visibility
         self.set_showing()
         self.apply_all_styles()
-        # Draw full static toolpath
-        self.render_svg()
         # Set scene borders after generating the items
         self.scene.setSceneRect(self.scene.itemsBoundingRect())
         # Build table
         self.populate_table()
         # Build layers (IMPORTANT)
         self.build_layers()
+        # Draw full static toolpath
+        self.render_svg()
         # Reset simulation ranges
         max_index = len(motions) - 1
         self.sim_start_spin.setRange(0, max_index)
@@ -833,38 +864,18 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def on_color_mapping_mode_changed(self, index):
         mode = self.color_mapping_mode_combo.itemData(index)
+        self.color_mapping_mode=mode
         if self._syncing_ui:
             return
         for motion in ("rapid", "linear", "arc_cw", "arc_ccw"):
             self.sync_ui(lambda m=motion: self._change_setting_trigger_evaluate_conditions(
                 [m, "Style", "Color Mapping Mode", "value"], mode
             ))
+        self.build_layers()
+        # Render svg with new layer structure
+        self.render_svg() 
         # Trigger redraw
-        self.redraw_scene()
-
-    def redraw_scene(self):
-        # Clear ONLY dynamic items (toolpath)
-        return
-        self.clear_scene(clear_all=False)
-        #self.redraw_sim_position()
-        
-        # Reset last position
-        self.last_x = 0
-        self.last_y = 0
-
-        # Redraw all motion segments
-        for i in range(1, len(self.motions)):
-            prev = self.motions[i - 1]
-            m = self.motions[i]
-            self.draw_motion_segment(prev, m)
-
-        # Move toolhead to last motion
-        if self.motions:
-            last = self.motions[-1]
-            x = last.x if last.x is not None else self.last_x
-            y = last.y if last.y is not None else self.last_y
-            self.tool_dot.setRect(x - 1, y - 1, 2, 2)
-            self.tool_label.setText(f"Tool: X={x:.2f} Y={y:.2f}")
+        self.redraw_sim_position()
 
     def on_table_selection(self):
         if self.sim_running:
@@ -1003,6 +1014,56 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         # Re-render SVG with updated style
         self.render_svg()
+
+    def adjust_brightness_for_layer(self, base_rgb_hex, layer_id, max_layer):
+        """
+        Take the original pen color (hex), convert to HSV,
+        and scale only the brightness (value) based on layer.
+        Layer 0 = brightest, max_layer = darkest.
+        """
+        # Parse hex → RGB 0–1
+        base_rgb_hex = base_rgb_hex.lstrip("#")
+        r = int(base_rgb_hex[0:2], 16) / 255.0
+        g = int(base_rgb_hex[2:4], 16) / 255.0
+        b = int(base_rgb_hex[4:6], 16) / 255.0
+
+        # Convert to HSV
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+
+        # Compute brightness scaling
+        if max_layer <= 0:
+            scale = 1.0
+        else:
+            t = layer_id / max_layer
+            # 1.0 → 0.3 brightness range
+            scale = 1.0 - 0.7 * t
+
+        v = max(0.0, min(1.0, v * scale))
+
+        # Convert back to RGB
+        r2, g2, b2 = colorsys.hsv_to_rgb(h, s, v)
+
+        return f"#{int(r2*255):02x}{int(g2*255):02x}{int(b2*255):02x}"
+
+
+    def layer_to_color(self, layer_id, max_layer):
+        """
+        Convert layer_id into an RGB hex color.
+        Hue fixed at 55°, saturation fixed at 1.0.
+        Value decreases with layer number.
+        """
+        hue = 55 / 360.0
+        sat = 1.0
+
+        # Normalize layer brightness: 0 → 1.0, max_layer → 0.3
+        if max_layer <= 0:
+            val = 1.0
+        else:
+            t = layer_id / max_layer
+            val = 1.0 - 0.7 * t   # 1.0 → 0.3 range
+
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
 
 
     def render_svg(self):
@@ -1215,37 +1276,29 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def motions_to_svg(self, motions):
         # -----------------------------------------
-        # 1. Visibility check (use your tested logic)
+        # 1. Visibility check
         # -----------------------------------------
+        xmin, ymin, xmax, ymax = self.get_job_bounds()
+        width  = xmax - xmin
+        height = ymax - ymin
+
         if not self.is_motion_type_visible("render"):
-            # Return an empty SVG container
-            xmin, ymin, xmax, ymax = self.get_job_bounds()
-            width  = xmax - xmin
-            height = ymax - ymin
-            return f"""
-            <svg xmlns="http://www.w3.org/2000/svg"
-                version="1.1"
-                viewBox="{xmin} {ymin} {width} {height}">
-            </svg>
-            """
+            return (
+                f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
+                f'viewBox="{xmin} {ymin} {width} {height}"></svg>'
+            )
 
         # -----------------------------------------
-        # 2. Get style dict and build QPen
+        # 2. Style → QPen
         # -----------------------------------------
         style = self._get_style_dict_from_track(["render"])
         pen = self.make_pen_from_style(style)
 
-        # If style says "none", produce empty SVG
         if pen.style() == QtCore.Qt.PenStyle.NoPen:
-            xmin, ymin, xmax, ymax = self.get_job_bounds()
-            width  = xmax - xmin
-            height = ymax - ymin
-            return f"""
-            <svg xmlns="http://www.w3.org/2000/svg"
-                version="1.1"
-                viewBox="{xmin} {ymin} {width} {height}">
-            </svg>
-            """
+            return (
+                f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
+                f'viewBox="{xmin} {ymin} {width} {height}"></svg>'
+            )
 
         # -----------------------------------------
         # 3. Convert QPen → SVG attributes
@@ -1253,63 +1306,196 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         svg_style = self.pen_to_svg_attributes(pen)
 
         # -----------------------------------------
-        # 4. Build SVG path commands
+        # 4. Build path commands grouped by layer
         # -----------------------------------------
-        path_cmds = []
-        last_x = last_y = 0
-        xmin, ymin, xmax, ymax = self.get_job_bounds()
-        width  = xmax - xmin
-        height = ymax - ymin
+        paths_by_layer = defaultdict(list)
 
-        for m in motions:
-            if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw"):
+        motion_types = ("rapid", "linear", "arc_cw", "arc_ccw")
+        visible = {t: self.are_motions_render_visible(t) for t in motion_types}
+
+        last_x = last_y = 0
+
+        # iterate in chronological pairs, like the simulation
+        for prev, m in zip(motions, motions[1:]):
+
+            # skip non-motion types
+            if m.type not in motion_types:
+                # still update last position
+                x = m.x if m.x is not None else last_x
+                y = m.y if m.y is not None else last_y
+                last_x, last_y = x, y
                 continue
 
-            x = m.x if m.x is not None else last_x
-            y = m.y if m.y is not None else last_y
+            # skip invisible motion types
+            if not visible[m.type]:
+                x = m.x if m.x is not None else last_x
+                y = m.y if m.y is not None else last_y
+                last_x, last_y = x, y
+                continue
 
+            layer = m.layer_id if m.layer_id is not None else 0
+
+            # start/end like simulation
+            x0 = prev.x if prev.x is not None else last_x
+            y0 = prev.y if prev.y is not None else last_y
+            x1 = m.x if m.x is not None else x0
+            y1 = m.y if m.y is not None else y0
+
+            # always emit an independent mini-path for this segment
+            # so nothing ever "connects" accidentally
             if m.type == "rapid":
-                path_cmds.append(f"M {x} {y}")
+                paths_by_layer[layer].append(f"M {x0} {y0} M {x1} {y1}")
 
             elif m.type == "linear":
-                path_cmds.append(f"L {x} {y}")
+                paths_by_layer[layer].append(f"M {x0} {y0} L {x1} {y1}")
 
             elif m.type in ("arc_cw", "arc_ccw"):
                 if m.r is not None:
-                    r = m.r
+                    r = abs(m.r)
                 else:
                     dx = m.i if m.i is not None else 0
                     dy = m.j if m.j is not None else 0
                     r = (dx*dx + dy*dy)**0.5
 
-                sweep = 1 if m.type == "arc_cw" else 0
-                path_cmds.append(f"A {r} {r} 0 0 {sweep} {x} {y}")
+                if r == 0:
+                    paths_by_layer[layer].append(f"M {x0} {y0} L {x1} {y1}")
+                else:
+                    sweep = 1 if m.type == "arc_cw" else 0
+                    paths_by_layer[layer].append(
+                        f"M {x0} {y0} A {r} {r} 0 0 {sweep} {x1} {y1}"
+                    )
 
-            last_x, last_y = x, y
+            last_x, last_y = x1, y1
+
+
+
+        # motion_types = ("rapid", "linear", "arc_cw", "arc_ccw")
+        # visible_motions = {t: self.are_motions_render_visible(t) for t in motion_types}
+        # last_other=True
+        # for m in motions:
+        #     if not visible_motions.get(m.type):
+        #         continue
+        #     if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw"):
+        #         if not last_other:
+        #             paths_by_layer[layer].append(f"M {last_x} {last_y}")
+        #         last_other=True
+        #         continue
+        #     last_other=False
+        #     layer = m.layer_id if m.layer_id is not None else 0
+
+        #     x = m.x if m.x is not None else last_x
+        #     y = m.y if m.y is not None else last_y
+
+        #     if m.type == "rapid":
+        #         paths_by_layer[layer].append(f"M {x} {y}")
+
+        #     elif m.type == "linear":
+        #         paths_by_layer[layer].append(f"L {x} {y}")
+
+        #     elif m.type in ("arc_cw", "arc_ccw"):
+        #         # Compute radius
+        #         if m.r is not None:
+        #             r = abs(m.r)
+        #         else:
+        #             dx = m.i if m.i is not None else 0
+        #             dy = m.j if m.j is not None else 0
+        #             r = (dx*dx + dy*dy)**0.5
+
+        #         if r == 0:
+        #             # fallback to line
+        #             paths_by_layer[layer].append(f"L {x} {y}")
+        #         else:
+        #             sweep = 1 if m.type == "arc_cw" else 0
+        #             paths_by_layer[layer].append(f"A {r} {r} 0 0 {sweep} {x} {y}")
+
+        #     last_x, last_y = x, y
 
         # -----------------------------------------
-        # 5. Build final SVG
+        # 5. Split each layer into chunks of 2000 commands
         # -----------------------------------------
-        dash_attr = (
-            f'stroke-dasharray="{svg_style["dasharray"]}"'
-            if svg_style["dasharray"] else ""
-        )
+        MAX_CMDS = 2000
+        chunked_paths = []  # list of (layer, path_string)
 
-        svg = f"""
-        <svg xmlns="http://www.w3.org/2000/svg"
-            version="1.1"
-            viewBox="{xmin} {ymin} {width} {height}">
-            <path d="{' '.join(path_cmds)}"
-                stroke="{svg_style['stroke']}"
-                stroke-width="{svg_style['stroke_width']}"
-                stroke-opacity="{svg_style['stroke_opacity']}"
-                {dash_attr}
-                fill="none" />
-        </svg>
-        """
+        for layer, cmds in paths_by_layer.items():
+            for i in range(0, len(cmds), MAX_CMDS):
+                chunk = cmds[i:i + MAX_CMDS]
+
+                # Extract the REAL first coordinate of the chunk
+                first_cmd = chunk[0]
+                parts = first_cmd.split()
+
+                # Determine the coordinate of the first command
+                if parts[0] == "M":
+                    mx, my = parts[1], parts[2]
+                elif parts[0] == "L":
+                    mx, my = parts[1], parts[2]
+                elif parts[0] == "A":
+                    mx, my = parts[-2], parts[-1]  # arc endpoint
+                else:
+                    # fallback (should never happen)
+                    mx, my = "0", "0"
+
+                # Always prepend a correct M x y
+                chunk = [f"M {mx} {my}"] + chunk
+
+                path_str = " ".join(chunk)
+                chunked_paths.append((layer, path_str))
+
+
+        # -----------------------------------------
+        # 6. Build final SVG with <g> groups per layer
+        # -----------------------------------------
+
+        # Find max layer value (unique layers only)
+        if chunked_paths:
+            max_layer = max(layer for layer, _ in chunked_paths)
+        else:
+            max_layer = 0
+
+        svg_parts = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
+            f'xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" '
+            f'viewBox="{xmin} {ymin} {width} {height}">'
+        ]
+
+        # Group chunks by layer for <g> grouping
+        groups = defaultdict(list)
+        for layer, path_str in chunked_paths:
+            groups[layer].append(path_str)
+
+        # Build <g> groups
+        for layer in sorted(groups.keys()):
+            stroke_color = self.adjust_brightness_for_layer(
+                svg_style["stroke"], layer, max_layer
+            )
+            svg_parts.append(
+                f'<g inkscape:groupmode="layer" inkscape:label="Layer {layer}">'
+            )
+            dash_attr = (
+                f'stroke-dasharray="{svg_style["dasharray"]}"'
+                if svg_style["dasharray"] else ""
+            )
+            for path_str in groups[layer]:
+                svg_parts.append(
+                    f'<path d="{path_str}" '
+                    f'stroke="{stroke_color}" '
+                    f'stroke-width="{svg_style["stroke_width"]}" '
+                    f'stroke-opacity="{svg_style["stroke_opacity"]}" '
+                    f'{dash_attr} fill="none" />'
+                )
+            svg_parts.append("</g>")
+        svg_parts.append("</svg>")
+        svg = "\n".join(svg_parts)
+
+        # -----------------------------------------
+        # 7. Save debug SVG to temp folder
+        # -----------------------------------------
+        debug_svg = os.path.join(tempfile.gettempdir(), "debug_render.svg")
+        with open(debug_svg, "w", encoding="utf-8") as f:
+            f.write(svg)
+        print("Debug SVG saved to:", debug_svg)
 
         return svg
-
 
     def pen_to_svg_attributes(self, pen: QtGui.QPen):
         # Handle "none"
@@ -1349,18 +1535,29 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         raw = line.rstrip("\n")
         clean = raw.strip()
+        if not clean:
+            return None
+        
+        def _persistant(new,key):
+            per_val=self._persistant_values.get(key)
+            if new is not None:
+                self._persistant_values[key]=new
+                return new
+            return per_val
+        
         def _extract_float(token):
             try:
                 return float(token[1:])
             except:
                 return None
-        if not clean:
-            return None
-
-        # Remove comments
+        
+        # Remove comments/messages
         comment = None
         if ";" in clean:
             clean, comment = clean.split(";", 1)
+            clean = clean.strip()
+        if "(" in clean:
+            clean, comment = clean.split("(", 1)
             clean = clean.strip()
 
         # Remove line numbers (N123)
@@ -1378,7 +1575,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         # Command (G0, G1, G2, G3, M3, M5, etc.)
         m.cmd = parts[0].upper()
-
+        if m.cmd=="M5":
+            m.cmd="M3 S0" # Special case 
         # Determine motion type
         pos = 1
         if m.cmd in ("G0", "G00"):
@@ -1403,7 +1601,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Parse parameters
         for token in parts[pos:]:
             t = token.upper()
-
+            if t.startswith(";") or t.startswith("("): break # is a comment or message
             if t.startswith("X"): m.x = _extract_float(t)
             elif t.startswith("Y"): m.y = _extract_float(t)
             elif t.startswith("Z"): m.z = _extract_float(t)
@@ -1411,16 +1609,25 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             elif t.startswith("J"): m.j = _extract_float(t)
             elif t.startswith("K"): m.k = _extract_float(t)
             elif t.startswith("R"): m.r = _extract_float(t)
-            elif t.startswith("F"): m.f = _extract_float(t)
-            elif t.startswith("S"): m.s = _extract_float(t)
+            elif t.startswith("F"): m.f = _persistant(_extract_float(t),"F")
+            elif t.startswith("S"): m.s = _persistant(_extract_float(t),"S")
 
             # Extra axes (rotary/extruder)
             elif t.startswith("A"): m.a = _extract_float(t)
             elif t.startswith("B"): m.b = _extract_float(t)
             elif t.startswith("C"): m.c = _extract_float(t)
             elif t.startswith("E"): m.e = _extract_float(t)
-
+        m.f=self._persistant_values.get("F")
+        m.s=self._persistant_values.get("S")
         m.comment = comment
+        # Detect modal commands that do NOT move
+        if m.type in ("linear", "rapid", "arc_cw", "arc_ccw"):
+            if (m.x is None and m.y is None and m.z is None 
+            and m.i is None and m.j is None and m.k is None
+            and m.a is None and m.b is None and m.c is None 
+            and m.r is None and m.e is None):
+                # This is NOT a movement, it's a modal update (e.g., S, F, etc.)
+                m.type = "other"
         return m
     
     # ---------------------------- Live update -----------------------------    
@@ -1497,10 +1704,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Keep view centered
         self.view.fitInView(self.scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
 
-    def draw_arc_segment(self, x0, y0, x1, y1, m, pen):
+    def draw_arc_segment(self, x0, y0, x1, y1, m:Motion, pen):
         # Approximate arc with 40 segments
-        import math
-
         if m.r is not None:
             r = m.r
         else:
@@ -1525,7 +1730,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if not cw and a1 < a0:
             a1 += 2 * math.pi
 
-        steps = 40
+        path = QtGui.QPainterPath()
+        steps = 40 # to paint is ok
         for i in range(steps):
             t0 = a0 + (a1 - a0) * (i / steps)
             t1 = a0 + (a1 - a0) * ((i + 1) / steps)
@@ -1534,8 +1740,16 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             y_start = cy + r * math.sin(t0)
             x_end   = cx + r * math.cos(t1)
             y_end   = cy + r * math.sin(t1)
-
-            self.scene.addLine(x_start, y_start, x_end, y_end, pen)
+            if path.isEmpty():
+                path.moveTo(x_start, y_start)
+                path.lineTo(x_end, y_end)
+            else:
+                path.lineTo(x_end, y_end)
+            #self.scene.addLine(x_start, y_start, x_end, y_end, pen)
+        item = QGraphicsPathItem(path)
+        item.setPen(pen)
+        item.setZValue(self.layer_overlay["simulation"]+m.layer_id)
+        self.scene.addItem(item)
     
     def update_status(self, m):
         x = m.x if m.x is not None else self.last_x
@@ -1551,7 +1765,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_index = index
         self.redraw_sim_position()
 
-    def draw_motion_segment(self, prev, m):
+    def draw_motion_segment(self, prev:Motion, m:Motion):
         # Determine start and end points
         x0 = prev.x if prev.x is not None else getattr(self, "last_x", 0)
         y0 = prev.y if prev.y is not None else getattr(self, "last_y", 0)
@@ -1576,9 +1790,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # -----------------------------
         # Draw only if line type is not "none"
         # -----------------------------
+        
         if pen.style() != QtCore.Qt.PenStyle.NoPen:
             if m.type in ("rapid", "linear"):
                 line = self.scene.addLine(QtCore.QLineF(x0, y0, x1, y1), pen)
+                line.setZValue(self.layer_overlay["simulation"]+m.layer_id)
                 self.dynamic_items.append(line)
 
             elif m.type in ("arc_cw", "arc_ccw"):
@@ -1593,6 +1809,17 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     
     def is_motion_type_visible(self, motion_type: str) -> bool:
         return bool(self.s_ce.tracker.get_value([motion_type, "Show", "value"]))
+    
+    def are_motions_render_visible(self,mtype):
+        if mtype == "rapid":
+            return bool(self.s_ce.tracker.get_value(["render", "Show Rapid", "value"]))
+        if mtype == "linear":
+            return bool(self.s_ce.tracker.get_value(["render", "Show Linear", "value"]))
+        if mtype == "arc_cw":
+            return bool(self.s_ce.tracker.get_value(["render", "Show ArcCW", "value"]))
+        if mtype == "arc_ccw":
+            return bool(self.s_ce.tracker.get_value(["render", "Show ArcCCW", "value"]))
+        return None
 
     def sim_play(self):
         if not self.motions:
@@ -1726,9 +1953,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def build_layers(self):
         self.layers = {}  # layer_id -> list of indices
-
+        index = self.color_mapping_mode_combo.currentIndex()
+        mode = self.color_mapping_mode_combo.itemData(index)
+        self.color_mapping_mode=mode
         for i, m in enumerate(self.motions):
-            layer_id = self.get_layer_id(m)
+            layer_id = self.get_layer_id(m,mode)
+            m.layer_id = layer_id
             self.layers.setdefault(layer_id, []).append(i)
 
         # Populate combo box
@@ -1798,15 +2028,25 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if idx > 0:
             self.layer_combo.setCurrentIndex(idx - 1)
 
-    def get_layer_id(self, m):
-        # 3D printing / CNC
-        if m.z is not None:
-            return round(m.z, 3)
-
-        # Laser grayscale grouping
-        if m.s is not None:
-            return int(m.s / 10)
-
+    def get_layer_id(self, m:Motion, mode:str):
+        if mode in ("Fixed", "fixed"):
+            fixed=self.fixed_layer_mapping.get(m.type)
+            if not fixed:
+                return 0
+            return fixed
+        elif mode in ("Power", "power"):
+            # Laser grayscale grouping
+            if m.s is not None:
+                return int(m.s / 10) * 10
+        elif mode in("Feedrate", "feedrate"):
+            # Feedrate values
+            if m.z is not None:
+                return int(m.f / 10) * 10
+        elif mode in ("Z heights", "layerheight"):
+            # 3D printing / CNC
+            if m.z is not None:
+                return round(m.z, 3)
+        #else:    #("None", "none")
         # Default single layer
         return 0
     
