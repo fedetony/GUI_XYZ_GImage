@@ -234,6 +234,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             "arc_ccw":4,
             "other":0
         }
+        self.motion_limits={}
         self._persistant_values={}
         self.sim_running = False
         self.sim_timer = QtCore.QTimer()
@@ -567,9 +568,31 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             "Line Transparency":  get(base + ["Line Transparency", "value"], 77),
         }
 
-    def make_pen_from_style(self, style: dict, m=None) -> QtGui.QPen:
-        pen = QtGui.QPen()
+    def _normalize_motion_parameter(self, key, value):
+        if key not in self.motion_limits:
+            return 0.0
+        min_v, max_v = self.motion_limits[key]
+        if max_v == min_v:
+            return 0.0
+        return (value - min_v) / (max_v - min_v)
+    
+    def _get_norm_color(self, key, value, base_color, use_hue):
+        norm = self._normalize_motion_parameter(key, value)
 
+        if use_hue:
+            # Hue mapping (blue → red)
+            hue = int((1 - norm) * 240)
+            return QtGui.QColor.fromHsv(hue, 255, 255)
+
+        else:
+            # Brightness mapping (value channel)
+            h = base_color.hue()
+            s = base_color.saturation()
+            v = int(norm * 255)
+            return QtGui.QColor.fromHsv(h, s, v)
+
+    def make_pen_from_style(self, style: dict, m=None, use_hue=False) -> QtGui.QPen:
+        pen = QtGui.QPen()
         # -----------------------------
         # Pen width
         # -----------------------------
@@ -584,29 +607,33 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # -----------------------------
         mode = style.get("Color Mapping Mode", "fixed")
         if m is not None:
+            # -------------------------------------------------
+            # POWER MODE
+            # -------------------------------------------------
             if mode == "power" and hasattr(m, "s") and m.s is not None:
-                power = max(0, min(255, int(m.s)))
-                hue = int((1 - power / 255) * 240)
-                color = QtGui.QColor.fromHsv(hue, 255, 255)
+                color = self._get_norm_color("S", m.s, color, use_hue)
                 color.setAlpha(style["Line Transparency"])
 
+            # -------------------------------------------------
+            # FEEDRATE MODE
+            # -------------------------------------------------
             elif mode == "feedrate" and hasattr(m, "f") and m.f:
-                f = float(m.f)
-                # Map feedrate to hue (blue→red)
-                hue = int((1 - min(1, f / 3000)) * 240)
-                color = QtGui.QColor.fromHsv(hue, 255, 255)
+                color = self._get_norm_color("F", m.f, color, use_hue)
                 color.setAlpha(style["Line Transparency"])
 
+            # -------------------------------------------------
+            # LAYER HEIGHT MODE
+            # -------------------------------------------------
             elif mode == "layerheight" and hasattr(m, "z") and m.z:
-                z = float(m.z)
-                # Map Z to hue
-                hue = int((1 - min(1, z / 10)) * 240)
-                color = QtGui.QColor.fromHsv(hue, 255, 255)
+                color = self._get_norm_color("Z", m.z, color, use_hue)
                 color.setAlpha(style["Line Transparency"])
 
+            # -------------------------------------------------
+            # NONE MODE (hide pen)
+            # -------------------------------------------------
             elif mode == "none":
                 pen.setStyle(QtCore.Qt.PenStyle.NoPen)
-                return pen  # No need to set color or style further
+                return pen
 
         pen.setColor(color)
 
@@ -628,6 +655,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             pen.setStyle(QtCore.Qt.PenStyle.SolidLine)
 
         return pen
+
 
 
     # when streaming for buffer
@@ -1628,7 +1656,36 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             and m.r is None and m.e is None):
                 # This is NOT a movement, it's a modal update (e.g., S, F, etc.)
                 m.type = "other"
+        # collect limits
+        self._collect_min_max("S",m)
+        self._collect_min_max("F",m)
+        self._collect_min_max("X",m)
+        self._collect_min_max("Y",m)
+        self._collect_min_max("Z",m)
         return m
+    
+    def _collect_min_max(self, txt, m: Motion):
+        att = str(txt).lower()
+        # If motion has no such attribute → skip
+        if not hasattr(m, att):
+            return
+        val = getattr(m, att)
+        # Ignore None values entirely
+        if val is None:
+            return
+        # Retrieve existing min/max
+        min_max = self.motion_limits.get(txt)
+        # First time seeing this parameter
+        if not isinstance(min_max, tuple):
+            self.motion_limits[txt] = (val, val)
+            return
+        # Update min/max safely
+        current_min, current_max = min_max
+        if current_min is None or current_max is None:
+            # Replace invalid stored values
+            self.motion_limits[txt] = (val, val)
+        else:
+            self.motion_limits[txt] = (min(val, current_min), max(val, current_max))
     
     # ---------------------------- Live update -----------------------------    
     def add_gcode_line(self, line):
@@ -1764,6 +1821,20 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_pause()
         self.sim_index = index
         self.redraw_sim_position()
+
+    def adjust_brightness_for_power(base_rgb_hex, s_value, max_s=1000):
+        base_rgb_hex = base_rgb_hex.lstrip("#")
+        r = int(base_rgb_hex[0:2], 16) / 255.0
+        g = int(base_rgb_hex[2:4], 16) / 255.0
+        b = int(base_rgb_hex[4:6], 16) / 255.0
+
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+
+        scale = s_value / max_s
+        v = max(0.0, min(1.0, v * scale))
+
+        r2, g2, b2 = colorsys.hsv_to_rgb(h, s, v)
+        return f"#{int(r2*255):02x}{int(g2*255):02x}{int(b2*255):02x}"
 
     def draw_motion_segment(self, prev:Motion, m:Motion):
         # Determine start and end points
