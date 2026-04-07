@@ -1083,8 +1083,10 @@ class PositionHelper(QtWidgets.QMainWindow): #QtWidgets.QDialog):
 
     def _evaluate_conditions(self):
         """Evaluate conditions if changes were applied refresh treeview"""
+        do_eval=self._do_evaluation
+        self._do_evaluation=False
         evaluated = self.phce.evaluate_conditions_in_a_node(self.phtv.tracker.get_root())
-        if evaluated or self._do_evaluation:
+        if evaluated or do_eval:
             expanded = self.phtv.get_expanded_paths()
             selected = self.phtv.get_selected_paths()
 
