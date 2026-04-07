@@ -383,21 +383,24 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(list, object, str, str)
     def on_tree_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed
-        self._evaluate_conditions()
+        # self._evaluate_conditions()
+        pass
     
     @QtCore.pyqtSlot(list, object, str, str)
     def on_struct_item_edited(self, track, value, typestr, subtype):
         # Decide what to do with item value changed
         if self._do_evaluation:
             self._evaluate_conditions()
-
+            
     # def on_resolution_changed(self, value: float):
     #     self.cm.set_output_param("output", "resolution", value=float(value))
 
     def _evaluate_conditions(self):
         """Evaluate conditions if changes were applied refresh treeview"""
+        do_eval=self._do_evaluation 
+        self._do_evaluation = False
         evaluated = self.ce.evaluate_conditions_in_a_node(self.tv.tracker.get_root())
-        if evaluated or self._do_evaluation:
+        if evaluated or do_eval:
             expanded = self.tv.get_expanded_paths()
             selected = self.tv.get_selected_paths()
 
@@ -497,16 +500,16 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
     def on_technique_changed(self,value):
         """Technique setting changed, if different apply to config and refresh Treeview"""
         track=["technique","technique_type","value"]
-        machine_selection=self.tv.tracker.get_value(track)
-        if machine_selection != value:
+        technique_selection=self.tv.tracker.get_value(track)
+        if technique_selection != value:
             if not self._change_setting_trigger_evaluate_conditions(track,value):
                 log.warning(f"Unable to set {value} to {track}")
 
     def on_tool_changed(self,value):
         """Tool setting changed, if different apply to config and refresh Treeview"""
         track=["tool","tool_type","value"]
-        machine_selection=self.tv.tracker.get_value(track)
-        if machine_selection != value:
+        tool_selection=self.tv.tracker.get_value(track)
+        if tool_selection != value:
             if not self._change_setting_trigger_evaluate_conditions(track,value):
                 log.warning(f"Unable to set {value} to {track}")
     
@@ -519,9 +522,10 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
                 log.warning(f"Unable to set {value} to {track}")
     
     def _change_setting_trigger_evaluate_conditions(self,track,value):
-    
-        self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
         was_set=self.tv.tracker.set_value(track,value)
+        if was_set:
+            self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
+            self._evaluate_conditions()
         self._do_evaluation=False
         return was_set
     
