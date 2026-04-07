@@ -78,20 +78,44 @@ class RasterTechnique(GImageTechniqueBase):
             y_min, y_max = min(ys), max(ys)
 
             # Default start/end
-            start_x = rr(offset_x + x_min * step)
-            start_y = rr(offset_y + y_min * step)
-            end_x   = rr(offset_x + x_max * step)
-            end_y   = rr(offset_y + y_max * step)
+            start_x = rr(offset_x + xs[0] * step)
+            start_y = rr(offset_y + ys[0] * step)
+            end_x   = rr(offset_x + xs[-1] * step)
+            end_y   = rr(offset_y + ys[-1] * step)
 
             # Overscan only for horizontal/vertical
-            if direction == "horizontal" and all(y == y_min for y in ys):
-                start_x -= recovery_mm
-                end_x   += recovery_mm
+            is_horizontal = (y_min == y_max)
+            is_vertical = (x_min == x_max)
+            xdir = 1
+            if (xs[-1]-xs[0])<0:
+                xdir = -1
+            ydir = 1
+            if (ys[-1]-ys[0])<0:
+                ydir = -1
+            if direction == "horizontal" and is_horizontal:
+                end_x   += xdir*recovery_mm
 
-            if direction == "vertical" and all(x == x_min for x in xs):
-                start_y -= recovery_mm
-                end_y   += recovery_mm
-
+            if direction == "vertical" and is_vertical:
+                end_y   += ydir*recovery_mm
+            
+            if direction in ("spiralin", "spiralout"):
+                if is_horizontal and xdir==1:
+                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
+                    end_y   = rr(offset_y + ys[-1] * step - ydir*recovery_mm)
+                elif is_vertical and ydir==1:
+                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
+                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
+                elif is_horizontal and xdir==-1:
+                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
+                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
+                elif is_vertical and ydir==-1:
+                    end_x   = rr(offset_x + xs[-1] * step - xdir*recovery_mm)
+                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
+            
+            if direction in ("diagonal"):
+                end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
+                end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
+            
             # Move to start of line
             self.emit_action(self.tool.up())
             self.emit_action(self.machine.move(rapid=True,X=start_x, Y=start_y))

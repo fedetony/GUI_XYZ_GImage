@@ -218,6 +218,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         maxlevel=9999
         maxlevel = 1000
         self.layer_overlay = {
+            "work_box":       maxlevel - 1000,
             "grid":        maxlevel - 900,
             "frame":       maxlevel - 800,
             "rulers":      maxlevel - 700,
@@ -244,9 +245,16 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.executed_count=0
         self.last_modal=None
         self.show_status={}
+        self.simulation_status={
+            "is_stop":True,
+            "is_play":False,
+            "is_pause":False,
+            "is_sliding":False,
+            }
+        self._drawn_range=[0,0]
         # ------------------------
         self.axes=None
-        self.job_box=None
+        self.frame=None
         self.ruler=None
         self.grid=None
         self._syncing_ui=False
@@ -368,6 +376,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_action_end = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Fast-forward.128.png"), "Fast Forward", self)
         self.sim_action_next_layer = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Scroll-up.128.png"), "Next Layer", self)
         self.sim_action_prev_layer = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Scroll-down.128.png"), "Previous Layer", self)
+        self.sim_action_clean_paths = QtGui.QAction(QtGui.QIcon(":/img/Ahmadhania-Spherical-Write.128.png"), "Clean Paths", self)
         # Slider
         self.speed_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.speed_slider.setRange(1, 200)
@@ -402,6 +411,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_toolbar.addAction(self.sim_action_play)
         self.sim_toolbar.addAction(self.sim_action_pause)
         self.sim_toolbar.addAction(self.sim_action_stop)
+        self.sim_toolbar.addSeparator()
+        self.sim_toolbar.addAction(self.sim_action_clean_paths)
         self.sim_toolbar.addSeparator()
         self.sim_toolbar.addWidget(self.speed_slider)
         self.sim_toolbar.addSeparator()
@@ -497,6 +508,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # style tree setup
         self._build_style_configuration_tree()
         self._build_style_dict()
+        # set color mode
+        index = self.color_mapping_mode_combo.currentIndex()
+        self.on_color_mapping_mode_changed(index)
 
     def _build_style_configuration_tree(self):
         self._do_evaluation=False
@@ -560,6 +574,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         base = track + ["Style"]
 
         return {
+            "Color Mapping Mode": get(base + ["Color Mapping Mode", "value"], "fixed"),
             "Line Type":          get(base + ["Line Type", "value"], "solid"),
             "Fill Color":         get(base + ["Fill Color", "value"], "#1570D8"),
             "Fill Transparency":  get(base + ["Fill Transparency", "value"], 77),
@@ -769,7 +784,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Job Box, Grid, axes, Rulers
         # -------------------------
         self.add_toolhead()
-        self.add_job_box()
+        self.add_frame()
         self.add_work_box()
         self.add_grid()
         self.add_axes()
@@ -855,6 +870,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_action_previous.triggered.connect(self.sim_step_backward)
         self.sim_action_ini.triggered.connect(self.sim_jump_start)
         self.sim_action_end.triggered.connect(self.sim_jump_end)
+        self.sim_action_clean_paths.triggered.connect(self.clean_paths)
 
         self.speed_slider.valueChanged.connect(lambda v: self.sim_timer.setInterval(v))
         self.sim_pos_spin.valueChanged.connect(self.sim_jump_to)
@@ -876,29 +892,43 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Sync slider → spinboxes
         self.sim_slider.startChanged.connect(self.sim_start_spin.setValue)
         self.sim_slider.endChanged.connect(self.sim_end_spin.setValue)
-        self.sim_slider.posChanged.connect(self.sim_pos_spin.setValue)
+        self.sim_slider.posChanged.connect(self.on_pos_slider_position_changed)
 
         # Sync spinboxes → slider
         self.sim_start_spin.valueChanged.connect(self.sim_slider.setStart)
         self.sim_end_spin.valueChanged.connect(self.sim_slider.setEnd)
         self.sim_pos_spin.valueChanged.connect(self.sim_slider.setPosition)
 
+    def on_pos_slider_position_changed(self,value:int):
+        # Do not trigger redraw 
+        self.simulation_status["is_sliding"]=True
+        self.blockSignals(True)
+        self.sim_pos_spin.setValue(value)
+        self.blockSignals(False)
+        self.simulation_status["is_sliding"]=False
 
     def fit_view(self):
         pxmin, pymin, pxmax, pymax = self.bounds_padded(0.2)
         self.view.fitInView(QtCore.QRectF(pxmin, pymin, pxmax - pxmin, pymax - pymin),
                             QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-        # self.view.fitInView(self.job_box, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        # self.view.fitInView(self.frame, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
 
     def on_color_mapping_mode_changed(self, index):
         mode = self.color_mapping_mode_combo.itemData(index)
         self.color_mapping_mode=mode
         if self._syncing_ui:
             return
+        self._do_evaluation=True
+        
+        was_set=True
         for motion in ("rapid", "linear", "arc_cw", "arc_ccw"):
-            self.sync_ui(lambda m=motion: self._change_setting_trigger_evaluate_conditions(
-                [m, "Style", "Color Mapping Mode", "value"], mode
-            ))
+            was_set = was_set and self.s_tv.tracker.set_value([motion, "Style", "Color Mapping Mode[value]"], mode)
+            # self.sync_ui(lambda m=motion: self._change_setting_trigger_evaluate_conditions(
+            #     [m, "Style", "Color Mapping Mode", "value"], mode
+            # ))
+        # if was_set:
+        #     self._evaluate_conditions()
+
         self.build_layers()
         # Render svg with new layer structure
         self.render_svg() 
@@ -970,22 +1000,23 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                                       QtGui.QBrush(QtCore.Qt.GlobalColor.red))
         self.tool_dot.setZValue(self.layer_overlay["toolhead"])
 
-    def add_job_box(self):
+    def add_frame(self):
         xmin, ymin, xmax, ymax = self.compute_bounds()
-        self.job_box = QtWidgets.QGraphicsRectItem(QtCore.QRectF(xmin, ymin, xmax - xmin, ymax - ymin))
-        self.job_box.setPen(QtGui.QPen(QtGui.QColor(120, 120, 120)))  # or any color
-        self.job_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
-        self.scene.addItem(self.job_box)
-        self.static_items.append(self.job_box)
-        self.job_box.setZValue(self.layer_overlay["frame"])
+        self.frame = QtWidgets.QGraphicsRectItem(QtCore.QRectF(xmin, ymin, xmax - xmin, ymax - ymin))
+        self.frame.setPen(QtGui.QPen(QtGui.QColor(120, 120, 120)))  # or any color
+        self.frame.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+        self.scene.addItem(self.frame)
+        self.static_items.append(self.frame)
+        self.frame.setZValue(self.layer_overlay["frame"])
         self.job_xmin=xmin
         self.job_xmax=xmax
         self.job_ymin=ymin
         self.job_ymax=ymax
         self.svg_height=ymax - ymin
+        self.frame.setVisible(self.is_item_type_visible("frame"))
     
     def apply_frame_style(self):
-        if not self.job_box:
+        if not self.frame:
             return
         style = self.style_dict["frame"]["Style"]
 
@@ -1009,23 +1040,23 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         qt_style = LINE_MAP.get(line_type, LINE_MAP["solid"])
 
         # Apply pen
-        pen = self.job_box.pen()
+        pen = self.frame.pen()
         pen.setColor(color)
         pen.setWidthF(pen_width)
         pen.setStyle(qt_style)
-        self.job_box.setPen(pen)
+        self.frame.setPen(pen)
 
         # Apply fill only if enabled
         if self.style_dict["frame"]["Fill"]:
-            self.job_box.setBrush(QtGui.QBrush(fill))
+            self.frame.setBrush(QtGui.QBrush(fill))
         else:
-            self.job_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+            self.frame.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
 
         # Apply visibility
-        self.job_box.setVisible(self.style_dict["frame"]["Show"])
+        self.frame.setVisible(self.style_dict["frame"]["Show"])
 
         # Redraw
-        self.job_box.update()
+        self.frame.update()
     
     def apply_render_style(self):
         if not self.motions:
@@ -1037,7 +1068,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.svg_item = None
 
         # Visibility check using your tested logic
-        if not self.is_motion_type_visible("render"):
+        if not self.is_item_type_visible("render"):
             return
 
         # Re-render SVG with updated style
@@ -1104,7 +1135,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.svg_item = None
 
         # Visibility check
-        if not self.is_motion_type_visible("render"):
+        if not self.is_item_type_visible("render"):
             return
 
         # Build SVG with style
@@ -1135,7 +1166,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.work_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
         self.scene.addItem(self.work_box)
         self.static_items.append(self.work_box)
-        self.work_box.setZValue(self.layer_overlay["frame"])
+        self.work_box.setZValue(self.layer_overlay["work_box"])
 
     def add_grid(self):
         # Expand by 20%
@@ -1149,6 +1180,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.scene.addItem(self.grid)
         self.grid.setZValue(self.layer_overlay["grid"])
         self.static_items.append(self.grid)
+        self.grid.setVisible(self.is_item_type_visible("grid"))
     
     def apply_grid_style(self):
         if not self.grid:
@@ -1193,6 +1225,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.axes.setZValue(self.layer_overlay["axes"])
         self.scene.addItem(self.axes)
         self.static_items.append(self.axes)
+        self.axes.setVisible(self.is_item_type_visible("axes"))
     
     def apply_axes_style(self):
         if not self.axes:
@@ -1232,6 +1265,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.ruler.setZValue(self.layer_overlay["rulers"])
         self.scene.addItem(self.ruler)
         self.static_items.append(self.ruler)
+        self.ruler.setVisible(self.is_item_type_visible("rulers"))
 
     def apply_ruler_style(self):
         if not self.ruler:
@@ -1290,6 +1324,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.static_items.clear()
             self.dynamic_items.clear()
             self.svg_item = None
+        self.simulation_status["is_clear"]=True
+        self._drawn_range=[0,0]
 
     
     # --------------------------- Parser ---------------------------------
@@ -1310,7 +1346,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         width  = xmax - xmin
         height = ymax - ymin
 
-        if not self.is_motion_type_visible("render"):
+        if not self.is_item_type_visible("render"):
             return (
                 f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
                 f'viewBox="{xmin} {ymin} {width} {height}"></svg>'
@@ -1738,7 +1774,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         y = m.y if m.y is not None else self.last_y
 
         # Style-driven pen
-        if self.is_motion_type_visible(m.type):
+        if self.is_item_type_visible(m.type):
             style = self._get_style_dict_from_track([m.type])
         else:
             style = self._get_style_dict_from_track([m.type])
@@ -1850,7 +1886,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if m.type in ("rapid", "linear", "arc_cw", "arc_ccw"):
             style = self._get_style_dict_from_track([m.type])
             # Visibility override
-            if not self.is_motion_type_visible(m.type):
+            if not self.is_item_type_visible(m.type):
                 style["Line Type"] = "none"
             pen = self.make_pen_from_style(style, m)
         else:
@@ -1878,7 +1914,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.last_y = y1
 
     
-    def is_motion_type_visible(self, motion_type: str) -> bool:
+    def is_item_type_visible(self, motion_type: str) -> bool:
         return bool(self.s_ce.tracker.get_value([motion_type, "Show", "value"]))
     
     def are_motions_render_visible(self,mtype):
@@ -1896,16 +1932,20 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if not self.motions:
             return
         start = self.sim_start_spin.value()
-
-        # If starting fresh or after stop, clear and redraw up to start
-        if self.sim_index <= start:
-            self.clear_scene(clear_all=False)
-            for i in range(1, start + 1):
-                prev = self.motions[i - 1]
-                m = self.motions[i]
-                self.draw_motion_segment(prev, m)
+        end = self.sim_end_spin.value()
+        if self.simulation_status.get("is_play"): #already playing
+            return
+        # If starting fresh or after stop, clear and redraw from start up to index
+        elif self.simulation_status.get("is_stop"):
+            self.clean_paths()
             self.sim_index = start
-
+            if self.sim_index > start and self.sim_index <= end:
+                self.draw_range(start,self.sim_index,True)
+        elif self.simulation_status.get("is_pause"):
+            pass
+        self.simulation_status["is_pause"]=False
+        self.simulation_status["is_play"]=True
+        self.simulation_status["is_stop"]=False
         self.sim_running = True
         self.sim_timer.start()
         self.set_canvas_enabled(False)
@@ -1914,27 +1954,40 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     def sim_pause(self):
         self.set_canvas_enabled(True)
         self.set_style_controls_enabled(True)
+        self.simulation_status["is_pause"]=True
+        self.simulation_status["is_play"]=False
+        self.simulation_status["is_stop"]=False
         self.sim_running = False
         self.sim_timer.stop()
 
     def sim_stop(self):
         self.set_canvas_enabled(True)
         self.set_style_controls_enabled(True)
-        self.sim_pause()
-        self.sim_index = 0
-        self.redraw_sim_position()
+        is_stopped=self.simulation_status.get("is_stop")
+        is_playing=self.simulation_status.get("is_play")
+        is_paused=self.simulation_status.get("is_pause")
+        if is_playing or is_paused:
+            self.sim_pause()
+            self.simulation_status["is_pause"]=False
+            self.simulation_status["is_play"]=False
+            self.simulation_status["is_stop"]=True
+        if is_stopped:
+            self.sim_index = 0
+            self.redraw_sim_position()
 
-    def sim_jump_start(self):
+    def sim_jump_start(self,do_redraw_up_to_start=False):
         self.sim_pause()
         self.clear_scene(clear_all=False)  # clear dynamic items only
 
         start = self.sim_start_spin.value()
 
         # Redraw up to start
-        for i in range(1, start + 1):
-            prev = self.motions[i - 1]
-            m = self.motions[i]
-            self.draw_motion_segment(prev, m)
+        if do_redraw_up_to_start:
+            for i in range(1, start + 1):
+                prev = self.motions[i - 1]
+                m = self.motions[i]
+                self.draw_motion_segment(prev, m)
+            self._drawn_range=[1,start]
 
         self.sim_index = start
 
@@ -1943,19 +1996,54 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def sim_jump_end(self):
         self.sim_pause()
-        self.clear_scene(clear_all=False)  # clear dynamic items only
-
         # Redraw everything up to end
         end = self.sim_end_spin.value()
-        for i in range(1, end + 1):
+        # if self.sim_index>end:
+        #     self.sim_index = end
+        start = self.sim_start_spin.value()
+        # if self.sim_index>start: 
+        #     self.draw_range(self.sim_index,end,False)
+        #     return
+        self.draw_range(start,end,True)
+        self.sim_index = end
+        # Update spinbox
+        self.update_sim_position(self.sim_index)
+    
+    def draw_range(self,start,end,clear=True):
+        self.sim_pause()
+        if clear:
+            self.clear_scene(clear_all=False)  # clear dynamic items only
+        if (end-start)>0:
+            dp=100/(end-start)
+        else:
+            dp=1
+        last_per=0
+        for i in range(start, end + 1):
             prev = self.motions[i - 1]
             m = self.motions[i]
             self.draw_motion_segment(prev, m)
-
-        self.sim_index = end
-
-        # Update spinbox
-        self.update_sim_position(self.sim_index)
+            per=int((i-start)*dp)
+            if last_per<per: # only triggers 100 times
+                self.update_job_progressbar(per,100,0)
+                last_per=per
+        self._drawn_range_update(start,end)
+        self.sim_index=end
+    
+    def _drawn_range_update(self,start,end):
+        if end>self.sim_end_spin.value():
+            end=self.sim_end_spin.value()
+        if start<self.sim_start_spin.value():
+            start=self.sim_start_spin.value()
+        if self._drawn_range[0]==0:
+            self._drawn_range[0]=start
+        else:
+            if start<=self._drawn_range[0]:
+                self._drawn_range[0]=start
+        if self._drawn_range[1]==0:
+            self._drawn_range[1]=end
+        else:
+            if end>=self._drawn_range[1]:
+                self._drawn_range[1]=end
         
     def sim_step_forward(self):
         if not self.motions:
@@ -1982,10 +2070,14 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.update_sim_position(self.sim_index)
 
     def redraw_sim_position(self):
+        if not self.motions:
+            return
+        if self.simulation_status.get("is_sliding"):
+            return
         m = self.motions[self.sim_index]
 
         # Draw segment if not at first line
-        if self.sim_index > 0:
+        if self.sim_index > self.sim_start_spin.value(): #0:
             prev = self.motions[self.sim_index - 1]
             self.draw_motion_segment(prev, m)
 
@@ -2098,6 +2190,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         idx = self.layer_combo.currentIndex()
         if idx > 0:
             self.layer_combo.setCurrentIndex(idx - 1)
+    
+    def clean_paths(self):
+        self.clear_scene(False)
 
     def get_layer_id(self, m:Motion, mode:str):
         if mode in ("Fixed", "fixed"):
@@ -2172,8 +2267,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if self._syncing_ui:
             return
         stateb = bool(state)
-        if self.job_box:
-            self.job_box.setVisible(stateb)
+        if self.frame:
+            self.frame.setVisible(stateb)
         self.show_status["frame"] = stateb
         if self.frame_toggle.isChecked() != stateb:
             self.sync_ui(lambda: self.frame_toggle.setChecked(stateb))
@@ -2190,8 +2285,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             ["frame", "Show", "value"], checked
         ))
         self.show_status["frame"] = checked
-        if self.job_box:
-            self.job_box.setVisible(checked)
+        if self.frame:
+            self.frame.setVisible(checked)
         self.apply_frame_style()
     
     def on_grid_toggle_clicked(self, state):

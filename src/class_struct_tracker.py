@@ -296,6 +296,11 @@ class TreeStructTracker(QtCore.QObject):
                 # Step 1: navigate to base field
                 if isinstance(node, dict) and base in node:
                     node = node[base]
+                elif isinstance(node, dict) and "children" in node:
+                    for nnn in node["children"]:
+                        if base in nnn:
+                            node = nnn[base]
+                            break
                 else:
                     return None, None, None
                 # Step 2: navigate inside base dict
