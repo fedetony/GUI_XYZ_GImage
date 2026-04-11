@@ -935,7 +935,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.sim_action_play.triggered.connect(self.sim_play)
         self.sim_action_pause.triggered.connect(self.sim_pause)
         self.sim_action_stop.triggered.connect(self.sim_stop)
-        self.sim_action_next.triggered.connect(self.sim_step_forward)
+        self.sim_action_next.triggered.connect(self.sim_1_step_forward)
         self.sim_action_previous.triggered.connect(self.sim_step_backward)
         self.sim_action_ini.triggered.connect(self.sim_jump_start)
         self.sim_action_end.triggered.connect(self.sim_jump_end)
@@ -1697,11 +1697,21 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         QSvgRenderer, wraps it in a QGraphicsSvgItem, assigns the correct Z‑layer,
         and returns the ready‑to‑insert scene item.
         """
+        # Ensure last position is set correctly
+        s_obj=self._get_prev_position_object(start)
+        self.last_x = self.batch_manager["last_x"] = s_obj.x 
+        self.last_y = self.batch_manager["last_y"] = s_obj.y
+        self.batch_manager["last_obj"] = s_obj
         svg = self.motions_to_svg_batch(self.motions[start:end+1])
         renderer = QtSvg.QSvgRenderer(svg.encode("utf-8"))
         item = QtSvgWidgets.QGraphicsSvgItem()
         item.setSharedRenderer(renderer)
         item.setZValue(self.layer_overlay["render_svg"])
+        # Ensure last position is set correctly
+        s_obj=self._get_position_object(end)
+        self.last_x = self.batch_manager["last_x"] = s_obj.x 
+        self.last_y = self.batch_manager["last_y"] = s_obj.y
+        self.batch_manager["last_obj"] = s_obj
         return item
 
     def motions_to_svg_batch(self, motions_slice):
@@ -1747,6 +1757,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         ]
         last_x = self.batch_manager.get("last_x",0)
         last_y = self.batch_manager.get("last_y",0)
+        last_obj = self.batch_manager.get("last_obj")
 
         # 2. Loop through motions in the slice
         for prev, m in zip(motions_slice, motions_slice[1:]):
@@ -2644,7 +2655,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         # If paused → resume
         elif self.simulation_status.get("is_pause"):
-            self._freeze_current_motions()
+            # remove all drawings if index is before last drawing
+            if self.batch_manager["sim_start"]>=self.sim_index:
+                self.clean_paths()
+            # Only freeze if there are batches.
+            if len(self.svg_batches)>0:     
+                self._freeze_current_motions()
 
         # Update state
         self.simulation_status["is_pause"] = False
@@ -2658,7 +2674,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Disable UI while playing
         self.set_canvas_enabled(False)
         self.set_style_controls_enabled(False)
-
+    
     def sim_pause(self):
         """Pause the simulation without resetting state.
 
@@ -2781,8 +2797,12 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         self.sim_index = end
         self.update_sim_position(self.sim_index)
+    
+    def sim_1_step_forward(self):
+        """Advance the simulation forward in 1 step increment, drawing geometry as needed."""
+        self.sim_step_forward(steps_per_tick = 1)
 
-    def sim_step_forward(self):
+    def sim_step_forward(self,steps_per_tick = 10):
         """Advance the simulation forward in small increments, drawing geometry as needed.
 
         This method performs a controlled, incremental simulation step. It:
@@ -2816,8 +2836,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.last_y = self.batch_manager["last_y"] = s_obj.y
         self.batch_manager["last_obj"] = s_obj
         # Draw 10 segments per tick
-        STEPS_PER_TICK = 10
-        for _ in range(STEPS_PER_TICK):
+        for _ in range(steps_per_tick):
             if self.sim_index >= end or self.sim_index >= max_index:
                 self.sim_pause()
                 self.sim_index = end
@@ -2837,6 +2856,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                 self._append_segment_to_motion_item(prev, m)
             self.sim_index = end_step
             curr_pos_obj=next_pos_obj
+
+        # Ensure last position is set correctly
+        self.last_x = self.batch_manager["last_x"] = curr_pos_obj.x 
+        self.last_y = self.batch_manager["last_y"] = curr_pos_obj.y
+        self.batch_manager["last_obj"] = curr_pos_obj
 
         self.update_sim_position(self.sim_index)
     
@@ -2984,22 +3008,19 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         end = e_obj.m_index
         # move index to last movement motion
         self.sim_index=e_obj.m_index
-        # Get last position
-        s_obj=self._get_prev_position_object(start)
-        self.last_x = self.batch_manager["last_x"] = s_obj.x 
-        self.last_y = self.batch_manager["last_y"] = s_obj.y
-        self.batch_manager["last_obj"] = s_obj
-        
+        # Get last position done inside        
         frozen_item = self.build_svg_batch_start_end(start, end)
+        # last position is set (end) as last_obj
         self.svg_batches[current_batch] = frozen_item
 
-        # 3. Remove all future batches from scene AND cache
         # Store old ranges
         until_ranges=[]
         for i in range(0,current_batch):
             until_ranges.append(self.batch_ranges[i])
         until_ranges.append((start,end-1))
-        for i in range(current_batch + 1, len(self.batch_ranges)):
+        # 3. Remove All batches from scene 
+        # will be added inside activate_svg_batch in the scene
+        for i in range(0, len(self.batch_ranges)):
             if i in self.svg_batches:
                 if self.svg_batches[i].scene() is self.scene:
                     self.scene.removeItem(self.svg_batches[i])
@@ -3008,7 +3029,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # 4. Rebuild batch ranges starting from sim_index
         self.build_batches(self.sim_index)
         self.batch_ranges = until_ranges + self.batch_ranges
-        # 5. Reset SVG batch cache (IMPORTANT)
+        # 5. Add current SVG batch cache (IMPORTANT)
         self.svg_batches = {current_batch: frozen_item}
 
         # 6. Activate the correct batch
@@ -3510,6 +3531,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         """Emit and Close"""
+        # stop simulation if running
+        self.sim_stop()
         self.closed.emit()
         super().closeEvent(event)
 
