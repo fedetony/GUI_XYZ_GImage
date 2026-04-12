@@ -29,9 +29,9 @@ STYLE_STRUCT_EXAMPLE={
                            "children":[
                         {"Color Mapping Mode": {"value": "none", "type": "str", "meta": {"hidden":False, "editable":True, "options":["none","feedrate","power","z heights"], "conditions": conditions["rapid"]}}},                        
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["rapid"]}}},
-                        {"Pen": {"value": "#888888", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["rapid"]}}},
+                        {"Pen": {"value": "#35F565", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["rapid"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["rapid"]}}},
-                        {"Line Transparency": {"value": 60, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["rapid"]}}},
+                        {"Line Transparency": {"value": 180, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["rapid"]}}},
                         ]}},
             ]},
         "linear": {"children":[                  
@@ -40,7 +40,7 @@ STYLE_STRUCT_EXAMPLE={
                            "children":[
                         {"Color Mapping Mode": {"value": "none", "type": "str", "meta": {"hidden":False, "editable":True, "options":["none","feedrate","power","z heights"], "conditions": conditions["linear"]}}},                                                
                         {"Line Type": {"value": "solid", "type": "str", "meta": {"hidden":False, "editable":True, "options":["solid","dash","dot","dashdot","dashdotdot"], "conditions": conditions["linear"]}}},
-                        {"Pen": {"value": "#4d0404", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["linear"]}}},
+                        {"Pen": {"value": "#c5301c", "type": "color", "meta": {"hidden":False, "editable":True, "conditions": conditions["linear"]}}},
                         {"Pen Width": {"value": 0.3, "type": "float",  "unit":"[0.1-5]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0.1, "max": 5}, "conditions": conditions["linear"]}}},
                         {"Line Transparency": {"value": 180, "type": "int",  "unit":"[1-255]", "meta": {"hidden":False, "editable":True,"constraints": { "min": 0, "max": 255}, "conditions": conditions["linear"]}}},
                         ]}},
@@ -356,6 +356,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.view.setTransform(QtGui.QTransform(1, 0, 0, -1, 0, 0))
 
         self.view.setRenderHints(QtGui.QPainter.RenderHint.Antialiasing | QtGui.QPainter.RenderHint.SmoothPixmapTransform)
+        self.view.mouseMoved.connect(self.update_cursor_status)
 
         # -------------------------
         # Main horizontal splitter
@@ -614,7 +615,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         base = track + ["Style"]
 
         return {
-            "Color Mapping Mode": get(base + ["Color Mapping Mode", "value"], "fixed"),
+            "Color Mapping Mode": get(base + ["Color Mapping Mode", "value"], self.color_mapping_mode),
             "Line Type":          get(base + ["Line Type", "value"], "solid"),
             "Fill Color":         get(base + ["Fill Color", "value"], "#1570D8"),
             "Fill Transparency":  get(base + ["Fill Transparency", "value"], 77),
@@ -654,54 +655,72 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             v = int(norm * 255)
             return QtGui.QColor.fromHsv(h, s, v)
 
-    def make_pen_from_style(self, style: dict, m=None, use_hue=False) -> QtGui.QPen:
-        """Create a QPen from the given style dictionary, optionally mapping color to motion values.
-
-        Applies width, transparency, color‑mapping mode, and line type to construct the final pen.
-        """
+    def make_pen_from_style(self, style: dict, m: Motion=None, use_hue=False) -> QtGui.QPen:
+        """Create a QPen using the new hue/brightness mapping model."""
         pen = QtGui.QPen()
-        # -----------------------------
-        # Pen width
-        # -----------------------------
         pen.setWidthF(style["Pen Width"])
-        # -----------------------------
-        # Base color (fixed mode)
-        # -----------------------------
-        color = QtGui.QColor(style["Pen"])
-        color.setAlpha(style["Line Transparency"])
-        # -----------------------------
-        # Color Mapping Mode
-        # -----------------------------
-        mode = style.get("Color Mapping Mode", "fixed")
+        # Base color chosen by the user
+        base_color = QtGui.QColor(style["Pen"])
+        # Default color before mapping
+        color = QtGui.QColor(base_color)
+        # Determine mapping mode
+        mode = style.get("Color Mapping Mode", self.color_mapping_mode)
         if m is not None:
-            # -------------------------------------------------
+            # If movement type is unknown → no mapping
+            if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw") or style["Line Type"] == "none":
+                mode = "none"
+            movement_hue = base_color.hue()
+            # -----------------------------
+            # FIXED MODE
+            # -----------------------------
+            if mode == "fixed":
+                # Start with full brightness
+                norm_total = 1.0
+                # Layer contribution
+                if hasattr(m, "layer_id") and m.layer_id is not None:
+                    norm_layer = m.layer_id / max(1, len(self.layers))
+                    norm_total *= norm_layer
+                # Power contribution
+                if hasattr(m, "s") and m.s is not None:
+                    norm_s = self._normalize_motion_parameter("S", m.s)
+                    norm_total *= norm_s
+                # Feedrate contribution
+                if hasattr(m, "f") and m.f is not None:
+                    norm_f = self._normalize_motion_parameter("F", m.f)
+                    norm_total *= norm_f
+                # Final mapped color
+                color = self.map_color(base_color, norm_total, movement_hue)
+
+            # -----------------------------
             # POWER MODE
-            # -------------------------------------------------
-            if mode == "power" and hasattr(m, "s") and m.s is not None:
-                color = self._get_norm_color("S", m.s, color, use_hue)
-                color.setAlpha(style["Line Transparency"])
+            # -----------------------------
+            elif mode == "power" and hasattr(m, "s") and m.s is not None:
+                norm = self._normalize_motion_parameter("S", m.s)
+                color = self.map_color(base_color, norm, movement_hue if use_hue else None)
 
-            # -------------------------------------------------
+            # -----------------------------
             # FEEDRATE MODE
-            # -------------------------------------------------
-            elif mode == "feedrate" and hasattr(m, "f") and m.f:
-                color = self._get_norm_color("F", m.f, color, use_hue)
-                color.setAlpha(style["Line Transparency"])
+            # -----------------------------
+            elif mode == "feedrate" and hasattr(m, "f") and m.f is not None:
+                norm = self._normalize_motion_parameter("F", m.f)
+                color = self.map_color(base_color, norm, movement_hue if use_hue else None)
 
-            # -------------------------------------------------
+            # -----------------------------
             # LAYER HEIGHT MODE
-            # -------------------------------------------------
-            elif mode == "layerheight" and hasattr(m, "z") and m.z:
-                color = self._get_norm_color("Z", m.z, color, use_hue)
-                color.setAlpha(style["Line Transparency"])
+            # -----------------------------
+            elif mode == "layerheight" and hasattr(m, "z") and m.z is not None:
+                norm = self._normalize_motion_parameter("Z", m.z)
+                color = self.map_color(base_color, norm, movement_hue if use_hue else None)
 
-            # -------------------------------------------------
+            # -----------------------------
             # NONE MODE (hide pen)
-            # -------------------------------------------------
+            # -----------------------------
             elif mode == "none":
                 pen.setStyle(QtCore.Qt.PenStyle.NoPen)
                 return pen
 
+        # Apply transparency
+        color.setAlpha(style["Line Transparency"])
         pen.setColor(color)
 
         # -----------------------------
@@ -722,6 +741,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             pen.setStyle(QtCore.Qt.PenStyle.SolidLine)
 
         return pen
+
 
     # when streaming for buffer
     # def send_next_line(self):
@@ -1103,9 +1123,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.frame = QtWidgets.QGraphicsRectItem(QtCore.QRectF(xmin, ymin, xmax - xmin, ymax - ymin))
         self.frame.setPen(QtGui.QPen(QtGui.QColor(120, 120, 120)))  # or any color
         self.frame.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+        self.frame.setZValue(self.layer_overlay["frame"])
         self.scene.addItem(self.frame)
         self.static_items.append(self.frame)
-        self.frame.setZValue(self.layer_overlay["frame"])
         self.job_xmin=xmin
         self.job_xmax=xmax
         self.job_ymin=ymin
@@ -1209,23 +1229,91 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
         return f"#{int(r2*255):02x}{int(g2*255):02x}{int(b2*255):02x}"
 
-
-    def layer_to_color(self, layer_id, max_layer):
+    def map_color(self, base_color, norm, movement_hue=None):
         """
-        Convert layer_id into an RGB hex color.
-        Hue fixed at 55°, saturation fixed at 1.0.
-        Value decreases with layer number.
+        base_color: QColor chosen by the user
+        norm: 0..1 normalized strength (S, F, Z, etc.)
+        movement_hue: override hue for movement type (0..359) or None to use base hue
         """
-        hue = 55 / 360.0
-        sat = 1.0
+        # Hue: movement identity
+        if movement_hue is None:
+            h = base_color.hue()
+        else:
+            h = movement_hue
 
-        # Normalize layer brightness: 0 → 1.0, max_layer → 0.3
+        # Saturation: keep user's color feel
+        s = base_color.saturation()
+
+        # Value: strength (never collapse to black)
+        v = int(50 + norm * 205)  # 50..255
+
+        return QtGui.QColor.fromHsv(h, s, v)
+
+
+    def layer_to_color(self, layer_id, max_layer, mapping=None):
+        """
+        Convert a layer index into an RGB hex color string.
+
+        Parameters
+        ----------
+        layer_id : int
+            The current layer number (0..max_layer).
+        max_layer : int
+            The highest layer number. Used to normalize the color mapping.
+        mapping : str or None
+            Selects the color mapping style:
+                - "heatmap"     : Blue → Cyan → Green → Yellow → Red
+                - "thermal"     : Black → Red → Yellow → White
+                - "rainbow"     : Purple → Blue → Green → Yellow → Red
+                - "mono"        : Dark blue → Bright cyan
+                - None/default  : Fixed hue (yellow) with decreasing brightness
+
+        Returns
+        -------
+        str
+            Hex color string, e.g. "#ffaa33".
+        """
+        # Normalize t in 0..1
         if max_layer <= 0:
-            val = 1.0
+            t = 0.0
         else:
             t = layer_id / max_layer
-            val = 1.0 - 0.7 * t   # 1.0 → 0.3 range
-
+        # ------------------------------------------------------------
+        # Heatmap: Blue → Cyan → Green → Yellow → Red
+        # ------------------------------------------------------------
+        if mapping == "heatmap":
+            hue = (240 * (1 - t)) / 360.0   # 240° → 0°
+            sat = 1.0
+            val = 1.0
+        # ------------------------------------------------------------
+        # Thermal: Black → Red → Yellow → White
+        # ------------------------------------------------------------
+        elif mapping == "thermal":
+            hue = (60 * t) / 360.0          # 0° → 60°
+            sat = 1.0
+            val = 0.3 + 0.7 * t             # darker → brighter
+        # ------------------------------------------------------------
+        # Rainbow: Purple → Blue → Green → Yellow → Red
+        # ------------------------------------------------------------
+        elif mapping == "rainbow":
+            hue = (270 * (1 - t)) / 360.0   # 270° → 0°
+            sat = 1.0
+            val = 1.0
+        # ------------------------------------------------------------
+        # Monochrome heatmap: Dark blue → Bright cyan
+        # ------------------------------------------------------------
+        elif mapping == "mono":
+            hue = 200 / 360.0               # blue/cyan
+            sat = 1.0
+            val = 0.3 + 0.7 * t
+        # ------------------------------------------------------------
+        # Default: fixed yellow hue, decreasing brightness
+        # ------------------------------------------------------------
+        else:
+            hue = 55 / 360.0                # yellow
+            sat = 1.0
+            val = 1.0 - 0.7 * t             # 1.0 → 0.3
+        # Convert HSV → RGB
         r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
         return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
 
@@ -1274,9 +1362,9 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.work_box = QtWidgets.QGraphicsRectItem(QtCore.QRectF(xmin, ymin, xmax - xmin, ymax - ymin))
         self.work_box.setPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen))  
         self.work_box.setBrush(QtGui.QBrush(QtCore.Qt.BrushStyle.NoBrush))
+        self.work_box.setZValue(self.layer_overlay["work_box"])
         self.scene.addItem(self.work_box)
         self.static_items.append(self.work_box)
-        self.work_box.setZValue(self.layer_overlay["work_box"])
 
     def add_grid(self):
         """Add the background grid item to the scene.
@@ -1292,8 +1380,8 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             spacing=1.0,
             bold_every=5
         )
-        self.scene.addItem(self.grid)
         self.grid.setZValue(self.layer_overlay["grid"])
+        self.scene.addItem(self.grid)
         self.static_items.append(self.grid)
         self.grid.setVisible(self.is_item_type_visible("grid"))
     
@@ -1672,6 +1760,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                 self.svg_batches[iii]=item
             if item not in self.scene.items():
                 # print(f"Added {iii}")
+                item.setZValue(self.layer_overlay["simulation"])
                 self.scene.addItem(item)
 
         # Hide all FUTURE batches
@@ -1694,7 +1783,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         """Render a motion slice as an SVG batch and return it as a QGraphicsSvgItem.
 
         Converts the specified motion range into an SVG fragment, creates a shared
-        QSvgRenderer, wraps it in a QGraphicsSvgItem, assigns the correct Z‑layer,
+        QSvgRenderer, wraps it in a QGraphicsSvgItem, assigns the "simulation" Z‑layer,
         and returns the ready‑to‑insert scene item.
         """
         # Ensure last position is set correctly
@@ -1706,7 +1795,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         renderer = QtSvg.QSvgRenderer(svg.encode("utf-8"))
         item = QtSvgWidgets.QGraphicsSvgItem()
         item.setSharedRenderer(renderer)
-        item.setZValue(self.layer_overlay["render_svg"])
+        item.setZValue(self.layer_overlay["simulation"])
         # Ensure last position is set correctly
         s_obj=self._get_position_object(end)
         self.last_x = self.batch_manager["last_x"] = s_obj.x 
@@ -2394,7 +2483,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.tool_label.setText(f"Tool: X={x:.2f} Y={y:.2f}")
 
         # Keep view centered
-        self.view.fitInView(self.scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        # self.view.fitInView(self.scene.itemsBoundingRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
 
     def draw_arc_segment(self, x0, y0, x1, y1, m: Motion, pen):
         """Approximate a G‑code arc (G2/G3) with line segments and append them to the live MotionItem.
@@ -2656,8 +2745,10 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # If paused → resume
         elif self.simulation_status.get("is_pause"):
             # remove all drawings if index is before last drawing
-            if self.batch_manager["sim_start"]>=self.sim_index:
+            if self.batch_manager.get("sim_start",0)>=self.sim_index:
                 self.clean_paths()
+                # Reset MotionItem
+                self._reset_motion_item()
             # Only freeze if there are batches.
             if len(self.svg_batches)>0:     
                 self._freeze_current_motions()
@@ -2788,18 +2879,22 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if not self.motion_item:
             # Reset MotionItem
             self._reset_motion_item()
-
+        this_obj =self._get_position_object(start)
+        self.last_x = self.batch_manager["last_x"] = this_obj.x 
+        self.last_y = self.batch_manager["last_y"] = this_obj.y
+        self.batch_manager["last_obj"] = this_obj
         for iii in range(start, end + 1):
             prev = self.motions[iii - 1]
             m = self.motions[iii]
-            # self.sim_index=iii
-            self._append_segment_to_motion_item(prev, m)
+            self._append_segment_to_motion_item(prev, m, iii)
 
         self.sim_index = end
         self.update_sim_position(self.sim_index)
     
     def sim_1_step_forward(self):
         """Advance the simulation forward in 1 step increment, drawing geometry as needed."""
+        # Ensure batch is selected correctly
+        self.current_batch=self._get_batch_index()
         self.sim_step_forward(steps_per_tick = 1)
 
     def sim_step_forward(self,steps_per_tick = 10):
@@ -2823,7 +2918,6 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if not self.motions:
             return
         start = self.sim_start_spin.value()
-        
         curr_pos_obj=self._get_position_object(self.sim_index)
         start_pos_obj=self._get_position_object(start)
         end = self.sim_end_spin.value()
@@ -2850,10 +2944,13 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             # Evaluate motions for 1 step
             start_step=self.sim_index
             end_step=next_pos_obj.m_index
-            for iii in range(start_step, end_step + 1):
+            self.last_x = self.batch_manager["last_x"] = curr_pos_obj.x 
+            self.last_y = self.batch_manager["last_y"] = curr_pos_obj.y
+            self.batch_manager["last_obj"] = curr_pos_obj
+            for iii in range(start_step, end_step + 0):
                 prev = self.motions[iii - 1]
                 m = self.motions[iii]
-                self._append_segment_to_motion_item(prev, m)
+                self._append_segment_to_motion_item(prev, m, iii)
             self.sim_index = end_step
             curr_pos_obj=next_pos_obj
 
@@ -2922,11 +3019,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
                 for index in range(bstart,self.sim_index):
                     prev = self.motions[index]
                     m = self.motions[index + 1]
-                    self._append_segment_to_motion_item(prev, m)
+                    self._append_segment_to_motion_item(prev, m, index + 1)
 
             self.update_sim_position(self.sim_index)
 
-    def _get_batch_index(self):
+    def _get_batch_index(self,index = None):
         """Return the index of the batch that contains the current simulation index.
 
         Iterates through self.batch_ranges (each a tuple of (start, end) motion
@@ -2937,9 +3034,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         active, which batch needs to be frozen, and when batch boundaries are
         crossed during stepping.
         """
+        if index is None:
+            index = self.sim_index
         batch_index=-1
         for iii, abatch in enumerate(self.batch_ranges):
-            if self.sim_index >= abatch[0] and self.sim_index <= abatch[1]:
+            if index >= abatch[0] and index <= abatch[1]:
                 batch_index = iii 
                 break
         return batch_index
@@ -3044,7 +3143,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.view.viewport().update()
         QtWidgets.QApplication.processEvents()
 
-    def _append_segment_to_motion_item(self, prev, m):
+    def _append_segment_to_motion_item(self, prev: Motion, m: Motion, index: int):
         """Append a single simulated motion segment to the live MotionItem, with full batch awareness.
 
         This method is the simulation engine’s incremental drawing primitive. It
@@ -3090,14 +3189,16 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         across batch boundaries.
         """
         # 1. Determine batch index
-        batch_index=self._get_batch_index()
+        batch_index=self._get_batch_index(index)
         if batch_index<0:
             return
         if not self.motion_item:
             # Reset MotionItem
             self._reset_motion_item()
-        sim_end = (self.sim_index == self.sim_end_spin.value())
-
+        sim_end = (index == self.sim_end_spin.value())
+        last_obj=self.batch_manager.get("last_obj")
+        if not last_obj:
+            return
         # 2. Switch batch if needed
         if batch_index != getattr(self, "current_batch", -1) or sim_end: # and new_move:
             if sim_end:
@@ -3109,41 +3210,74 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self._reset_motion_item()
 
             # IMPORTANT: continue from the LAST frozen motion
-            last_obj=self.batch_manager.get("last_obj")
             if isinstance(last_obj,Position):
                 last_frozen = self.motions[last_obj.m_index]
                 self.last_x = last_obj.x
                 self.last_y = last_obj.y    
             else:
-                last_frozen = self.motions[self.sim_index]
+                last_frozen = self.motions[index]
                 # self.last_x = last_frozen.x or 0
                 # self.last_y = last_frozen.y or 0
             prev = last_frozen
+        motion_types = ("rapid", "linear", "arc_cw", "arc_ccw")
+        visible = {t: self.is_item_type_visible(t) for t in motion_types}
 
         # 3. Compute start/end
         x0 = prev.x if prev.x is not None else self.last_x
         y0 = prev.y if prev.y is not None else self.last_y
         x1 = m.x if m.x is not None else x0
         y1 = m.y if m.y is not None else y0
+        z1 = m.z if m.z is not None else last_obj.z
+        e1 = m.e if m.e is not None else last_obj.e
 
-        # 4. Pen for this motion
-        style = self._get_style_dict_from_track([m.type])
-        pen = self.make_pen_from_style(style, m)
+        # 4. Pen for this motion        
+        this_obj=self._define_position_object(True,None,x=x1,y=y1,z=z1,
+                                               type=m.type,s=m.s,f=m.f,
+                                               layer_id=m.layer_id,e=e1,
+                                               m_index=index)
 
-        # 5. Append to MotionItem
-        self.motion_item.segments.append((x0, y0, x1, y1, pen))
+        # skip non-motion types
+        if m.type not in motion_types:
+            # still update last position
+            self.last_x = self.batch_manager["last_x"] = this_obj.x 
+            self.last_y = self.batch_manager["last_y"] = this_obj.y
+            self.batch_manager["last_obj"] = this_obj
+            return
 
-        # 6. Update bounding rect
-        new_rect = QtCore.QRectF(min(x0, x1), min(y0, y1),
-                                abs(x1 - x0), abs(y1 - y0))
+        # skip invisible motion types
+        if not visible[m.type]:
+            self.last_x = self.batch_manager["last_x"] = this_obj.x 
+            self.last_y = self.batch_manager["last_y"] = this_obj.y
+            self.batch_manager["last_obj"] = this_obj
+            return
 
-        self.motion_item.prepareGeometryChange()
-        self.motion_item._bounding_rect = self.motion_item._bounding_rect.united(new_rect)
-        self.motion_item.update()
+        # layer = m.layer_id if m.layer_id is not None else 0
+        
+        # Style-driven pen selection
+        style = self._get_style_dict_from_track([this_obj.type])
+        if not self.is_item_type_visible(this_obj.type):
+            style["Line Type"] = "none"
+        pen = self.make_pen_from_style(style, m)    
 
-        # 7. Update last position
-        self.last_x = x1
-        self.last_y = y1
+        # 5. Append to MotionItem (Only if change in position or style)
+        if m.type in ("rapid", "linear"):
+            # Append to live MotionItem tail
+            self.motion_item.segments.append((x0, y0, x1, y1, pen))
+
+            # Update bounding rect
+            new_rect = QtCore.QRectF(min(x0, x1), min(y0, y1),
+                                    abs(x1 - x0), abs(y1 - y0))
+
+            self.motion_item.prepareGeometryChange()
+            self.motion_item._bounding_rect = self.motion_item._bounding_rect.united(new_rect)
+            self.motion_item.update()
+        elif m.type in ("arc_cw", "arc_ccw"):
+            self.draw_arc_segment(x0,y0,x1,y1,m,pen)
+
+        # # 7. Update last position (is step by step, not obj to obj)
+        self.last_x = self.batch_manager["last_x"] = this_obj.x 
+        self.last_y = self.batch_manager["last_y"] = this_obj.y
+        self.batch_manager["last_obj"] = this_obj
 
     def _reset_motion_item(self):
         """Reset or recreate the live MotionItem used for simulation drawing.
@@ -3172,6 +3306,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         if not self.motion_item:
             # Create new MotionItem
             self.motion_item = MotionItem([], QtCore.QRectF(0, 0, 0, 0))
+            self.motion_item.setZValue(self.layer_overlay["simulation"])
             self.scene.addItem(self.motion_item)
         else:
             self.motion_item.segments.clear()
@@ -3240,12 +3375,25 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         # Highlight table row
         self.select_table_position(self.sim_index)
 
-        # Optionally center view on toolhead
-        if self.center_check.isChecked() and self.sim_index % 5 == 0:
-            self.view.centerOn(x, y)
+        if self.center_check.isChecked():
+            view_rect = self.view.viewport().rect()
+            pt = self.view.mapFromScene(x, y)
+
+            if not view_rect.contains(pt):
+                self.view.centerOn(x, y)
+                # Recalculate cursor scene position after recentering
+                cursor_pos = self.view.mapFromGlobal(QtGui.QCursor.pos())
+                scene_pos = self.view.mapToScene(cursor_pos)
+                self.update_cursor_status(scene_pos.x(), scene_pos.y())
 
         # Update progress bar
-        self.update_job_progressbar(self.sim_index,end=self.sim_end_spin.value(),start=self.sim_start_spin.value())    
+        self.update_job_progressbar(self.sim_index,end=self.sim_end_spin.value(),start=self.sim_start_spin.value())   
+
+        # Force scene refresh
+        self.scene.update()
+        self.view.viewport().update()
+        if not self.simulation_status.get("is_sliding"):
+            QtWidgets.QApplication.processEvents() 
 
     def update_job_progressbar(self, position, end, start=0):
         """Update the job progress bar using 0.1% resolution based on the current sim position."""
@@ -3541,6 +3689,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setDragMode(QtWidgets.QGraphicsView.DragMode.ScrollHandDrag)
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
 
     def wheelEvent(self, event):
         zoom_in = 1.25
