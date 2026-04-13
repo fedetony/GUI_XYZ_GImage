@@ -47,7 +47,7 @@
     "requires_analog_power": true
   },
 
-  "laser_cut": {
+  "vectorize_cut": {
     "compatible_tools": ["laser"],
     "method": [
       {

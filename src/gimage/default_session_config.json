@@ -225,30 +225,81 @@
       "info": "Laser power range (S parameter)",
       "meta":{
         "hidden":false,
-        "conditions": "me_set('meta[hidden]',False) if node_get('machine[machine_type[value]]') == 'laser' else me_set('meta[hidden]',True)",
+        "conditions": "me_set('meta[hidden]',False) if ('laser' in node_get('tool[tool_type[value]]') and  node_get('technique[technique_type[value]]') != 'vectorize_cut') else me_set('meta[hidden]',True)",
         "constraints": {
           "arity": 2
            }
       }
     },
 
+    "threshold": {
+      "value": 128,
+      "unit": "",
+      "type": "int",
+      "info": "Pixel threshold for black/white separation",
+      "meta": {
+        "hidden": false,
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
+        "constraints": {
+          "min": 0,
+          "max": 255
+        }
+      }
+    },
+    "contour_level": {
+      "value": 0.5,
+      "unit": "",
+      "type": "float",
+      "info": "Contour sensitivity level (0.1 = more contours, 0.9 = fewer)",
+      "meta": {
+        "hidden": false,
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
+        "constraints": {
+          "min": 0.0,
+          "max": 1.0
+        }
+      }
+    },
+    "smooth_passes": {
+      "value": 1,
+      "unit": "",
+      "type": "int",
+      "info": "Number of Chaikin smoothing passes",
+      "meta": {
+        "hidden": false,
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
+        "constraints": {
+          "min": 0,
+          "max": 10
+        }
+      }
+    },
+    "invert": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Invert image before vectorizing. Normal: dark areas → traced, light areas → ignored. Inverted: light areas → traced, dark areas → ignored.",
+      "meta": {
+        "hidden": false,
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)"
+      }
+    },
+
     "cut_power_range": {
-      "value": [20, 400],
+      "value": [0, 1000],
       "unit": "",
       "type": "list",
       "subtype": "int",
       "meta":{
         "hidden":false,
-        "conditions": "me_set('meta[hidden]',False) if node_get('machine[machine_type[value]]') == 'laser' else me_set('meta[hidden]',True)",
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
         "constraints": {
           "min":[0,0],
-          "max":[1000,1000],
           "arity": 2
            }
       },
       "info": "Laser cutting power range"
     },
-
     "rate": {
       "value": 2000,
       "unit": "mm/min",
@@ -259,7 +310,6 @@
         "conditions": "me_set('meta[hidden]',False) if node_get('technique[use_variable_rate[value]]') == False else me_set('meta[hidden]',True)"
       }
     },
-
     "use_variable_rate": {
       "value": false,
       "unit": "",
@@ -296,14 +346,15 @@
       "value": 1, 
       "unit": "", 
       "type": "float",
-      "info": "RDP shape simplification factor epsilon",
+      "info": "RDP shape simplification factor epsilon (higher = fewer points)",
       "meta": { 
         "hidden":false,
         "min":0,
-        "max":1000,
-        "conditions": "me_set('meta[hidden]',False) if 'vectorize' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)"
+        "max":33,
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize','vectorize_fill','vectorize_cut'] else me_set('meta[hidden]',True)"
       }
-      },
+    },
+
     "vectorization_method": { 
       "value": "opencv", 
       "unit": "", 
@@ -312,7 +363,7 @@
       "meta": { 
         "hidden":false,
         "options": ["opencv","classic"],
-        "conditions": "me_set('meta[hidden]',False) if 'vectorize' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize','vectorize_fill'] else me_set('meta[hidden]',True)"
       }
       },
     "merging_shape_factor": { 
@@ -324,7 +375,7 @@
         "hidden":false,
         "min":0.0,
         "max":5.0,
-        "conditions": "me_set('meta[hidden]',False) if 'vectorize' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize','vectorize_fill'] else me_set('meta[hidden]',True)"
       }
       },
     

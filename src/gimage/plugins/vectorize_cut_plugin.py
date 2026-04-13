@@ -1,8 +1,8 @@
 from .plugin_base import GImageTechniqueBase
-import potrace
 import numpy as np
 from PIL import Image
 import os, tempfile
+from skimage import measure # pip install scikit-image
 
 class VectorizeCutTechnique(GImageTechniqueBase):
     name = "vectorize_cut"
@@ -15,13 +15,51 @@ class VectorizeCutTechnique(GImageTechniqueBase):
         self.emit_action(self.machine.a_set("Comment", msg=f"Using interface {interface_name}"))
 
         # --- CONFIG ---
-        self.power = cfg.get_value(["technique", "cut_power", "value"]) or 1000
-        self.feedrate = cfg.get_value(["technique", "cut_feedrate", "value"]) or 800
-        self.gcode_floating_decimals = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
+        self.min_power_cut, self.max_power_cut = cfg.get_value(["technique","cut_power_range","value"])
+        self.power = self.max_power_cut
+
+        self.feedrate = cfg.get_value(["technique", "rate", "value"])
+        if self.feedrate is None:
+            self.feedrate = 800
+
+        self.gcode_floating_decimals = cfg.get_value(["output","gcode_floating_decimals","value"])
+        if self.gcode_floating_decimals is None:
+            self.gcode_floating_decimals = 3
 
         width_mm, height_mm, _ = cfg.get_value(["output","image_size","value"])
         self.offset_x, self.offset_y, _ = cfg.get_value(["output","image_offset","value"])
-        lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"]) or 1
+
+        lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
+        if lines_per_mm is None:
+            lines_per_mm = 1
+
+        # NEW CONFIG PARAMETERS
+        threshold = cfg.get_value(["technique","threshold","value"])
+        if threshold is None:
+            threshold = 128
+
+        contour_level = cfg.get_value(["technique","contour_level","value"])
+        if contour_level is None:
+            contour_level = 0.5
+
+        simplify_tol = cfg.get_value(["technique","rdp_shape_simplification","value"])
+        if simplify_tol is None:
+            simplify_tol = 2.0
+
+        smooth_passes = cfg.get_value(["technique","smooth_passes","value"])
+        if smooth_passes is None:
+            smooth_passes = 1
+
+        invert = cfg.get_value(["technique","invert","value"])
+        if invert is None:
+            invert = False
+
+        params_msg = (
+            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},"
+            f"th:{threshold},c_l:{contour_level},rdp:{simplify_tol},"
+            f"s_p:{smooth_passes},inv:{invert}"
+        )
+        self.emit_action(self.machine.a_set("Comment", msg=params_msg))
 
         # resolution
         W = max(1, int(width_mm  * lines_per_mm))
@@ -31,10 +69,37 @@ class VectorizeCutTechnique(GImageTechniqueBase):
         # --- Prepare image ---
         img = self.image.convert("L")  # grayscale
         img = img.resize((W, H), resample=Image.Resampling.LANCZOS)
-        bw = img.point(lambda p: 0 if p < 128 else 255, '1')
 
-        bitmap = potrace.Bitmap(np.array(bw))
-        traced = bitmap.trace()
+        arr = np.array(img)
+
+        # invert if needed
+        if invert:
+            arr = 255 - arr
+
+        # binary mask
+        bw = arr < threshold
+
+        # --- Vectorize using skimage ---
+        contours = measure.find_contours(bw, level=contour_level) # 0.5
+
+        # Simplify + smooth
+        processed = []
+        for c in contours:
+            if len(c) < 3:
+                continue
+
+            # simplify
+            if simplify_tol > 0:
+                c = measure.approximate_polygon(c, tolerance=simplify_tol)
+
+            # smooth
+            if smooth_passes > 0:
+                c = self._chaikin(c, smooth_passes)
+
+            processed.append(c)
+
+        #Sort the paths
+        processed = self._sort_contours_by_proximity(processed)
 
         # Output paths
         filename = f"{self.name}_output"
@@ -42,7 +107,7 @@ class VectorizeCutTechnique(GImageTechniqueBase):
         self.gcode_path = os.path.join(tempfile.gettempdir(), f"{filename}.gcode")
 
         # --- Generate SVG ---
-        svg_text = self._paths_to_svg(traced, W, H)
+        svg_text = self._contours_to_svg(processed, W, H)
         with open(self.svg_path, "w") as f:
             f.write(svg_text)
 
@@ -52,72 +117,56 @@ class VectorizeCutTechnique(GImageTechniqueBase):
         self.emit_action(self.machine.move(rapid=True, X=0, Y=0))
         self.emit_action(self.machine.set_position(X=0, Y=0))
 
-        self._paths_to_gcode(traced, img)
+        self._contours_to_gcode(processed, img)
 
         self.emit_status(f"Finished vectorize_cut.\nSVG: {self.svg_path}\nGCODE: {self.gcode_path}")
 
     # ----------------------------------------------------------------------
 
-    def _paths_to_svg(self, path, W, H):
-        """Convert potrace paths to a simple SVG."""
+    def _contours_to_svg(self, contours, W, H):
+        """Convert skimage contours to SVG."""
         svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">']
 
-        p = path
-        while p:
-            curve = p.curve
+        for contour in contours:
+            if len(contour) < 2:
+                continue
+
             d = []
+            y0, x0 = contour[0]
+            d.append(f"M {x0:.2f} {y0:.2f}")
 
-            # Move to first point
-            x0, y0 = curve.c[0][1]
-            d.append(f"M {x0} {y0}")
-
-            for i in range(curve.n):
-                tag = curve.tag[i]
-                pts = curve.c[i]
-
-                if tag == potrace.POTRACE_CORNER:
-                    # corner: two points
-                    d.append(f"L {pts[1][0]} {pts[1][1]}")
-                    d.append(f"L {pts[2][0]} {pts[2][1]}")
-                else:
-                    # curve: 3 control points
-                    d.append(f"C {pts[0][0]} {pts[0][1]} {pts[1][0]} {pts[1][1]} {pts[2][0]} {pts[2][1]}")
+            for (y, x) in contour[1:]:
+                d.append(f"L {x:.2f} {y:.2f}")
 
             d.append("Z")
             svg.append(f'<path d="{" ".join(d)}" fill="none" stroke="black"/>')
-
-            p = p.next
 
         svg.append("</svg>")
         return "\n".join(svg)
 
     # ----------------------------------------------------------------------
 
-    def _paths_to_gcode(self, path, im):
-        """Convert potrace paths to G-code using your movement system."""
-        p = path
-        while p:
-            curve = p.curve
+    def _contours_to_gcode(self, contours, im):
+        """Convert skimage contours to G-code."""
+        for contour in contours:
+            if len(contour) < 2:
+                continue
 
             # First point
-            x0, y0 = curve.c[0][1]
+            y0, x0 = contour[0]
             x0, y0 = self._px_to_xy(im, x0, y0)
 
             self.emit_action(self.tool.up())
             self.emit_action(self.machine.move(rapid=True, X=x0, Y=y0, F=self.feedrate))
             self.emit_action(self.tool.down(power=self.power))
 
-            # Follow segments
-            for i in range(curve.n):
-                pts = curve.c[i]
-                # end point of segment
-                x, y = pts[-1]
+            # Follow contour
+            for (y, x) in contour[1:]:
                 x, y = self._px_to_xy(im, x, y)
                 self.emit_action(self.machine.move(rapid=False, X=x, Y=y, F=self.feedrate, S=self.power))
 
             # close
             self.emit_action(self.tool.up())
-            p = p.next
 
     # ----------------------------------------------------------------------
 
@@ -130,3 +179,63 @@ class VectorizeCutTechnique(GImageTechniqueBase):
 
     def _rr(self, v):
         return float(f"{v:.{self.gcode_floating_decimals}f}")
+    
+    def _chaikin(self, pts, passes=1):
+        pts = np.array(pts)
+        for _ in range(passes):
+            new = []
+            for i in range(len(pts)-1):
+                p = pts[i]
+                q = pts[i+1]
+                new.append(0.75*p + 0.25*q)
+                new.append(0.25*p + 0.75*q)
+            pts = np.array(new)
+        return pts
+
+    def _sort_contours_by_proximity(self, contours):
+        """Sort contours to minimize travel distance (nearest-neighbor)."""
+
+        if not contours:
+            return contours
+
+        # Convert to list of numpy arrays
+        contours = [np.array(c) for c in contours]
+
+        # Start with the first contour
+        ordered = [contours.pop(0)]
+
+        while contours:
+            last = ordered[-1]
+            last_end = last[-1]  # last point of previous contour
+
+            # Find nearest contour (start or end)
+            best_i = None
+            best_dist = float("inf")
+            best_reverse = False
+
+            for i, c in enumerate(contours):
+                d_start = np.linalg.norm(c[0] - last_end)
+                d_end   = np.linalg.norm(c[-1] - last_end)
+
+                if d_start < best_dist:
+                    best_dist = d_start
+                    best_i = i
+                    best_reverse = False
+
+                if d_end < best_dist:
+                    best_dist = d_end
+                    best_i = i
+                    best_reverse = True
+
+            # Take the best contour
+            next_c = contours.pop(best_i)
+
+            # Reverse if needed
+            if best_reverse:
+                next_c = next_c[::-1]
+
+            ordered.append(next_c)
+
+        return ordered
+
+
