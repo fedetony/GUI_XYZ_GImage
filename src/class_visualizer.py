@@ -9,6 +9,7 @@ import math
 import tempfile
 import os
 import colorsys
+import bisect
 from collections import defaultdict
 
 conditions={"rapid": "me_set('meta[hidden]',False) if node_get('rapid[Show[value]]') else me_set('meta[hidden]',True)",
@@ -1635,16 +1636,13 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
     def _build_motion_index(self):
         """Build and cache a mapping from motion indices to position-list indices.
 
-        Creates a dictionary mapping each Position.m_index to its index in
+        Creates a list mapping each Position.m_index to its index in
         self.positions. Returns the cached mapping on subsequent calls.
         """
-        motion_index={}
-        if self._motion_index_:
-            return self._motion_index_
-        for pos,ppp in enumerate(self.positions):
-            motion_index.update({ppp.m_index:pos})
-        self._motion_index_= motion_index
-        return motion_index
+        # positions is already sorted by m_index
+        keys = [pos.m_index for pos in self.positions]   # sorted list of motion indices
+        return keys
+
 
     def _get_position_object(self, motions_index):
         """Return the Position object corresponding to a motion index.
@@ -1653,18 +1651,18 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         Falls back to the last known position for out‑of‑range indices, or
         returns a default Position() if no match is found.
         """
-        m_i=self._build_motion_index()
-        if motions_index in m_i.keys():
-            return self.positions[m_i[motions_index]]
-        if motions_index >= len(self.motions)-1: 
-            # end position return last known position
-            return self.positions[-1]
-        last_i=0
-        for index in m_i.keys():
-            if motions_index>last_i and motions_index<=index:
-                return self.positions[m_i[last_i]]
-            last_i=index
-        return Position()
+        keys = self._build_motion_index()
+        # No positions at all → return empty Position()
+        if not keys:
+            return Position()
+        # rightmost key <= motions_index
+        iii = bisect.bisect_right(keys, motions_index) - 1
+        # If i >= 0 → we found a valid previous position
+        if iii >= 0:
+            return self.positions[iii]
+        # i == -1 → motions_index is BEFORE the first movement
+        # Return the FIRST known position
+        return self.positions[0]
     
     def _get_next_position_object(self, motions_index):
         """Return the next defined Position object after the given motion index.
@@ -1673,16 +1671,19 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         provided motions_index. Falls back to the last known position or a
         default Position() if no suitable match exists.
         """ 
-        m_i=self._build_motion_index()
-        if motions_index >= len(self.motions)-1: 
-            # end position return last known position
-            return self.positions[-1]
-        last_i=0
-        for index in m_i.keys():
-            if motions_index>=last_i and motions_index<index:
-                return self.positions[m_i[index]]
-            last_i=index
-        return Position() 
+        keys = self._build_motion_index()
+        if not keys:
+            return Position()
+        # leftmost key > motions_index
+        iii = bisect.bisect_right(keys, motions_index)
+
+        # If i is inside the list, we found a future movement
+        if iii < len(keys):
+            return self.positions[iii]
+
+        # Otherwise: no future movement → return last known position
+        return self.positions[-1]
+
     
     def _get_prev_position_object(self, motions_index):
         """Return the previous defined Position object before the given motion index.
@@ -1692,20 +1693,30 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         for index 0, the last known position for out‑of‑range indices, or a
         default Position() if no match is found.
         """
-        curr_obj=self._get_position_object(motions_index)
-        m_i=self._build_motion_index()
-        if curr_obj.m_index <= 0: 
-            # first position
-            return curr_obj
-        if motions_index >= len(self.motions): 
-            # end position return last known position
-            return self.positions[-1]
-        last_i=0
-        for index in m_i.keys():
-            if index>=curr_obj.m_index and last_i<curr_obj.m_index:
-                return self.positions[m_i[last_i]]
-            last_i=index
-        return Position() 
+        # curr_obj=self._get_position_object(motions_index)
+        # m_i=self._build_motion_index()
+        # if curr_obj.m_index <= 0: 
+        #     # first position
+        #     return curr_obj
+        # if motions_index >= len(self.motions): 
+        #     # end position return last known position
+        #     return self.positions[-1]
+        # last_i=0
+        # for index in m_i.keys():
+        #     if index>=curr_obj.m_index and last_i<curr_obj.m_index:
+        #         return self.positions[m_i[last_i]]
+        #     last_i=index
+        # return Position() 
+        curr = self._get_position_object(motions_index)
+        curr_index = curr.m_index
+        keys = self._build_motion_index()
+        if not keys:
+            return Position()
+        # rightmost key < curr_index
+        iii = bisect.bisect_left(keys, curr_index) - 1
+        if iii >= 0:
+            return self.positions[iii]
+        return curr  # already at first position
     
     def activate_svg_batch(self, batch_index):
         """Activate a specific SVG batch and update scene state accordingly.
@@ -1847,10 +1858,11 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         last_x = self.batch_manager.get("last_x",0)
         last_y = self.batch_manager.get("last_y",0)
         last_obj = self.batch_manager.get("last_obj")
+        
 
         # 2. Loop through motions in the slice
         for prev, m in zip(motions_slice, motions_slice[1:]):
-
+            is_not_visible=False
             # Skip non-motion types
             if m.type not in ("rapid", "linear", "arc_cw", "arc_ccw"):
                 x = m.x if m.x is not None else last_x
@@ -1865,7 +1877,10 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
 
             pen = self.make_pen_from_style(style, m)
             if pen.style() == QtCore.Qt.PenStyle.NoPen:
-                continue
+                x = m.x if m.x is not None else last_x
+                y = m.y if m.y is not None else last_y
+                last_x, last_y = x, y
+                is_not_visible=True
 
             svg_style = self.pen_to_svg_attributes(pen)
 
@@ -1876,23 +1891,28 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             y1 = m.y if m.y is not None else y0
 
             # Build path command
-            if m.type in ("rapid", "linear"):
-                d = f"M {x0} {y0} L {x1} {y1}"
-
-            elif m.type in ("arc_cw", "arc_ccw"):
-                if m.r is not None:
-                    r = abs(m.r)
-                else:
-                    dx = m.i if m.i is not None else 0
-                    dy = m.j if m.j is not None else 0
-                    r = (dx*dx + dy*dy)**0.5
-
-                if r == 0:
+            # always emit an independent mini-path for this segment
+            # so nothing ever "connects" accidentally
+            
+            if is_not_visible:
+                d = f"M {x0} {y0} M {x1} {y1}"
+            else:
+                if m.type in ("rapid", "linear") and not is_not_visible:
                     d = f"M {x0} {y0} L {x1} {y1}"
-                else:
-                    sweep = 1 if m.type == "arc_cw" else 0
-                    d = f"M {x0} {y0} A {r} {r} 0 0 {sweep} {x1} {y1}"
 
+                elif m.type in ("arc_cw", "arc_ccw"):
+                    if m.r is not None:
+                        r = abs(m.r)
+                    else:
+                        dx = m.i if m.i is not None else 0
+                        dy = m.j if m.j is not None else 0
+                        r = (dx*dx + dy*dy)**0.5
+
+                    if r == 0:
+                        d = f"M {x0} {y0} L {x1} {y1}"
+                    else:
+                        sweep = 1 if m.type == "arc_cw" else 0
+                        d = f"M {x0} {y0} A {r} {r} 0 0 {sweep} {x1} {y1}"
             # Emit <path> with its own stroke
             dash_attr = (
                 f'stroke-dasharray="{svg_style["dasharray"]}"'
@@ -2887,6 +2907,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             prev = self.motions[iii - 1]
             m = self.motions[iii]
             self._append_segment_to_motion_item(prev, m, iii)
+            self.update_job_progressbar(iii,end,start)
 
         self.sim_index = end
         self.update_sim_position(self.sim_index)
@@ -2922,6 +2943,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         start_pos_obj=self._get_position_object(start)
         end = self.sim_end_spin.value()
         max_index = len(self.motions) - 1
+        the_last_position_obj=self._get_position_object(max_index)
         if curr_pos_obj.m_index<start_pos_obj.m_index:
             self.sim_index=start_pos_obj.m_index
         # Ensure last position is set correctly
@@ -2931,7 +2953,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.batch_manager["last_obj"] = s_obj
         # Draw 10 segments per tick
         for _ in range(steps_per_tick):
-            if self.sim_index >= end or self.sim_index >= max_index:
+            if self.sim_index >= end or self.sim_index > max_index or self.sim_index >= the_last_position_obj.m_index:
                 self.sim_pause()
                 self.sim_index = end
                 break
@@ -3244,18 +3266,18 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
             self.batch_manager["last_obj"] = this_obj
             return
 
-        # skip invisible motion types
-        if not visible[m.type]:
-            self.last_x = self.batch_manager["last_x"] = this_obj.x 
-            self.last_y = self.batch_manager["last_y"] = this_obj.y
-            self.batch_manager["last_obj"] = this_obj
-            return
+        # # skip invisible motion types
+        # if not visible[m.type]:
+        #     self.last_x = self.batch_manager["last_x"] = this_obj.x 
+        #     self.last_y = self.batch_manager["last_y"] = this_obj.y
+        #     self.batch_manager["last_obj"] = this_obj
+        #     return
 
         # layer = m.layer_id if m.layer_id is not None else 0
         
         # Style-driven pen selection
         style = self._get_style_dict_from_track([this_obj.type])
-        if not self.is_item_type_visible(this_obj.type):
+        if not visible[this_obj.type]:
             style["Line Type"] = "none"
         pen = self.make_pen_from_style(style, m)    
 

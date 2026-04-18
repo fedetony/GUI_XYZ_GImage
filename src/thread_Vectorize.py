@@ -1458,7 +1458,7 @@ class Vectorization(threading.Thread):
         return True
 
             
-    def Sort_color_joined_pieces_to_radial(self, color_joined_pieces, xp=0, yp=0):
+    def sort_color_joined_pieces_to_radial(self, color_joined_pieces:dict, xp=0, yp=0):
         """
         Sort shapes for each color by radial distance from a reference point.
 
@@ -1498,6 +1498,33 @@ class Vectorization(threading.Thread):
             new_color_joined_pieces[color] = [shape for (_, shape) in shape_info]
 
         return new_color_joined_pieces
+    
+    def sort_color_joined_pieces_to_shortest_path(self, color_joined_pieces):
+        """
+        Sort shapes for each color by shortest distance from each other.
+
+        Parameters
+        ----------
+        color_joined_pieces : dict
+            Mapping of RGBA colors to lists of shapes. Each shape is a list of
+            sub-shapes, and each sub-shape is a list of edges:
+                [ [ ((x0,y0),(x1,y1)), ... ], ... ]
+        xp, yp : float
+            Center point used for radial sorting.
+
+        Returns
+        -------
+        dict
+            Same structure as input, but shapes sorted by shortest path.
+        """
+        new_color_joined_pieces = {}
+        for color, shapes in color_joined_pieces.items():
+            sorted_shapes=self.sort_shapes_by_shortest_path(shapes)
+            new_color_joined_pieces[color] = sorted_shapes
+
+        return new_color_joined_pieces
+    
+    
 
     def Set_Progress_Percentage(self,sss,Numsss,Perini=0,Perend=100):
         if sss>Numsss:

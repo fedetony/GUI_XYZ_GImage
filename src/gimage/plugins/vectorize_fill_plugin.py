@@ -7,6 +7,35 @@ import tempfile
 import pyclipper
 from ._math_tranforming_helpers import *
 
+# 🎯 Preset 1: High Detail Fill
+#     RDP = 0.5
+#     Merge = 0
+#     Fill spacing = 1×
+#     Min lines = 1
+#     Result: beautiful, slow, huge G‑code
+
+# 🎯 Preset 2: Balanced Fill
+#     RDP = 1.5
+#     Merge = 1
+#     Fill spacing = 1.5×
+#     Min lines = 3
+#     Result: good quality, reasonable G‑code
+
+# 🎯 Preset 3: Fast Fill
+#     RDP = 3
+#     Merge = 3
+#     Fill spacing = 2×
+#     Min lines = 5
+#     Result: fast, small G‑code, less detail
+
+# 🎯 Preset 4: Posterize Fill
+#     Quantize colors to 4
+#     RDP = 5
+#     Merge = 5
+#     Fill spacing = 3×
+#     Min lines = 10
+#     Result: stylized, very fast, minimal G‑code
+
 class VectorizeFillTechnique(GImageTechniqueBase):
     name = "vectorize_fill" #must match the name in the technique combo
 
@@ -89,6 +118,8 @@ class VectorizeFillTechnique(GImageTechniqueBase):
                             
         svg_image = vectorize_thread.vectorizer_rgba_image_to_svg_contiguous(im=img,epsilon=rdp_shape_simplification)
         vectorize_thread.Save_svg_text_file(svg_image,self.svg_path)
+
+        vectorize_thread.last_color_joined_pieces=vectorize_thread.sort_color_joined_pieces_to_shortest_path(vectorize_thread.last_color_joined_pieces)
 
         self._to_gcode_contiguous_emit(img,vectorize_thread.last_color_joined_pieces)
         
