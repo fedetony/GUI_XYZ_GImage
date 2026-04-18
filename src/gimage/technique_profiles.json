@@ -10,7 +10,14 @@
   },
 
   "vectorize_fill": {
-    "compatible_tools": ["pen", "pencil", "brush", "laser", "extruder", "mark"],
+    "compatible_tools": [
+      "pen",
+      "pencil",
+      "brush",
+      "laser",
+      "extruder",
+      "mark"
+    ],
     "method": [
       {
         "name": "none",
@@ -27,6 +34,22 @@
       {
         "name": "spiral",
         "info": "Fills shapes using a continuous spiral pattern from center outward."
+      },
+      {
+        "name": "offset",
+        "info": "Fills shapes using repeated inward offsets (contour shrinking)."
+      },
+      {
+        "name": "concentric",
+        "info": "Fills shapes using contour outlines and concentric contour rings."
+      },
+      {
+        "name": "contour_hatch",
+        "info": "Fills shapes using contour outlines combined with hatch lines."
+      },
+      {
+        "name": "contour_crosshatch",
+        "info": "Fills shapes using contour outlines combined with crosshatch lines."
       }
     ]
   },
@@ -57,6 +80,51 @@
       {
         "name": "m3_constant_power",
         "info": "Uses M3 mode with fixed laser power for consistent cutting depth."
+      }
+    ]
+  },
+
+  "vectorize_cut_fill": {
+    "compatible_tools": [
+      "pen",
+      "pencil",
+      "brush",
+      "laser",
+      "extruder",
+      "mark"
+    ],
+    "method": [
+      {
+        "name": "none",
+        "info": "Only outlines are drawn; no interior fill is applied."
+      },
+      {
+        "name": "hatch",
+        "info": "Fills shapes using parallel lines at a fixed angle."
+      },
+      {
+        "name": "crosshatch",
+        "info": "Fills shapes using two hatch patterns at different angles for denser coverage."
+      },
+      {
+        "name": "spiral",
+        "info": "Fills shapes using a continuous spiral pattern from center outward."
+      },
+      {
+        "name": "offset",
+        "info": "Fills shapes using repeated inward offsets (contour shrinking)."
+      },
+      {
+        "name": "concentric",
+        "info": "Fills shapes using contour outlines and concentric contour rings."
+      },
+      {
+        "name": "contour_hatch",
+        "info": "Fills shapes using contour outlines combined with hatch lines."
+      },
+      {
+        "name": "contour_crosshatch",
+        "info": "Fills shapes using contour outlines combined with crosshatch lines."
       }
     ]
   },

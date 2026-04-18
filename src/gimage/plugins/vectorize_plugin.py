@@ -3,6 +3,7 @@ from .plugin_base import GImageTechniqueBase
 from thread_Vectorize import *
 import os
 import tempfile
+from ._vectorize_shared import *
 
 class VectorizeTechnique(GImageTechniqueBase):
     name = "vectorize" #must match the name in the technique combo
@@ -18,7 +19,8 @@ class VectorizeTechnique(GImageTechniqueBase):
         self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
         # --- CONFIG ---
         lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
-        self.mode = "continuous" # cfg.get_value(["image","mode","value"])  # "continuous" or "threshold"
+        self.p_mode = "continuous" # cfg.get_value(["image","mode","value"])  # "continuous" or "threshold"
+        self.fr_mode= "treshhold"
         rdp_shape_simplification= cfg.get_value(["technique","rdp_shape_simplification","value"]) or 1
         self.min_power, self.max_power = cfg.get_value(["technique","power_range","value"])
         feedrange = cfg.get_value(["technique","feedrate_range","value"])
@@ -34,7 +36,9 @@ class VectorizeTechnique(GImageTechniqueBase):
         self.offset_x, self.offset_y, _  = cfg.get_value(["output","image_offset","value"])
         self.gcode_floating_decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
         self.gcode_minimize_code= cfg.get_value(["output","gcode_minimize_code","value"]) or True
-        
+        self.invert = cfg.get_value(["technique","invert","value"])
+        if self.invert is None:
+            self.invert = False
         
         #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
 
@@ -105,12 +109,12 @@ class VectorizeTechnique(GImageTechniqueBase):
             self.check_stop()
             
             # --- Compute power + feedrate from color ---
-            pixel = self.safe_pixel_from_color(color) # color is rgba
-            power = self._pixel_to_power(pixel, self.min_power, self.max_power, self.mode)
+            pixel = safe_pixel_from_color(color) # color is rgba
+            power = pixel_to_power(pixel, self.min_power, self.max_power, self.p_mode, self.invert)
 
             # IMPORTANT: use base feedrate, not previous feedrate
-            feedrate = self._pixel_to_feedrate(pixel, self.feedrate,
-                                            self.min_rate, self.max_rate, self.mode)
+            feedrate = pixel_to_feedrate(pixel, self.feedrate,
+                                            self.min_rate, self.max_rate, self.fr_mode, self.invert)
             self.emit_action(self.machine.a_set("Message",msg=f"New Color({color})/Layer with S{power} F{feedrate}"))
             # --- Progress ---
             percent = int((sss / max(1, lenlist - 1)) * 100)
@@ -249,39 +253,6 @@ class VectorizeTechnique(GImageTechniqueBase):
             """Helper to set number of decimals to the gcode coordinates"""
             return float(f"{value:.{self.gcode_floating_decimals}f}")
     
-    def _pixel_to_power(self, pixel, min_p, max_p, mode):
-        if isinstance(pixel, tuple):
-            pixel = sum(pixel) / len(pixel)
-
-        if mode == "threshold":
-            return max_p if pixel < 128 else 0
-
-        # continuous grayscale
-        brightness = pixel / 255.0
-        inv = 1.0 - brightness
-        return int(min_p + inv * (max_p - min_p))
-    
-    def _pixel_to_feedrate(self, pixel,actual_rate, min_rate, max_rate, mode):
-        if mode == "threshold":
-            return actual_rate
-        if isinstance(pixel, tuple):
-            pixel = sum(pixel) / len(pixel)
-        # continuous grayscale
-        brightness = pixel / 255.0
-        inv = 1.0 - brightness
-        return int(min_rate + inv * (max_rate - min_rate))
-    
-    def safe_pixel_from_color(self, color):
-        try:
-            r, g, b = color[:3]
-            r = max(0, min(255, int(r)))
-            g = max(0, min(255, int(g)))
-            b = max(0, min(255, int(b)))
-            return (r + g + b) / 3.0
-        except Exception:
-            return 128  # neutral gray fallback
-
-
     
 class ProgressWrapper:
     def __init__(self,emit_progress):

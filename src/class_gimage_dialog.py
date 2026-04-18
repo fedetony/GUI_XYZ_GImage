@@ -100,6 +100,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
                             "zoom_in": QtGui.QIcon(":/img/Plus-icon.png"),
                             "zoom_out": QtGui.QIcon(":/img/Minus-icon.png"),
                             "make_gcode":QtGui.QIcon(":/img/eye-in-a-sky-icon.png"),
+                            "interface": QtGui.QIcon(":/img/Ahmadhania-Spherical-Top.128.png"),
                             }
         self._do_evaluation=False
         # -------------------------
@@ -145,6 +146,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         # Selectors
         # -------------------------
         selector_layout = QtWidgets.QVBoxLayout()
+        interface_layout, self.interface_combo = self._make_icon_label_combo_row(
+            "Interface:", self.all_icons_dict["interface"])
         machine_layout, self.machine_combo = self._make_icon_label_combo_row(
             "Machine:", self.all_icons_dict["machine_icon"])
         tool_layout, self.tool_combo = self._make_icon_label_combo_row(
@@ -154,6 +157,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         color_layout, self.color_combo = self._make_icon_label_combo_row(
             "Color:", self.all_icons_dict["color_icon"])
 
+        selector_layout.addLayout(interface_layout)
         selector_layout.addLayout(color_layout)
         selector_layout.addLayout(machine_layout)
         selector_layout.addLayout(tool_layout)
@@ -340,6 +344,17 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         print(f'{stored.get("path")} @ row,col : {index.row()},{index.column()}')
     
     def fill_combos(self):
+        id_list=self.ch.get_id_list()
+        interface_name_list=[self.ch.get_name_from_id(an_id) for an_id in id_list]
+        if interface_name_list:
+            self.interface_combo.addItems(interface_name_list)
+            if self.actual_interface_id in id_list:
+                name=self.ch.get_name_from_id(self.actual_interface_id)
+            else:
+                name=interface_name_list[-1]
+                self.actual_interface_id=id_list[-1]
+            self.ch.set_id(self.actual_interface_id)
+            self._set_combo_value(self.interface_combo,name) 
         if self.tv:
             self.machine_combo.addItems(self.cm.machine_list)
             self.tool_combo.addItems(self.cm.tool_list)
@@ -425,6 +440,7 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.action_zoom_in.triggered.connect(self.on_zoom_in_clicked)
         self.action_zoom_out.triggered.connect(self.on_zoom_out_clicked)
         #Combos
+        self.interface_combo.currentTextChanged.connect(self.on_interface_changed)
         self.color_combo.currentTextChanged.connect(self.on_color_changed)
         self.machine_combo.currentTextChanged.connect(self.on_machine_changed)
         self.tool_combo.currentTextChanged.connect(self.on_tool_changed)
@@ -483,6 +499,17 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self.LSTDialog.color_palette=self.im_processor.get_color_palette(self.im_processed,num_layers)
             self.LSTDialog.Assign_Colors_to_Labels(self.LSTDialog.color_palette)       
 
+    def on_interface_changed(self, value):
+        """Interface setting changed, if different apply ch change"""
+        id_list=self.ch.get_id_list()
+        interface_name_list=[self.ch.get_name_from_id(an_id) for an_id in id_list]
+        
+        for an_id,a_name in zip(id_list,interface_name_list):
+            if value == a_name and an_id!=self.ch.id:
+                self.actual_interface_id=an_id
+                self.ch.set_id(an_id)
+                return
+        
     def on_color_changed(self, value):
         """Color setting changed, if different apply to config and processed image"""
         color_selection=self.tv.tracker.get_value(["image","color","value"])

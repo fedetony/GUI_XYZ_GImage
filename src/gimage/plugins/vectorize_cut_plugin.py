@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import os, tempfile
 from skimage import measure # pip install scikit-image
+from ._vectorize_shared import *
 
 class VectorizeCutTechnique(GImageTechniqueBase):
     name = "vectorize_cut"
@@ -94,12 +95,12 @@ class VectorizeCutTechnique(GImageTechniqueBase):
 
             # smooth
             if smooth_passes > 0:
-                c = self._chaikin(c, smooth_passes)
+                c = chaikin(c, smooth_passes)
 
             processed.append(c)
 
         #Sort the paths
-        processed = self._sort_contours_by_proximity(processed)
+        processed = sort_contours_by_proximity(processed)
 
         # Output paths
         filename = f"{self.name}_output"
@@ -180,62 +181,4 @@ class VectorizeCutTechnique(GImageTechniqueBase):
     def _rr(self, v):
         return float(f"{v:.{self.gcode_floating_decimals}f}")
     
-    def _chaikin(self, pts, passes=1):
-        pts = np.array(pts)
-        for _ in range(passes):
-            new = []
-            for i in range(len(pts)-1):
-                p = pts[i]
-                q = pts[i+1]
-                new.append(0.75*p + 0.25*q)
-                new.append(0.25*p + 0.75*q)
-            pts = np.array(new)
-        return pts
-
-    def _sort_contours_by_proximity(self, contours):
-        """Sort contours to minimize travel distance (nearest-neighbor)."""
-
-        if not contours:
-            return contours
-
-        # Convert to list of numpy arrays
-        contours = [np.array(c) for c in contours]
-
-        # Start with the first contour
-        ordered = [contours.pop(0)]
-
-        while contours:
-            last = ordered[-1]
-            last_end = last[-1]  # last point of previous contour
-
-            # Find nearest contour (start or end)
-            best_i = None
-            best_dist = float("inf")
-            best_reverse = False
-
-            for i, c in enumerate(contours):
-                d_start = np.linalg.norm(c[0] - last_end)
-                d_end   = np.linalg.norm(c[-1] - last_end)
-
-                if d_start < best_dist:
-                    best_dist = d_start
-                    best_i = i
-                    best_reverse = False
-
-                if d_end < best_dist:
-                    best_dist = d_end
-                    best_i = i
-                    best_reverse = True
-
-            # Take the best contour
-            next_c = contours.pop(best_i)
-
-            # Reverse if needed
-            if best_reverse:
-                next_c = next_c[::-1]
-
-            ordered.append(next_c)
-
-        return ordered
-
 

@@ -1,206 +1,216 @@
-
-import pyclipper._pyclipper
 from .plugin_base import GImageTechniqueBase
-from thread_Vectorize import *
-import os
-import tempfile
-import pyclipper
-from ._math_tranforming_helpers import *
 from ._vectorize_shared import *
+from PIL import Image
+import numpy as np
+from skimage import measure
+import os, tempfile
 
-# 🎯 Preset 1: High Detail Fill
-#     RDP = 0.5
-#     Merge = 0
-#     Fill spacing = 1×
-#     Min lines = 1
-#     Result: beautiful, slow, huge G‑code
-
-# 🎯 Preset 2: Balanced Fill
-#     RDP = 1.5
-#     Merge = 1
-#     Fill spacing = 1.5×
-#     Min lines = 3
-#     Result: good quality, reasonable G‑code
-
-# 🎯 Preset 3: Fast Fill
-#     RDP = 3
-#     Merge = 3
-#     Fill spacing = 2×
-#     Min lines = 5
-#     Result: fast, small G‑code, less detail
-
-# 🎯 Preset 4: Posterize Fill
-#     Quantize colors to 4
-#     RDP = 5
-#     Merge = 5
-#     Fill spacing = 3×
-#     Min lines = 10
-#     Result: stylized, very fast, minimal G‑code
-
-class VectorizeFillTechnique(GImageTechniqueBase):
-    name = "vectorize_fill" #must match the name in the technique combo
+class VectorizeFillPerColorTechnique(GImageTechniqueBase):
+    name = "vectorize_cut_fill"
 
     def process(self):
         print(f"Entered {self.name} plugin")
-        #Get configuration Value
-        mytechnique=self.config.get_value(["technique","technique_type","value"])
-        
-        self.emit_action({"action": "Message", "parameters":{"msg": "Starting vectorize_thread"}})
+
         cfg = self.config
-        interface_name=self.ch.get_name_from_id(self.ch.id)
-        self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
+        interface_name = self.ch.get_name_from_id(self.ch.id)
+        self.emit_action(self.machine.a_set("Comment", msg=f"Using interface {interface_name}"))
+
         # --- CONFIG ---
         lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
+        if lines_per_mm is None:
+            lines_per_mm = 1
+        contour_level = cfg.get_value(["technique","contour_level","value"])
+        if contour_level is None:
+            contour_level = 0.5
+        smooth_passes = cfg.get_value(["technique","smooth_passes","value"])
+        if smooth_passes is None:
+            smooth_passes = 1
+
         self.fill_method  = cfg.get_value(["technique","fill_method","value"])
-        self.emit_action(self.machine.a_set("Comment",msg=f"Using fill method {self.fill_method}"))
         self.fill_area_factor = cfg.get_value(["technique","fill_area_factor","value"]) or 4
         self.fill_min_lines = cfg.get_value(["technique","fill_min_lines","value"]) or 3
-        self.p_mode = "continuous" # cfg.get_value(["image","mode","value"])  # "continuous" or "threshold"
-        self.fr_mode = "threshold" 
-        rdp_shape_simplification= cfg.get_value(["technique","rdp_shape_simplification","value"]) or 1
+        self.p_mode = "continuous" # vary power
+        self.fr_mode = "threshold" # fixed feedrate
+        rdp_shape_simplification = cfg.get_value(["technique","rdp_shape_simplification","value"]) or 1.0
 
         self.min_power, self.max_power = cfg.get_value(["technique","power_range","value"])
         feedrange = cfg.get_value(["technique","feedrate_range","value"])
-        self.feedrate = cfg.get_value(["technique","rate","value"])
+        self.feedrate = cfg.get_value(["technique","rate","value"]) or 800
 
         self.overlap = cfg.get_value(["technique","overlap","value"]) or 1
         if feedrange:
-            self.min_rate,self.max_rate=feedrange
+            self.min_rate, self.max_rate = feedrange
         else:
-            self.min_rate,self.max_rate=(self.feedrate,self.feedrate)
+            self.min_rate, self.max_rate = (self.feedrate, self.feedrate)
 
         width_mm, height_mm, _ = cfg.get_value(["output","image_size","value"])
         self.offset_x, self.offset_y, _  = cfg.get_value(["output","image_offset","value"])
         self.gcode_floating_decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
-        self.gcode_minimize_code= cfg.get_value(["output","gcode_minimize_code","value"]) or True
-        
-        self.invert = cfg.get_value(["technique","invert","value"])
-        if self.invert is None:
-            self.invert = False
-        
-        #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
+        self.gcode_minimize_code = cfg.get_value(["output","gcode_minimize_code","value"]) or True
 
-        # --- COMPUTE resolution using lines per mm ---
+        number_of_colors = cfg.get_value(["image","number_of_colors","value"]) or 4
+
+        invert = cfg.get_value(["technique","invert","value"])
+        if invert is None:
+            invert = False
+
+        # parameters message
+        params_msg = (
+            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},inv:{invert}"
+            f"c_l:{contour_level},rdp:{rdp_shape_simplification},over:{self.overlap}"
+            f"s_p:{smooth_passes},{self.fill_method},faf:{self.fill_area_factor},fml:{self.fill_min_lines}"
+        )
+        self.emit_action(self.machine.a_set("Comment", msg=params_msg))
+
+        # resolution
         W = max(1, int(width_mm  * lines_per_mm))
         H = max(1, int(height_mm * lines_per_mm))
         self.step = 1.0 / lines_per_mm
+        self.spacing = self.step * self.overlap
 
-        self.spacing=self.step*self.overlap
-
-        
-        # set feedrate
-        self.emit_action(self.machine.move(rapid=False,F=self.feedrate))
-
-        # Home
-        self.emit_action(self.machine.home())
-
-        # Raise tool to moving height
-        self.emit_action(self.tool.up())
-        self.is_up=True
-        
-        origin_x, origin_y, = (0 , 0)
-        # Move to origin
-        self.emit_action(self.machine.move(rapid=True,X=origin_x,Y=origin_y))
-        
-        # Set origin
-        self.emit_action(self.machine.set_position(X=0,Y=0))
-
-        # --- PREPARE IMAGE ---
+        # --- PREPARE IMAGE (quantized) ---
         img = self.image.convert("RGB")
         img = img.resize((W, H), resample=Image.Resampling.LANCZOS)
-        
-        filename=f"{self.name}_gimage_output"
+        img_q = (
+            self.image.convert("RGBA")
+                .resize((W, H), resample=Image.Resampling.LANCZOS)
+                .convert("P", palette=Image.Palette.ADAPTIVE, colors=number_of_colors)
+                .convert("RGBA")
+        )
+        arr = np.array(img_q)  # H x W x 4
+
+        # Collect unique colors
+        flat = arr.reshape(-1, 4)
+        unique_colors = np.unique(flat, axis=0)
+
+
+        filename = f"{self.name}_output"
         self.actions_path = os.path.join(tempfile.gettempdir(), f"{filename}.jsonl")
         self.svg_path   = os.path.join(tempfile.gettempdir(), f"{filename}.svg")
-        self.gcode_path   = os.path.join(tempfile.gettempdir(), f"{filename}.gcode")
-          
-        print('Processing image of size',img.size)    
-        
-        progress_bar=ProgressWrapper(self.emit_progress)
-        vectorize_thread=Vectorization(img,self.killer_event,Pbar=progress_bar)
-        vectorize_thread.start()
-        vectorize_thread.printprocess=True #debugging
-                            
-        svg_image = vectorize_thread.vectorizer_rgba_image_to_svg_contiguous(im=img,epsilon=rdp_shape_simplification)
-        vectorize_thread.Save_svg_text_file(svg_image,self.svg_path)
+        self.gcode_path = os.path.join(tempfile.gettempdir(), f"{filename}.gcode")
 
-        vectorize_thread.last_color_joined_pieces=vectorize_thread.sort_color_joined_pieces_to_shortest_path(vectorize_thread.last_color_joined_pieces)
+        # Basic machine setup
+        self.emit_action(self.machine.move(rapid=False, F=self.feedrate))
+        self.emit_action(self.machine.home())
+        self.emit_action(self.tool.up())
+        self.is_up = True
+        self.emit_action(self.machine.move(rapid=True, X=0, Y=0))
+        self.emit_action(self.machine.set_position(X=0, Y=0))
 
-        self._to_gcode_contiguous_emit(img,vectorize_thread.last_color_joined_pieces)
-        
-        vectorize_thread.join()
-        self.emit_status(f"Finished .... check \n{self.gcode_path}\n{self.svg_path}\n{self.actions_path}")
-        
-    
-    def _to_gcode_contiguous_emit(self, im, color_joined_pieces:dict):
         img_ini_pos = [self.offset_x, self.offset_y]
         robot_xyz   = [0, 0, 0]
-        resolution  = self.step
 
-        lenlist = len(color_joined_pieces)
-        sss = 0
+        color_shapes = {}  # (r,g,b) -> [shape, shape, ...]
 
-        for color, shapes in color_joined_pieces.items():
-
+        # --- PER-COLOR VECTORIZATION ---
+        for u_c,color in enumerate(unique_colors):
             self.check_stop()
-            
-            # --- Compute power + feedrate from color ---
-            pixel = safe_pixel_from_color(color) # color is rgba
-            power = pixel_to_power(pixel, self.min_power, self.max_power, self.p_mode, self.invert)
+            # progress per color
+            percent = int((u_c / max(1, len(unique_colors) - 1)) * 100)
+            self.emit_progress(percent, {"color": color, "lines_total": len(unique_colors)})
+            #r, g, b, a = map(int, color)
+            mask = np.all(arr == color, axis=-1)  # True where pixel == this RGBA
+            #self.emit_action(self.machine.a_set("Comment", msg=f"Vectorizing color {r},{g},{b},{a}"))
 
-            # IMPORTANT: use base feedrate, not previous feedrate
+            # Build mask for this color
+            mask = np.all(arr == color, axis=-1)  # H x W bool
+
+            if not mask.any():
+                continue
+
+            # find contours on mask
+            contours = measure.find_contours(mask.astype(float), level=contour_level)
+            contours = sort_contours_by_proximity(contours)
+
+            shapes_for_color = []
+            for n_c, c in enumerate(contours):
+                self.check_stop()
+                if len(c) < 3:
+                    continue
+                # simplify if needed
+                if rdp_shape_simplification > 0:
+                    c = measure.approximate_polygon(c, tolerance=rdp_shape_simplification)
+                    if len(c) < 3:
+                        continue
+                    # smooth
+                    if smooth_passes > 0:
+                        c = chaikin(c, smooth_passes)
+                pts = [(float(x), float(y)) for (y, x) in c]
+                # close loop
+                if pts[0] != pts[-1]:
+                    pts.append(pts[0])
+                sub = []
+                for i in range(len(pts)-1):
+                    sub.append((pts[i], pts[i+1]))
+                shapes_for_color.append(sub)
+
+
+            if shapes_for_color:
+                color_shapes[tuple(color)] = shapes_for_color
+
+        # color_shapes: { (r,g,b,a): [subshape, ...], ... }
+
+        # --- OPTIONAL: SAVE SVG PER COLOR OR COMBINED ---
+        # You can reuse your SVG helpers from vectorize_fill or vectorize_cut here.
+
+        # --- APPLY FILLS USING YOUR EXISTING FILL LOGIC ---
+        # This mirrors _to_gcode_contiguous_emit from VectorizeFillTechnique,
+        # but now per color using color_shapes.
+
+        for color, shapes in color_shapes.items():
+            self.check_stop()
+
+            pixel = safe_pixel_from_color(color)
+            power = pixel_to_power(pixel, self.min_power, self.max_power, self.p_mode, invert)
             feedrate = pixel_to_feedrate(pixel, self.feedrate,
-                                            self.min_rate, self.max_rate, self.fr_mode, self.invert)
-            self.emit_action(self.machine.a_set("Message",msg=f"New Color({color})/Layer with S{power} F{feedrate}"))
-            # --- Progress ---
-            percent = int((sss / max(1, lenlist - 1)) * 100)
-            self.emit_progress(percent, {"color_index": sss, "colors_total": lenlist})
-            sss += 1
+                                               self.min_rate, self.max_rate, self.fr_mode, invert)
+
+            self.emit_action(self.machine.a_set(
+                "Message",
+                msg=f"Color {color} with S{power} F{feedrate}"
+            ))
 
             for shape in shapes:
                 self.check_stop()
-                brightness = pixel / 255 # [0-1]
-                new_shape = None
-                closed_shape = generate_none_fill(shape, self.spacing)
+                brightness = pixel / 255.0
+                closed_shape = generate_none_fill([shape], self.spacing)
+
                 if self.fill_method == "hatch":
                     angle = 90 * brightness
                     new_shape = generate_hatch_fill(closed_shape, self.spacing, angle)
-
                 elif self.fill_method == "crosshatch":
                     angle = 45 + 90 * brightness
                     spacing = self.spacing * (1 + brightness)
                     new_shape = generate_crosshatch_fill(closed_shape, spacing, angle)
-
                 elif self.fill_method == "spiral":
                     spacing = self.spacing * (1 + brightness)
                     new_shape = generate_spiral_fill(closed_shape, spacing)
-
                 elif self.fill_method == "offset":
                     spacing = self.spacing * (1 + brightness)
                     new_shape = generate_offset_fill(closed_shape, spacing)
-                
                 elif self.fill_method == "concentric":
                     spacing = self.spacing * (1 + brightness)
                     new_shape = generate_concentric_fill(closed_shape, spacing)
-                
                 elif self.fill_method == "contour_hatch":
                     angle = 90 * brightness
-                    new_shape = generate_contour_hatched_fill(closed_shape, self.spacing, angle,False)
-
+                    new_shape = generate_contour_hatched_fill(closed_shape, self.spacing, angle, False)
                 elif self.fill_method == "contour_crosshatch":
                     angle = 45 + 90 * brightness
                     spacing = self.spacing * (1 + brightness)
-                    new_shape = generate_contour_hatched_fill(closed_shape, spacing, angle,True)
-
+                    new_shape = generate_contour_hatched_fill(closed_shape, spacing, angle, True)
                 else:
                     new_shape = closed_shape
 
-                # NOW iterate over subshapes
-                for sub_shape in new_shape:
+                # draw subshapes same as in vectorize_fill
+                for n_s,sub_shape in enumerate(new_shape):
                     self.check_stop()
-                    # draw each segment
-                    self.draw_subshapes(sub_shape, power, feedrate, im, img_ini_pos, robot_xyz, resolution)
+                    # progress per color
+                    percent = int((n_s / max(1, len(new_shape) - 1)) * 100)
+                    self.emit_progress(percent, {"color": color, "lines_total": len(unique_colors)})
+                    self.draw_subshapes(sub_shape, power, feedrate, img_q, img_ini_pos, robot_xyz, self.step)
 
+        self.emit_status(f"Finished {self.name}.\nGCODE: {self.gcode_path}")
+    
     def draw_subshapes(self, sub_shape, power, feedrate, im, img_ini_pos, robot_xyz, resolution):
         if not sub_shape:
             return
@@ -314,12 +324,5 @@ class VectorizeFillTechnique(GImageTechniqueBase):
             """Helper to set number of decimals to the gcode coordinates"""
             return float(f"{value:.{self.gcode_floating_decimals}f}")
     
-    
-class ProgressWrapper:
-    def __init__(self,emit_progress):
-        self.emit_progress = emit_progress
         
-    def SetStatus(self,percent:int):
-        # Progress
-        percent=min(max(int(percent),0),100)
-        self.emit_progress(int(percent), {})
+

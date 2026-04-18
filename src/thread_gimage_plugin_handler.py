@@ -108,12 +108,7 @@ class GImagePluginHandler(threading.Thread):
             technique_name = self.struct_tracker.get_value(["technique", "technique_type", "value"])
             machine_type   = self.struct_tracker.get_value(["machine", "machine_type", "value"])
             tool_type      = self.struct_tracker.get_value(["tool", "tool_type", "value"])
-
-            ##############################
-            ##############################
-            # To be removed
-            # Not connected yet interface and machine selection within Gimage
-            self.ch.set_id("4") # Grbl 1.1k-ORTUR 
+ 
             ##############################
             ##############################
             self.status_tracker={}

@@ -239,7 +239,7 @@
       "info": "Pixel threshold for black/white separation",
       "meta": {
         "hidden": false,
-        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' == node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
         "constraints": {
           "min": 0,
           "max": 255
@@ -274,6 +274,7 @@
         }
       }
     },
+    
     "invert": {
       "value": false,
       "unit": "",
@@ -292,7 +293,7 @@
       "subtype": "int",
       "meta":{
         "hidden":false,
-        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
+        "conditions": "me_set('meta[hidden]',False) if 'vectorize_cut' == node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)",
         "constraints": {
           "min":[0,0],
           "arity": 2
@@ -351,7 +352,7 @@
         "hidden":false,
         "min":0,
         "max":33,
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize','vectorize_fill','vectorize_cut'] else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize','vectorize_fill','vectorize_cut','vectorize_cut_fill'] else me_set('meta[hidden]',True)"
       }
     },
 
@@ -388,7 +389,7 @@
         "hidden":false,
         "min":0.1,
         "max":1000,
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'vectorize_fill' else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize_fill','vectorize_cut_fill'] else me_set('meta[hidden]',True)"
       }
       },
     "fill_method": { 
@@ -399,7 +400,7 @@
       "meta": { 
         "hidden":false,
         "options": ["none","hatch","crosshatch","spiral","offset","concentric","contour_hatch","contour_crosshatch"],
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'vectorize_fill' else me_set('meta[hidden]',True)" 
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ('vectorize_fill','vectorize_cut_fill') else me_set('meta[hidden]',True)" 
       }
       },
     "fill_area_factor": { 
@@ -411,7 +412,7 @@
         "hidden":false,
         "min":1,
         "max":1000,
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'vectorize_fill' else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ('vectorize_fill','vectorize_cut_fill') else me_set('meta[hidden]',True)"
       }
       },
       "fill_min_lines": { 
@@ -423,7 +424,7 @@
         "hidden":false,
         "min":1,
         "max":1e9,
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'vectorize_fill' else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ('vectorize_fill','vectorize_cut_fill') else me_set('meta[hidden]',True)"
       }
       },
     "direction": { 
