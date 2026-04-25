@@ -3382,7 +3382,7 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         pos_obj=self._get_position_object(self.sim_index)
 
         # Move toolhead dot
-        x = pos_obj.x
+        x = pos_obj.x 
         y = pos_obj.y
         
         z = pos_obj.z
@@ -3392,7 +3392,19 @@ class GCodeVisualizerDialog(QtWidgets.QMainWindow):
         self.tool_dot.setRect(x - 1, y - 1, 2, 2)
 
         # Update labels
-        self.tool_label.setText(f"Tool: X={x:.2f} Y={y:.2f} Z={z:.2f} S={int(s)} F={int(f)}")
+        parts = []
+        if x is not None:
+            parts.append(f"X={x:.2f}")
+        if y is not None:
+            parts.append(f"Y={y:.2f}")
+        if z is not None:
+            parts.append(f"Z={z:.2f}")
+        if s is not None:
+            parts.append(f"S={int(s)}")
+        if f is not None:
+            parts.append(f"F={int(f)}")
+        self.tool_label.setText("Tool: " + " ".join(parts))
+
 
         # Highlight table row
         self.select_table_position(self.sim_index)

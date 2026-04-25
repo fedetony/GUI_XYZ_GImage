@@ -66,6 +66,16 @@
            }
       },
       "info": "Machine home position in workspace coordinates"
+    },
+
+    "machine_units": {
+      "value": "mm",
+      "unit": "",
+      "type": "str",
+      "meta":{
+      "options": ["mm", "inches"]
+      },
+      "info": "Machine's units"
     }
   },
 
@@ -125,12 +135,53 @@
     },
 
     "tool_z_correction": {
-      "value": 0.1,
+      "value": -0.1,
       "unit": "mm/m",
       "type": "float",
-      "info": "Z correction per meter of tool wear",
+      "info": "Z correction per meter of tool wear, negative value lowers position",
       "meta":{"hidden":false,
-              "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type]') == 'pencil' else me_set('meta[hidden]',True)"}
+              "conditions": "me_set('meta[hidden]',False) if node_get('tool[tool_type[value]]') == 'pencil' else me_set('meta[hidden]',True)"
+            }
+    },
+
+    "touch_z": {
+      "value": 0,
+      "unit": "mm",
+      "type": "float",
+      "info": "Touch fixed Z position",
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+            }
+    },
+
+    "retract_z": {
+      "value": 5,
+      "unit": "mm",
+      "type": "float",
+      "info": "Retract Z position",
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+            }
+    },
+
+    "touch_speed": {
+      "value": -1,
+      "unit": "mm/min",
+      "type": "float",
+      "info": "Touch movement Feedrate, if <0 Rapid, if >0 Linear ",
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+            }
+    },
+
+    "retract_speed": {
+      "value": -1,
+      "unit": "mm/min",
+      "type": "float",
+      "info": "Retract movement Feedrate, if <0 Rapid, if >0 Linear",
+      "meta":{"hidden":false,
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+            }
     },
 
     "tool_change": {

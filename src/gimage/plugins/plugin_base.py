@@ -79,8 +79,8 @@ class GImageTechniqueBase:
                 continue
             self.available_parameters.append(param)
         self.axis_parameters=self._list_parameters_for_action("coordSet")
-        self.machine.status = self.status
-        self.tool.status = self.status
+        setattr(self.tool, "status", self.status)
+        setattr(self.machine, "status", self.status)
 
         
     def _list_parameters_for_action(self,action):

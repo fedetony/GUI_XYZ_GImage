@@ -71,7 +71,7 @@
   },
 
   "vectorize_cut": {
-    "compatible_tools": ["laser"],
+    "compatible_tools": ["laser","cutter"],
     "method": [
       {
         "name": "m4_dynamic_power",
@@ -90,6 +90,7 @@
       "pencil",
       "brush",
       "laser",
+      "cutter",
       "extruder",
       "mark"
     ],
@@ -158,7 +159,7 @@
   },
 
   "dithering": {
-    "compatible_tools": ["laser"],
+    "compatible_tools": ["laser","cutter"],
     "method": [
       {
         "name": "pwm_dither",

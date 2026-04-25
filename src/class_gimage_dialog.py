@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtGui import QPixmap, QPainter
+from PyQt6.QtGui import QStandardItemModel, QStandardItem
 
 import logging
 import threading
@@ -357,8 +358,10 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self._set_combo_value(self.interface_combo,name) 
         if self.tv:
             self.machine_combo.addItems(self.cm.machine_list)
-            self.tool_combo.addItems(self.cm.tool_list)
-            self.technique_combo.addItems(self.cm.technique_list)
+            self._setup_combo_obj(self.tool_combo,self.cm.tool_list)
+            self._setup_combo_obj(self.technique_combo,self.cm.technique_list)
+            #self.tool_combo.addItems(self.cm.tool_list)
+            #self.technique_combo.addItems(self.cm.technique_list)
             self.color_combo.addItems(self.color_selection_list)
             # Set defaults
             m_t=self.tv.tracker.get_value(["machine","machine_type","value"])
@@ -369,6 +372,14 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
             self._set_combo_value(self.technique_combo,tq_t) 
             c_t=self.tv.tracker.get_value(["image","color","value"])
             self._set_combo_value(self.color_combo,c_t) 
+    
+    def _setup_combo_obj(self,combo_obj,fill_list):
+        model = QStandardItemModel(combo_obj)
+        combo_obj.setModel(model)
+
+        for itemdata in fill_list:
+            item = QStandardItem(itemdata)
+            model.appendRow(item)
     
     def _set_combo_value(self,combo:QComboBox,value:str):
         """Helper to set value to combo"""
@@ -528,25 +539,114 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         """Technique setting changed, if different apply to config and refresh Treeview"""
         track=["technique","technique_type","value"]
         technique_selection=self.tv.tracker.get_value(track)
+        compatible_techniques=self.cm.get_compatible_techniques(self.cm.tool_name)
+        if value not in compatible_techniques:
+            # restore previous valid value
+            self.technique_combo.blockSignals(True)
+            self._set_combo_value(self.technique_combo, technique_selection)
+            self.technique_combo.blockSignals(False)
+            return
         if technique_selection != value:
             if not self._change_setting_trigger_evaluate_conditions(track,value):
                 log.warning(f"Unable to set {value} to {track}")
+
+    def _get_actual_machine_tool_technique(self):
+        """Get actual machine,tool,technique selections"""
+        track=["tool","tool_type","value"]
+        tool_selection=self.tv.tracker.get_value(track)
+        machine_track=["machine","machine_type","value"]
+        machine_selection=self.tv.tracker.get_value(machine_track)
+        track=["technique","technique_type","value"]
+        technique_selection=self.tv.tracker.get_value(track)
+        return machine_selection,tool_selection,technique_selection
 
     def on_tool_changed(self,value):
         """Tool setting changed, if different apply to config and refresh Treeview"""
         track=["tool","tool_type","value"]
         tool_selection=self.tv.tracker.get_value(track)
+        compatible_tools= self.cm.get_compatible_tools(self.cm.machine_name)
+        if value not in compatible_tools:
+            self.tool_combo.blockSignals(True)
+            self._set_combo_value(self.tool_combo, tool_selection)
+            self.tool_combo.blockSignals(False)
+            return
+        
         if tool_selection != value:
-            if not self._change_setting_trigger_evaluate_conditions(track,value):
-                log.warning(f"Unable to set {value} to {track}")
+            compatible_techniques=self.cm.get_compatible_techniques(value)
+            self.set_technique_compatibility(compatible_techniques)
+            if len(compatible_techniques)==0:
+                return
+            if self.cm.technique_name in compatible_techniques:
+                self.cm.set_tool(value)
+            else:
+                self.cm.set_machine_tool_technique(self.cm.machine_name,value,compatible_techniques[0])
+                self.technique_combo.blockSignals(True)
+                self._set_combo_value(self.technique_combo,compatible_techniques[0])
+                self.technique_combo.blockSignals(False)
     
+            self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
+            self._evaluate_conditions()
+            self._do_evaluation=False
+            
     def on_machine_changed(self,value):
         """Machine setting changed, if different apply to config and refresh Treeview"""
-        track=["machine","machine_type","value"]
-        machine_selection=self.tv.tracker.get_value(track)
+        machine_track=["machine","machine_type","value"]
+        machine_selection=self.tv.tracker.get_value(machine_track)
+        # print("*"*33)
+        # print(self.cm.machine_dict) # this contains the dictionary of treeview (cm session)
+        # print(self.cm.machine) # machine data ->dictionary
+        # print("*"*33) 
         if machine_selection != value:
-            if not self._change_setting_trigger_evaluate_conditions(track,value):
-                log.warning(f"Unable to set {value} to {track}")
+            compatible_tools= self.cm.get_compatible_tools(value)
+            self.set_tool_compatibility(compatible_tools)
+            if len(compatible_tools)==0:
+                return
+            if self.cm.tool_name in compatible_tools:
+                # keep technique and tool selection
+                self.cm.set_machine(value)
+            else:
+                compatible_techniques=self.cm.get_compatible_techniques(compatible_tools[0])
+                self.set_technique_compatibility(compatible_techniques)
+                if len(compatible_techniques)==0:
+                    return
+                self.cm.set_machine_tool_technique(value,compatible_tools[0],compatible_techniques[0])
+                self.tool_combo.blockSignals(True)
+                self.technique_combo.blockSignals(True)
+                self._set_combo_value(self.tool_combo,compatible_tools[0])
+                self._set_combo_value(self.technique_combo,compatible_techniques[0])
+                self.tool_combo.blockSignals(False)
+                self.technique_combo.blockSignals(False)
+            
+            self._do_evaluation=True #triggers self._evaluate_conditions() # does refresh and changes according conditions
+            self._evaluate_conditions()
+            self._do_evaluation=False
+            
+    def set_tool_compatibility(self, compatible_tools):
+        model = self.tool_combo.model()
+        if isinstance(model,QStandardItemModel):
+            pass
+        for row in range(model.rowCount()):
+            item = model.item(row)
+            tool_name = item.text()
+
+            if tool_name in compatible_tools:
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled)
+            else:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+
+    def set_technique_compatibility(self, compatible_techniques):
+        model = self.technique_combo.model()
+        if isinstance(model,QStandardItemModel):
+            pass
+        for row in range(model.rowCount()):
+            item = model.item(row)
+            tech_name = item.text()
+
+            if tech_name in compatible_techniques:
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled)
+            else:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+
     
     def _change_setting_trigger_evaluate_conditions(self,track,value):
         was_set=self.tv.tracker.set_value(track,value)
@@ -1451,28 +1551,28 @@ class ConfigManager:
         return list(self.technique_profiles.keys())
 
     @property
+    def machine_name(self):
+        return self.session["machine"]["machine_type"]["value"]
+
+    @property
     def machine(self):
-        try:
-            return self.machine_profiles[self.session["machine"]["machine_type"]["value"]]
-        except Exception as eee:
-            log.error(f"Machine error: {eee}")
-        return None
+        return self.machine_profiles[self.machine_name]
+
+    @property
+    def tool_name(self):
+        return self.session["tool"]["tool_type"]["value"]
 
     @property
     def tool(self):
-        try:
-            return self.tool_profiles[self.session["tool"]["tool_type"]["value"]]
-        except Exception as eee:
-            log.error(f"Tool error: {eee}")
-        return None
+        return self.tool_profiles[self.tool_name]
+
+    @property
+    def technique_name(self):
+        return self.session["technique"]["technique_type"]["value"]
 
     @property
     def technique(self):
-        try:
-            return self.technique_profiles[self.session["technique"]["technique_type"]["value"]]
-        except Exception as eee:
-            log.error(f"Technique error: {eee}")
-        return None
+        return self.technique_profiles[self.technique_name]
     
     @property
     def machine_dict(self):
@@ -1527,19 +1627,42 @@ class ConfigManager:
     def set_machine(self, name):
         if name not in self.machine_profiles:
             raise ValueError(f"Unknown machine '{name}'")
-        self.session["machine"]["machine_type"]["value"] = name
+        self.tracker.set_value(["machine","machine_type","value"],name)
+        # self.session["machine"]["machine_type"]["value"] = name
+        self._set_machine_profile(name)
         self._validate_session()
 
     def set_tool(self, name):
         if name not in self.tool_profiles:
             raise ValueError(f"Unknown tool '{name}'")
-        self.session["tool"]["tool_type"]["value"] = name
+        self.tracker.set_value(["tool","tool_type","value"],name)
+        #self.session["tool"]["tool_type"]["value"] = name
         self._validate_session()
 
     def set_technique(self, name):
         if name not in self.technique_profiles:
             raise ValueError(f"Unknown technique '{name}'")
-        self.session["technique"]["technique_type"]["value"] = name
+        self.tracker.set_value(["technique","technique_type","value"],name)
+        #self.session["technique"]["technique_type"]["value"] = name
+        self._validate_session()
+    
+    def set_machine_tool_technique(self, machine_name,tool_name,technique_name):
+        """Sets the tree values then triggers the validation"""
+        if machine_name not in self.machine_profiles:
+            raise ValueError(f"Unknown machine '{machine_name}'")
+        #self.session["machine"]["machine_type"]["value"] = machine_name
+        self.tracker.set_value(["machine","machine_type","value"],machine_name)
+        self._set_machine_profile(machine_name)
+        
+        if tool_name not in self.tool_profiles:
+            raise ValueError(f"Unknown tool '{tool_name}'")
+        #self.session["tool"]["tool_type"]["value"] = tool_name
+        self.tracker.set_value(["tool","tool_type","value"],tool_name)
+        
+        if technique_name not in self.technique_profiles:
+            raise ValueError(f"Unknown technique '{technique_name}'")
+        #self.session["technique"]["technique_type"]["value"] = technique_name
+        self.tracker.set_value(["technique","technique_type","value"],technique_name)
         self._validate_session()
 
     def set_image_param(self, key, value):
@@ -1547,6 +1670,50 @@ class ConfigManager:
 
     def set_output_param(self, key, value):
         self.session["output"][key] = value
+    
+    def _set_machine_profile(self,machine_name):
+        # --- 1. Validate existence ---
+        if machine_name not in self.machine_profiles:
+            return
+        # Set axes
+        machine=self.machine_profiles.get(machine_name)
+        axes= machine.get("axes")
+        machine_axes=[]
+        for aaa in axes:
+            if aaa.get("role") == "position" or aaa.get("role") == "rotation":
+                machine_axes.append(aaa["name"])
+        
+        self.tracker.set_or_create_value(["machine","axes","value"],machine_axes)
+        self.tracker.set_or_create_value(["machine","axes","meta[constraints[arity]]"],len(machine_axes))
+        self.tracker.set_or_create_value(["machine","axis_count","value"],len(machine_axes))        
+        # self.session["machine"]["axes"]["value"]=machine_axes
+        # self.session["machine"]["axes"]["meta"]["constraints"]["arity"]=len(machine_axes)
+        # self.session["machine"]["axis_count"]["value"]=len(machine_axes)
+    
+    def get_compatible_tools(self,machine_name):
+        # --- 1. Validate existence ---
+        if machine_name not in self.machine_profiles:
+            return []
+
+        compatible_tools=[]
+        for tool,tool_def in self.tool_profiles.items():
+            compatible_machines=tool_def.get("compatible_machines")
+            if isinstance(compatible_machines,list) and machine_name in compatible_machines:
+                compatible_tools.append(tool)
+        return compatible_tools
+    
+    def get_compatible_techniques(self,tool_name):
+        # --- 1. Validate existence ---
+        if tool_name not in self.tool_profiles:
+            return []
+
+        compatible_techniques=[]
+        for tech,tech_def in self.technique_profiles.items():
+            compatible_tools=tech_def.get("compatible_tools")
+            if isinstance(compatible_tools,list) and tool_name in compatible_tools:
+                compatible_techniques.append(tech)
+        return compatible_techniques
+        
 
 class SvgViewer(QWidget):
     def __init__(self):

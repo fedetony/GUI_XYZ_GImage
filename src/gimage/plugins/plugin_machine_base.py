@@ -18,7 +18,7 @@ class GImageMachineBase:
         raise NotImplementedError
 
     def set_units(self):
-        raise NotImplementedError
+        pass
     
     def status_update(self,**kwargs):
         "placeholder the function is set in plugin_base"

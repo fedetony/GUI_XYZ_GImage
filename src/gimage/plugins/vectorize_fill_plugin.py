@@ -44,7 +44,7 @@ class VectorizeFillTechnique(GImageTechniqueBase):
         print(f"Entered {self.name} plugin")
         #Get configuration Value
         mytechnique=self.config.get_value(["technique","technique_type","value"])
-        
+        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
         self.emit_action({"action": "Message", "parameters":{"msg": "Starting vectorize_thread"}})
         cfg = self.config
         interface_name=self.ch.get_name_from_id(self.ch.id)
@@ -78,6 +78,14 @@ class VectorizeFillTechnique(GImageTechniqueBase):
         if self.invert is None:
             self.invert = False
         
+        # parameters message
+        params_msg = (
+            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},inv:{self.invert},"
+            f"rdp:{rdp_shape_simplification},over:{self.overlap},"
+            f"{self.fill_method},faf:{self.fill_area_factor},fml:{self.fill_min_lines}"
+        )
+        self.emit_action(self.machine.a_set("Comment", msg=params_msg))
+        
         #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
 
         # --- COMPUTE resolution using lines per mm ---
@@ -87,12 +95,9 @@ class VectorizeFillTechnique(GImageTechniqueBase):
 
         self.spacing=self.step*self.overlap
 
-        
         # set feedrate
+        self.emit_action(self.machine.set_units())
         self.emit_action(self.machine.move(rapid=False,F=self.feedrate))
-
-        # Home
-        self.emit_action(self.machine.home())
 
         # Raise tool to moving height
         self.emit_action(self.tool.up())

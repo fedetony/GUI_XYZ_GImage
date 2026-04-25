@@ -12,8 +12,7 @@ class VectorizeTechnique(GImageTechniqueBase):
         print(f"Entered {self.name} plugin")
         #Get configuration Value
         mytechnique=self.config.get_value(["technique","technique_type","value"])
-        
-        self.emit_action({"action": "Message", "parameters":{"msg": "Starting vectorize_thread"}})
+        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
         cfg = self.config
         interface_name=self.ch.get_name_from_id(self.ch.id)
         self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
@@ -41,6 +40,13 @@ class VectorizeTechnique(GImageTechniqueBase):
             self.invert = False
         
         #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
+        # parameters message
+        params_msg = (
+            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},inv:{self.invert},"
+            f"rdp:{rdp_shape_simplification},"
+            f"msf:{merging_shape_factor},{vectorization_method}"
+        )
+        self.emit_action(self.machine.a_set("Comment", msg=params_msg))
 
         # --- COMPUTE resolution using lines per mm ---
         W = max(1, int(width_mm  * lines_per_mm))
@@ -48,13 +54,12 @@ class VectorizeTechnique(GImageTechniqueBase):
         self.step = 1.0 / lines_per_mm
         
         # set feedrate
+        self.emit_action(self.machine.set_units())
         self.emit_action(self.machine.move(rapid=False,F=self.feedrate))
-
-        # Home
-        self.emit_action(self.machine.home())
 
         # Raise tool to moving height
         self.emit_action(self.tool.up())
+        self.is_up=True
         
         origin_x, origin_y, = (0 , 0)
         # Move to origin
@@ -144,8 +149,9 @@ class VectorizeTechnique(GImageTechniqueBase):
                     x, y = self.transform_px_to_im_xy(
                         im, x, y, img_ini_pos, robot_xyz, resolution
                     )
-
-                    self.emit_action(self.tool.up())
+                    if not self.is_up:
+                        self.is_up=True
+                        self.emit_action(self.tool.up())
                     rapid=True
                     self.emit_action(self.machine.move(rapid=rapid, X=x, Y=y, F=feedrate))
 
@@ -157,6 +163,7 @@ class VectorizeTechnique(GImageTechniqueBase):
 
                     # --- Tool ON ---
                     self.emit_action(self.tool.down(power=power))
+                    self.is_up=False
                     rapid=False
                     # --- Trace remaining points ---
                     for (x, y) in pts[1:]:
@@ -180,8 +187,9 @@ class VectorizeTechnique(GImageTechniqueBase):
                     last_vect = self._do_draw(rapid, x, y, power, feedrate, last_vect)
                     last_xmm, last_ymm, last_power, last_rate, last_modal = last_vect
 
-                    # --- Tool OFF ---
+                    # --- Tool OFF ---    
                     self.emit_action(self.tool.up())
+                    self.is_up=True
 
     def _do_draw(self,
                  rapid,

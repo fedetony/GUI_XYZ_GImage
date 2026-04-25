@@ -24,7 +24,11 @@ class LineingTechnique(GImageTechniqueBase):
 
         width, height = self.image.width, self.image.height
         # Set machine Feedrate
-        self.machine.move(rapid=False,F=feedrate)
+        self.emit_action(self.machine.set_units())
+        self.emit_action(self.machine.move(rapid=False,F=feedrate))
+        # Raise tool to moving height
+        self.emit_action(self.tool.up())
+        self.is_up=True
 
         # --- Main raster loop ---
         for y in range(height):
@@ -43,7 +47,9 @@ class LineingTechnique(GImageTechniqueBase):
             self.emit_action(self.machine.move(rapid=True, X=Ximg, Y=Yimg))
 
             # Tool up at start of each line
-            self.emit_action(self.tool.up())
+            if not self.is_up:
+                self.emit_action(self.tool.up())
+                self.is_up=True
 
             drawing = False
 
@@ -59,6 +65,7 @@ class LineingTechnique(GImageTechniqueBase):
                     if not drawing:
                         # start stroke
                         self.emit_action(self.tool.down(power=self._power_from_pixel(pixel)))
+                        self.is_up=False
                         drawing = True
 
                     # draw move
@@ -68,11 +75,14 @@ class LineingTechnique(GImageTechniqueBase):
                     if drawing:
                         # end stroke
                         self.emit_action(self.tool.up())
+                        self.is_up=True
                         drawing = False
 
             # ensure tool is up at end of line
             if drawing:
-                self.emit_action(self.tool.up())
+                if not self.is_up:
+                    self.emit_action(self.tool.up())
+                    self.is_up=True
 
             # optional: progress per line
             percent = int((y / max(1, height - 1)) * 100)

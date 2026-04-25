@@ -1,13 +1,12 @@
-# plugins/machines/laser_2axis.py
+# plugins/machines/cnc_3axis_plugin.py
 
 from gimage.plugins.plugin_machine_base import GImageMachineBase
 
-class Laser2AxisMachine(GImageMachineBase):
+class CNC3AxisMachine(GImageMachineBase):
     """
-    A simple 2-axis laser engraver (e.g., GRBL-based).
-    Handles movement, homing, units, feedrate, etc.
+    CNC XYZ and spindle machine
     """
-    name = "laser_2axis" #must match the name in the machine combo
+    name = "cnc_3axis" #must match the name in the machine combo
 
     def set_units(self):
         self.units = self.config.get_value(["machine","machine_units","value"]) or "mm"

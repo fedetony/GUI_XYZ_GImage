@@ -10,7 +10,8 @@ class VectorizeFillPerColorTechnique(GImageTechniqueBase):
 
     def process(self):
         print(f"Entered {self.name} plugin")
-
+        mytechnique=self.config.get_value(["technique","technique_type","value"])
+        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
         cfg = self.config
         interface_name = self.ch.get_name_from_id(self.ch.id)
         self.emit_action(self.machine.a_set("Comment", msg=f"Using interface {interface_name}"))
@@ -56,8 +57,8 @@ class VectorizeFillPerColorTechnique(GImageTechniqueBase):
 
         # parameters message
         params_msg = (
-            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},inv:{invert}"
-            f"c_l:{contour_level},rdp:{rdp_shape_simplification},over:{self.overlap}"
+            f"Settings rate:{self.feedrate},lpmm:{lines_per_mm},inv:{invert},"
+            f"c_l:{contour_level},rdp:{rdp_shape_simplification},over:{self.overlap},"
             f"s_p:{smooth_passes},{self.fill_method},faf:{self.fill_area_factor},fml:{self.fill_min_lines}"
         )
         self.emit_action(self.machine.a_set("Comment", msg=params_msg))
@@ -90,8 +91,8 @@ class VectorizeFillPerColorTechnique(GImageTechniqueBase):
         self.gcode_path = os.path.join(tempfile.gettempdir(), f"{filename}.gcode")
 
         # Basic machine setup
+        self.emit_action(self.machine.set_units())
         self.emit_action(self.machine.move(rapid=False, F=self.feedrate))
-        self.emit_action(self.machine.home())
         self.emit_action(self.tool.up())
         self.is_up = True
         self.emit_action(self.machine.move(rapid=True, X=0, Y=0))

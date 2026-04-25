@@ -8,6 +8,8 @@ class RasterTechnique(GImageTechniqueBase):
 
         cfg = self.config
         interface_name=self.ch.get_name_from_id(self.ch.id)
+        mytechnique=self.config.get_value(["technique","technique_type","value"])
+        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
         self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
         # --- CONFIG ---
         lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
@@ -31,10 +33,8 @@ class RasterTechnique(GImageTechniqueBase):
         step = 1.0 / lines_per_mm
         
         # set feedrate
+        self.emit_action(self.machine.set_units())
         self.emit_action(self.machine.move(rapid=False,F=feedrate))
-
-        # Home
-        self.emit_action(self.machine.home())
 
         # Raise tool to moving height
         self.emit_action(self.tool.up())

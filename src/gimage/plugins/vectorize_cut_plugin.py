@@ -10,7 +10,8 @@ class VectorizeCutTechnique(GImageTechniqueBase):
 
     def process(self):
         print(f"Entered {self.name} plugin")
-
+        mytechnique=self.config.get_value(["technique","technique_type","value"])
+        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
         cfg = self.config
         interface_name = self.ch.get_name_from_id(self.ch.id)
         self.emit_action(self.machine.a_set("Comment", msg=f"Using interface {interface_name}"))
@@ -113,7 +114,7 @@ class VectorizeCutTechnique(GImageTechniqueBase):
             f.write(svg_text)
 
         # --- Generate G-code ---
-        self.emit_action(self.machine.home())
+        self.emit_action(self.machine.set_units())
         self.emit_action(self.tool.up())
         self.emit_action(self.machine.move(rapid=True, X=0, Y=0))
         self.emit_action(self.machine.set_position(X=0, Y=0))
