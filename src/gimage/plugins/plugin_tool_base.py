@@ -11,6 +11,9 @@ class GImageToolBase:
         self.config=config
         self.set_init_config()
         self.status=status
+    
+    def set_exit_config(self):
+        return None
 
     def set_init_config(self):
         pass
@@ -23,3 +26,5 @@ class GImageToolBase:
     
     def status_update(self,**kwargs):
         pass
+
+    

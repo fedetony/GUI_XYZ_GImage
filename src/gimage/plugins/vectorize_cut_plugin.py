@@ -120,7 +120,7 @@ class VectorizeCutTechnique(GImageTechniqueBase):
         self.emit_action(self.machine.set_position(X=0, Y=0))
 
         self._contours_to_gcode(processed, img)
-
+        self.set_exit_config()
         self.emit_status(f"Finished vectorize_cut.\nSVG: {self.svg_path}\nGCODE: {self.gcode_path}")
 
     # ----------------------------------------------------------------------

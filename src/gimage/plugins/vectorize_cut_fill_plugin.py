@@ -209,7 +209,8 @@ class VectorizeFillPerColorTechnique(GImageTechniqueBase):
                     percent = int((n_s / max(1, len(new_shape) - 1)) * 100)
                     self.emit_progress(percent, {"color": color, "lines_total": len(unique_colors)})
                     self.draw_subshapes(sub_shape, power, feedrate, img_q, img_ini_pos, robot_xyz, self.step)
-
+        # Finished
+        self.set_exit_config()
         self.emit_status(f"Finished {self.name}.\nGCODE: {self.gcode_path}")
     
     def draw_subshapes(self, sub_shape, power, feedrate, im, img_ini_pos, robot_xyz, resolution):

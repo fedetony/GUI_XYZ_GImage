@@ -97,6 +97,12 @@ class GImageTechniqueBase:
 
     def process(self):
         raise NotImplementedError
+    
+    def pre_process(self):
+        pass
+
+    def post_process(self):
+        pass
 
     def status_update(self, **kwargs):
         """
@@ -209,6 +215,14 @@ class GImageTechniqueBase:
 
         return self.status
 
+    def set_exit_config(self):
+        """Sets Machine and Tool exit configurations"""
+        tool_exit=self.tool.set_exit_config()
+        if tool_exit:
+            self.emit_action(tool_exit)
+        machine_exit=self.machine.set_exit_config()
+        if machine_exit:
+            self.emit_action(machine_exit)
 
 
 

@@ -134,6 +134,7 @@ class VectorizeFillTechnique(GImageTechniqueBase):
         self._to_gcode_contiguous_emit(img,vectorize_thread.last_color_joined_pieces)
         
         vectorize_thread.join()
+        self.set_exit_config()
         self.emit_status(f"Finished .... check \n{self.gcode_path}\n{self.svg_path}\n{self.actions_path}")
         
     

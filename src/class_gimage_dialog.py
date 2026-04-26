@@ -321,6 +321,8 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         
         # Add cache tooltip, icons, backgrounds, styles
         self.tv.set_icons_cache(self.all_icons_dict)
+        self.tooltip_dict=self._get_tool_tip_dictionary()
+        self.tv.set_tooltip_cache(self.tooltip_dict)
         #self.tv.set_style_cache(self.style_dict)
 
         # Right click Menu 
@@ -329,6 +331,32 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         #self.tv.item_right_clicked.connect(self.on_item_right_clicked)
         
         self.tv.do_refresh()
+    
+    def _get_tool_tip_dictionary(self):
+        """Generates tooltip dictionary from info in structure"""
+        tooltip_dict={}
+        root=self.tv.tracker.get_root()
+        # set unique id for each tooltip, just in case child names are shared
+        tt_id=0
+        for key,item in root.items():
+            node_valid=self.tv.tracker.validate_node([key])
+            if node_valid.get("found"):
+                track= node_valid.get("track")
+                info=self.tv.tracker.get_value(track+["info"])
+                if info is not None:
+                    tooltip_dict[f"{tt_id}"] = info
+                    # Set key in model
+                    self.tv.tracker.set_or_create_property(track+["tooltip_key"],f"{tt_id}")
+                    tt_id += 1
+                if node_valid.get("has_children"):
+                    for child_key in node_valid.get("children_keys"):
+                        info=self.tv.tracker.get_value(track+[child_key,"info"])
+                        if info is not None:
+                            # Set key in model
+                            self.tv.tracker.set_or_create_property(track+[child_key,"tooltip_key"],f"{tt_id}")
+                            tooltip_dict[f"{tt_id}"] = info
+                            tt_id += 1
+        return tooltip_dict
     
     def on_item_right_clicked(self, src_index: QtCore.QModelIndex, stored):
         """Reserved for right click menu in the treeview"""

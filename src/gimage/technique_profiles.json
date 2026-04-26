@@ -9,6 +9,16 @@
     ]
   },
 
+  "cnc_engrave": {
+    "compatible_tools": ["bit"],
+    "method": [
+      {
+        "name": "raster",
+        "info": "Draws or cuts in the depth according along the raster pathpath."
+      }
+    ]
+  },
+
   "vectorize_fill": {
     "compatible_tools": [
       "pen",
@@ -71,7 +81,7 @@
   },
 
   "vectorize_cut": {
-    "compatible_tools": ["laser","cutter"],
+    "compatible_tools": ["laser","cutter", "bit"],
     "method": [
       {
         "name": "m4_dynamic_power",
@@ -92,7 +102,8 @@
       "laser",
       "cutter",
       "extruder",
-      "mark"
+      "mark",
+      "bit"
     ],
     "method": [
       {

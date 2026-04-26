@@ -88,6 +88,8 @@ class LineingTechnique(GImageTechniqueBase):
             percent = int((y / max(1, height - 1)) * 100)
             self.emit_progress(percent, {"line": y, "lines_total": height})
 
+        # Finished
+        self.set_exit_config()
         self.emit_status("Lineing finished")
 
     def _pixel_to_xy(self, x, y, res):

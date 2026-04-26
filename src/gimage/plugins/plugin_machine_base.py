@@ -12,7 +12,13 @@ class GImageMachineBase:
         self.available_actions=self.ch.getListofActions()
         self.available_parameters=self.ch.Get_list_of_all_parameters_in_interface(self.ch.id)
         self.status=status
-        
+        self.set_init_config()
+    
+    def set_init_config(self):
+        pass
+  
+    def set_exit_config(self):
+        return None
 
     def move_to(self, x, y, rapid=False):
         raise NotImplementedError

@@ -185,6 +185,8 @@ class RasterTechnique(GImageTechniqueBase):
             percent = int((line_index / max(1, total_lines - 1)) * 100)
             self.emit_progress(percent, {"line": line_index, "lines_total": total_lines})
 
+        #Finished 
+        self.set_exit_config()
         self.emit_status("Raster finished")
 
     # ---------------- SCAN PATTERNS ----------------

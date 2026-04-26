@@ -146,7 +146,9 @@ class GImagePluginHandler(threading.Thread):
             self.prepare_temp_files()
 
             # Execute technique → fills queue incrementally
+            plugin.pre_process()
             plugin.process()
+            plugin.post_process()
 
             # Final flush of remaining actions
             self.process_queue()

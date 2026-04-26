@@ -105,7 +105,13 @@
       "value": 0.1,
       "unit": "mm",
       "type": "float",
-      "info": "Diameter or effective contact width"
+      "info": "Diameter or effective contact width",
+      "meta": {
+        "hidden": false,
+        "constraints": {
+          "min": 0.0001
+        }
+      }
     },
 
     "tool_tip_contact_offset": {
@@ -144,13 +150,36 @@
             }
     },
 
+    "spindle_direction": {
+      "value": "CW",
+      "unit": "",
+      "type": "str",
+      "info": "Spindle Rotation direction CW=Clockwise (M3), CCW=CounterClockwise (M4)",
+      "meta":{
+        "hidden":false,        
+        "conditions": "me_set('meta[hidden]',False) if node_get('tool[tool_type[value]]') == 'bit' else me_set('meta[hidden]',True)",
+        "options": ["CW","CCW"]
+      }
+    },
+
+    "spindle_dwell_time_ms": {
+      "value": 5000,
+      "unit": "ms",
+      "type": "int",
+      "info": "Time to dwell for spindle to spin-up/down in msec",
+      "meta":{"hidden":false,
+              "min": 1,
+              "conditions": "me_set('meta[hidden]',False) if node_get('tool[tool_type[value]]') == 'bit' else me_set('meta[hidden]',True)"
+            }
+    },
+
     "touch_z": {
       "value": 0,
       "unit": "mm",
       "type": "float",
       "info": "Touch fixed Z position",
       "meta":{"hidden":false,
-              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush','bit')) else me_set('meta[hidden]',True)"
             }
     },
 
@@ -160,7 +189,7 @@
       "type": "float",
       "info": "Retract Z position",
       "meta":{"hidden":false,
-              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush','bit')) else me_set('meta[hidden]',True)"
             }
     },
 
@@ -170,7 +199,7 @@
       "type": "float",
       "info": "Touch movement Feedrate, if <0 Rapid, if >0 Linear ",
       "meta":{"hidden":false,
-              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush','bit')) else me_set('meta[hidden]',True)"
             }
     },
 
@@ -180,7 +209,7 @@
       "type": "float",
       "info": "Retract movement Feedrate, if <0 Rapid, if >0 Linear",
       "meta":{"hidden":false,
-              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush')) else me_set('meta[hidden]',True)"
+              "conditions": "me_set('meta[hidden]',False) if ('Z' in node_get('machine[axes[value]]') and node_get('tool[tool_type[value]]') in ('pencil','pen','brush','bit')) else me_set('meta[hidden]',True)"
             }
     },
 
@@ -283,6 +312,21 @@
       }
     },
 
+    "z_depth_range": {
+      "value": [0.0, -5.0],
+      "unit": "",
+      "type": "list",
+      "subtype": "float",
+      "info": "Depth carving depth range (Z position)",
+      "meta":{
+        "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if ('bit' in node_get('tool[tool_type[value]]') and  node_get('technique[technique_type[value]]') == 'cnc_engrave') else me_set('meta[hidden]',True)",
+        "constraints": {
+          "arity": 2
+           }
+      }
+    }, 
+
     "threshold": {
       "value": 128,
       "unit": "",
@@ -337,6 +381,17 @@
       }
     },
 
+    "invert_depth": {
+      "value": false,
+      "unit": "",
+      "type": "bool",
+      "info": "Invert cut depth. invert = False → white = shallow, black = deep, invert = True → white = deep, black = shallow ",
+      "meta": {
+        "hidden": false,
+        "conditions": "me_set('meta[hidden]',False) if 'cnc_engrave' in node_get('technique[technique_type[value]]') else me_set('meta[hidden]',True)"
+      }
+    },
+
     "cut_power_range": {
       "value": [0, 1000],
       "unit": "",
@@ -380,9 +435,10 @@
       "info": "Z lift between moves",
       "meta":{
         "hidden":false,
-        "conditions": "me_set('meta[hidden]',False) if 'Z' in node_get('machine[axes[value]]') else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if 'Z' in node_get('machine[axes[value]]') and node_get('technique[technique_type[value]]') == 'stipple' else me_set('meta[hidden]',True)"
       }
     },
+
     "lines_per_mm": { 
       "value": 5.0, 
       "unit": "lines/mm", 
@@ -390,6 +446,7 @@
       "info": "Lines per mm desnsity for output image",
       "meta":{
         "hidden":false,
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') not in ('cnc_engrave') else me_set('meta[hidden]',True)",
         "min":1e-6,
         "max":1e9
       } 
@@ -440,7 +497,7 @@
         "hidden":false,
         "min":0.1,
         "max":1000,
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize_fill','vectorize_cut_fill'] else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ['vectorize_fill','vectorize_cut_fill','cnc_engrave'] else me_set('meta[hidden]',True)"
       }
       },
     "fill_method": { 
@@ -486,7 +543,7 @@
       "meta": { 
         "hidden":false,
         "options": ["horizontal","vertical","diagonal","spiralin","spiralout"], 
-        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'laser_engrave' else me_set('meta[hidden]',True)"
+        "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ('laser_engrave','cnc_engrave') else me_set('meta[hidden]',True)"
       }
       },
       "recovery_distance": { 
@@ -498,7 +555,7 @@
           "hidden":false,
           "min":0.0,
           "max":333,
-          "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') == 'laser_engrave' else me_set('meta[hidden]',True)"
+          "conditions": "me_set('meta[hidden]',False) if node_get('technique[technique_type[value]]') in ('laser_engrave','cnc_engrave') else me_set('meta[hidden]',True)"
         } 
       }
 
