@@ -4,191 +4,229 @@ from PIL import Image
 class RasterTechnique(GImageTechniqueBase):
     name = "laser_engrave"
 
+    # ------------------------------------------------------------
+    # PROCESS ENTRY POINT
+    # ------------------------------------------------------------
     def process(self):
+        self._emit_header()
+        self._load_config()
+        self._emit_parameters()
+        self._prepare_raster_grid()
+        self._prepare_image()
+        self._prepare_scan_pattern()
+        self._run_raster_loop()
+        self.set_exit_config()
+        self.emit_status("Raster finished")
 
+    # ------------------------------------------------------------
+    # CONFIG
+    # ------------------------------------------------------------
+    def _load_config(self):
         cfg = self.config
-        interface_name=self.ch.get_name_from_id(self.ch.id)
-        mytechnique=self.config.get_value(["technique","technique_type","value"])
-        self.emit_action(self.machine.a_set("Comment",msg=f"Technique {mytechnique}"))
-        self.emit_action(self.machine.a_set("Comment",msg=f"Using interface {interface_name}"))
-        # --- CONFIG ---
-        lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
-        direction     = cfg.get_value(["technique","direction","value"])
-        recovery_mm   = cfg.get_value(["technique","recovery_distance","value"])
-        mode          = "continuous" # cfg.get_value(["image","mode","value"])  # "continuous" or "threshold"
 
-        min_power, max_power = cfg.get_value(["technique","power_range","value"])
-        feedrate = cfg.get_value(["technique","rate","value"])
+        interface_name = self.ch.get_name_from_id(self.ch.id)
+        mytechnique = cfg.get_value(["technique","technique_type","value"])
+        self.emit_action(self.machine.a_set("Comment", msg=f"Technique {mytechnique}"))
+        self.emit_action(self.machine.a_set("Comment", msg=f"Using interface {interface_name}"))
 
-        width_mm, height_mm, _ = cfg.get_value(["output","image_size","value"])
-        offset_x, offset_y, _  = cfg.get_value(["output","image_offset","value"])
-        gcode_floating_decimals  = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
-        gcode_minimize_code= cfg.get_value(["output","gcode_minimize_code","value"]) or True
-        
-        #origin_x, origin_y, _ =cfg.get_value(["output","image_origin","value"])
+        # Technique parameters
+        self.lines_per_mm = cfg.get_value(["technique","lines_per_mm","value"])
+        self.direction     = cfg.get_value(["technique","direction","value"])
+        self.recovery_mm   = cfg.get_value(["technique","recovery_distance","value"])
+        self.mode          = "continuous"
 
-        # --- COMPUTE RASTER GRID ---
-        W = max(1, int(width_mm  * lines_per_mm))
-        H = max(1, int(height_mm * lines_per_mm))
-        step = 1.0 / lines_per_mm
-        
-        # set feedrate
+        self.min_power, self.max_power = cfg.get_value(["technique","power_range","value"])
+        self.feedrate = cfg.get_value(["technique","rate","value"])
+
+        # Output geometry
+        self.width_mm, self.height_mm, _ = cfg.get_value(["output","image_size","value"])
+        self.offset_x, self.offset_y, _  = cfg.get_value(["output","image_offset","value"])
+
+        # G-code formatting
+        self.gcode_floating_decimals = cfg.get_value(["output","gcode_floating_decimals","value"]) or 3
+        self.gcode_minimize_code = cfg.get_value(["output","gcode_minimize_code","value"]) or True
+
+    # ------------------------------------------------------------
+    # HEADER
+    # ------------------------------------------------------------
+    def _emit_header(self):
         self.emit_action(self.machine.set_units())
-        self.emit_action(self.machine.move(rapid=False,F=feedrate))
-
-        # Raise tool to moving height
+        self.emit_action(self.machine.move(rapid=False, F=self.config.get_value(["technique","rate","value"])))
         self.emit_action(self.tool.up())
-        
-        origin_x, origin_y, = (0 , 0)
+
         # Move to origin
-        self.emit_action(self.machine.move(rapid=True,X=origin_x,Y=origin_y))
-        
-        # Set origin
-        self.emit_action(self.machine.set_position(X=0,Y=0))
+        self.emit_action(self.machine.move(rapid=True, X=0, Y=0))
+        self.emit_action(self.machine.set_position(X=0, Y=0))
+    
+    def _emit_parameters(self):
+        params_msg = (
+            f"Settings rate:{self.feedrate}, "
+            f"lpmm:{self.lines_per_mm}, "
+            f"dir:{self.direction}, "
+            f"rec:{self.recovery_mm}, "
+            f"minp:{self.min_power}, "
+            f"maxp:{self.max_power}, "
+            f"offset:({self.offset_x},{self.offset_y}), "
+            f"size:({self.width_mm}x{self.height_mm}), "
+            f"gdec:{self.gcode_floating_decimals}, "
+            f"mincode:{self.gcode_minimize_code}"
+        )
+        self.emit_action(self.machine.a_set("Comment", msg=params_msg))
 
-        # --- PREPARE IMAGE ---
+
+    # ------------------------------------------------------------
+    # RASTER GRID
+    # ------------------------------------------------------------
+    def _prepare_raster_grid(self):
+        self.W = max(1, int(self.width_mm  * self.lines_per_mm))
+        self.H = max(1, int(self.height_mm * self.lines_per_mm))
+        self.step = 1.0 / self.lines_per_mm
+
+    # ------------------------------------------------------------
+    # IMAGE PREPARATION
+    # ------------------------------------------------------------
+    def _prepare_image(self):
         img = self.image.convert("RGB")
-        img = img.resize((W, H), resample=Image.Resampling.LANCZOS)
-        # PIL’s y=0 (top) becomes machine y=0 (bottom)
+        img = img.resize((self.W, self.H), resample=Image.Resampling.LANCZOS)
         img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        self.img = img
 
-        # --- SELECT SCAN PATTERN ---
-        scan = self._scan_generator(direction, W, H)
+    # ------------------------------------------------------------
+    # SCAN PATTERN
+    # ------------------------------------------------------------
+    def _prepare_scan_pattern(self):
+        self.scan = self._scan_generator(self.direction, self.W, self.H)
+        self.total_lines = self.W + self.H if self.direction == "diagonal" else max(self.W, self.H)
 
-        total_lines = W + H if direction == "diagonal" else max(W, H)
+    # ------------------------------------------------------------
+    # MAIN RASTER LOOP
+    # ------------------------------------------------------------
+    def _run_raster_loop(self):
+        rr = self._rr
+        last_power = 0
+        last_Xmm = -1e9
+        last_Ymm = -1e9
 
-        def rr(value:float):
-            """Helper to set number of decimals to the gcode coordinates"""
-            return float(f"{value:.{gcode_floating_decimals}f}")
-
-        # --- MAIN LOOP ---
-        last_power=0
-        last_Xmm=-1e9
-        last_Ymm=-1e9
-        for line_index, line in enumerate(scan):
-
+        for line_index, line in enumerate(self.scan):
             self.check_stop()
             if not line:
                 continue
 
-            # Determine overscan
-            xs = [p[0] for p in line]
-            ys = [p[1] for p in line]
-            x_min, x_max = min(xs), max(xs)
-            y_min, y_max = min(ys), max(ys)
+            start_x, start_y, end_x, end_y = self._compute_line_bounds(line)
 
-            # Default start/end
-            start_x = rr(offset_x + xs[0] * step)
-            start_y = rr(offset_y + ys[0] * step)
-            end_x   = rr(offset_x + xs[-1] * step)
-            end_y   = rr(offset_y + ys[-1] * step)
-
-            # Overscan only for horizontal/vertical
-            is_horizontal = (y_min == y_max)
-            is_vertical = (x_min == x_max)
-            xdir = 1
-            if (xs[-1]-xs[0])<0:
-                xdir = -1
-            ydir = 1
-            if (ys[-1]-ys[0])<0:
-                ydir = -1
-            if direction == "horizontal" and is_horizontal:
-                end_x   += xdir*recovery_mm
-
-            if direction == "vertical" and is_vertical:
-                end_y   += ydir*recovery_mm
-            
-            if direction in ("spiralin", "spiralout"):
-                if is_horizontal and xdir==1:
-                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
-                    end_y   = rr(offset_y + ys[-1] * step - ydir*recovery_mm)
-                elif is_vertical and ydir==1:
-                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
-                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
-                elif is_horizontal and xdir==-1:
-                    end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
-                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
-                elif is_vertical and ydir==-1:
-                    end_x   = rr(offset_x + xs[-1] * step - xdir*recovery_mm)
-                    end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
-            
-            if direction in ("diagonal"):
-                end_x   = rr(offset_x + xs[-1] * step + xdir*recovery_mm)
-                end_y   = rr(offset_y + ys[-1] * step + ydir*recovery_mm)
-            
-            # Move to start of line
+            # Move to start
             self.emit_action(self.tool.up())
-            self.emit_action(self.machine.move(rapid=True,X=start_x, Y=start_y))
-            last_Xmm=start_x
-            last_Ymm=start_y
+            self.emit_action(self.machine.move(rapid=True, X=start_x, Y=start_y))
+            last_Xmm, last_Ymm = start_x, start_y
             drawing = False
 
-            # --- PROCESS PIXELS IN THIS LINE ---
+            # Process pixels
             for (x, y) in line:
-                pixel = img.getpixel((x, y))
-                power = self._pixel_to_power(pixel, min_power, max_power, mode)
+                pixel = self.img.getpixel((x, y))
+                power = self._pixel_to_power(pixel)
 
-                Xmm = rr(offset_x + x * step)
-                Ymm = rr(offset_y + y * step)
+                Xmm = rr(self.offset_x + x * self.step)
+                Ymm = rr(self.offset_y + y * self.step)
 
                 if power > 0:
                     if not drawing:
                         self.emit_action(self.tool.down(power=power))
                         drawing = True
 
-                    if not gcode_minimize_code:
-                        # Full G-code always
-                        self.emit_action(self.machine.move(
-                            rapid=False, X=Xmm, Y=Ymm, S=int(power)
-                        ))
-                    else:
-                        # --- MINIMIZED G-CODE MODE ---
-                        dx = (Xmm != last_Xmm)
-                        dy = (Ymm != last_Ymm)
-                        dp = (power != last_power)
+                    self._emit_move_minimized(Xmm, Ymm, power, last_Xmm, last_Ymm, last_power)
 
-                        # Nothing changed → skip
-                        if not dx and not dy and not dp:
-                            pass
-
-                        else:
-                            params = {}
-                            if dx: params["X"] = Xmm
-                            if dy: params["Y"] = Ymm
-                            if dp: params["S"] = int(power)
-
-                            self.emit_action(self.machine.move(
-                                rapid=False, **params
-                            ))
-
-                    # Update last values
                     last_power = power
                     last_Xmm = Xmm
                     last_Ymm = Ymm
 
                 else:
-                    # Power == 0 → lift tool if needed
                     if drawing:
                         self.emit_action(self.tool.up())
                         drawing = False
 
-            # End of line
             if drawing:
                 self.emit_action(self.tool.up())
 
             # Move to overscan end
-            self.emit_action(self.machine.move(rapid=True,X=end_x, Y=end_y))
-            last_Xmm=end_x 
-            last_Ymm=end_y
+            self.emit_action(self.machine.move(rapid=True, X=end_x, Y=end_y))
+            last_Xmm, last_Ymm = end_x, end_y
 
             # Progress
-            percent = int((line_index / max(1, total_lines - 1)) * 100)
-            self.emit_progress(percent, {"line": line_index, "lines_total": total_lines})
+            percent = int((line_index / max(1, self.total_lines - 1)) * 100)
+            self.emit_progress(percent, {"line": line_index, "lines_total": self.total_lines})
 
-        #Finished 
-        self.set_exit_config()
-        self.emit_status("Raster finished")
+    # ------------------------------------------------------------
+    # HELPERS
+    # ------------------------------------------------------------
+    def _rr(self, value: float) -> float:
+        return float(f"{value:.{self.gcode_floating_decimals}f}")
 
+    def _compute_line_bounds(self, line):
+        rr = self._rr
+        xs = [p[0] for p in line]
+        ys = [p[1] for p in line]
+
+        x_min, x_max = min(xs), max(xs)
+        y_min, y_max = min(ys), max(ys)
+
+        start_x = rr(self.offset_x + xs[0] * self.step)
+        start_y = rr(self.offset_y + ys[0] * self.step)
+        end_x   = rr(self.offset_x + xs[-1] * self.step)
+        end_y   = rr(self.offset_y + ys[-1] * self.step)
+
+        is_horizontal = (y_min == y_max)
+        is_vertical   = (x_min == x_max)
+
+        xdir = 1 if xs[-1] >= xs[0] else -1
+        ydir = 1 if ys[-1] >= ys[0] else -1
+
+        # Overscan logic
+        if self.direction == "horizontal" and is_horizontal:
+            end_x += xdir * self.recovery_mm
+
+        if self.direction == "vertical" and is_vertical:
+            end_y += ydir * self.recovery_mm
+
+        if self.direction in ("diagonal"):
+            end_x += xdir * self.recovery_mm
+            end_y += ydir * self.recovery_mm
+
+        if self.direction in ("spiralin", "spiralout"):
+            end_x += xdir * self.recovery_mm
+            end_y += ydir * self.recovery_mm
+
+        return start_x, start_y, end_x, end_y
+
+    def _emit_move_minimized(self, Xmm, Ymm, power, last_Xmm, last_Ymm, last_power):
+        if not self.gcode_minimize_code:
+            self.emit_action(self.machine.move(rapid=False, X=Xmm, Y=Ymm, S=int(power)))
+            return
+
+        dx = (Xmm != last_Xmm)
+        dy = (Ymm != last_Ymm)
+        dp = (power != last_power)
+
+        if not dx and not dy and not dp:
+            return
+
+        params = {}
+        if dx: params["X"] = Xmm
+        if dy: params["Y"] = Ymm
+        if dp: params["S"] = int(power)
+
+        self.emit_action(self.machine.move(rapid=False, **params))
+
+    # ------------------------------------------------------------
+    # PIXEL → POWER
+    # ------------------------------------------------------------
+    def _pixel_to_power(self, pixel):
+        if isinstance(pixel, tuple):
+            pixel = sum(pixel) / len(pixel)
+
+        brightness = pixel / 255.0
+        inv = 1.0 - brightness
+        return int(self.min_power + inv * (self.max_power - self.min_power))
+    
     # ---------------- SCAN PATTERNS ----------------
 
     def _scan_generator(self, direction, W, H):
@@ -252,17 +290,3 @@ class RasterTechnique(GImageTechniqueBase):
                 left += 1
 
         return lines
-
-    # ---------------- PIXEL → POWER ----------------
-
-    def _pixel_to_power(self, pixel, min_p, max_p, mode):
-        if isinstance(pixel, tuple):
-            pixel = sum(pixel) / len(pixel)
-
-        if mode == "threshold":
-            return max_p if pixel < 128 else 0
-
-        # continuous grayscale
-        brightness = pixel / 255.0
-        inv = 1.0 - brightness
-        return int(min_p + inv * (max_p - min_p))

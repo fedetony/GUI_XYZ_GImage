@@ -74,18 +74,27 @@ class CNCRasterTechnique(GImageTechniqueBase):
                     msg=f"Warning: Retract Z {self.retract_pos} inside work range, correcting to {self.min_z}"
                 ))
                 self.retract_pos = self.min_z
-
-        
-
     
     def _emit_parameters(self):
-        # parameters message
         params_msg = (
-            f"Settings rate:{self.feedrate},lpmm:{self.lines_per_mm},dir:{self.direction},"
-            f"rec:{self.recovery_mm},minz:{self.min_z},maxz:{self.max_z},"
-            f"p:{self.max_power},overlap:{self.overlap},inv:{self.invert_depth}"
+            f"Settings rate:{self.feedrate}, "
+            f"lpmm:{self.lines_per_mm}, "
+            f"dir:{self.direction}, "
+            f"rec:{self.recovery_mm}, "
+            f"minz:{self.min_z}, "
+            f"maxz:{self.max_z}, "
+            f"touch:{self.touch_pos}, "
+            f"retract:{self.retract_pos}, "
+            f"pmax:{self.max_power}, "
+            f"overlap:{self.overlap}, "
+            f"invert_depth:{self.invert_depth}, "
+            f"offset:({self.offset_x},{self.offset_y}), "
+            f"size:({self.width_mm}x{self.height_mm}), "
+            f"gdec:{self.gcode_floating_decimals}, "
+            f"mincode:{self.gcode_minimize_code}"
         )
         self.emit_action(self.machine.a_set("Comment", msg=params_msg))
+
 
     def _prepare_raster_grid(self):
         self.W = max(1, int(self.width_mm  * self.lines_per_mm))
