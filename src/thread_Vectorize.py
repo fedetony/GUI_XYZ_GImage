@@ -1817,31 +1817,34 @@ class Vectorizer:
         if not shapes:
             return []
 
-        # Convert start/end points to NumPy arrays
-        starts = np.array([[s[0][0][0], s[0][0][1]] for s in shapes])
-        ends   = np.array([[s[-1][-1][0], s[-1][-1][1]] for s in shapes])
+        # Helper to extract (x, y) regardless of nesting depth
+        def xy(pt):
+            # pt may be [ [x,y] ] or [x,y]
+            while isinstance(pt[0], (list, tuple, np.ndarray)):
+                pt = pt[0]
+            return pt[0], pt[1]
 
-        # Keep track of which shapes are still available
+        # Extract start/end points
+        starts = np.array([xy(s[0]) for s in shapes], dtype=float)
+        ends   = np.array([xy(s[-1]) for s in shapes], dtype=float)
+
         remaining = list(range(len(shapes)))
-
-        # Start with the first shape
         ordered = [remaining.pop(0)]
         last_end = ends[ordered[-1]]
 
         while remaining:
-            # Compute squared distances from last_end to all remaining starts
             rem_starts = starts[remaining]
-            diff = rem_starts - last_end
-            d2 = np.einsum('ij,ij->i', diff, diff)  # fast dot product per row
 
-            # Pick nearest neighbor
+            # Compute squared distances in a vectorized way
+            diff = rem_starts - last_end  # guaranteed shape (N, 2)
+            d2 = np.einsum('ij,ij->i', diff, diff)
+
             best_idx = np.argmin(d2)
             next_shape = remaining.pop(best_idx)
 
             ordered.append(next_shape)
             last_end = ends[next_shape]
 
-        # Return shapes in the new order
         return [shapes[i] for i in ordered]
 
 
