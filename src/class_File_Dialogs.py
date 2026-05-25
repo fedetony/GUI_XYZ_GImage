@@ -36,6 +36,8 @@ class Dialogs(QWidget):
                 "Json Files (*.json)"),
             7: ("Yaml Files (*.yml)",
                 "Yaml Files (*.yml)"),
+            8: ("All Files (*);;SVG Files (*.svg)",
+                "SVG Files (*.svg)"),
         }
 
         self.default_filter = ("All Files (*)", "All Files (*)")

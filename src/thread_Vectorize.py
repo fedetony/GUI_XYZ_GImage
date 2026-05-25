@@ -30,13 +30,14 @@ class Vectorization(threading.Thread):
     """
         A thread class Get vector data out of pillow and images in rgba form
     """
-    def __init__(self, The_Image, kill_event,plaintextEdit_GcodeScript=None,Pbar=None):
+    def __init__(self, The_Image, kill_event,plaintextEdit_GcodeScript=None,Pbar=None,progress_callback=None):
         threading.Thread.__init__(self, name="Vectorize thread")        
         self.killer_event = kill_event
         self.im=The_Image
         self.improcess_percentage=0
         self.printprocess=False
         self.plaintextEdit_GcodeScript=plaintextEdit_GcodeScript
+        self.progress_callback = progress_callback
         self.Pbarupdate=Pbar
         self.Pbar_Set_Status(0)
         self.Pbarini=0
@@ -44,7 +45,9 @@ class Vectorization(threading.Thread):
         self.last_color_joined_pieces=None # store result in class
 
     def Pbar_Set_Status(self,val):
-        if  self.Pbarupdate is not None and int(val)>=0 and int(val)<=100:      
+        if self.progress_callback:
+            self.progress_callback(val)
+        elif  self.Pbarupdate is not None and int(val)>=0 and int(val)<=100:      
             self.Pbarupdate.SetStatus(int(val))    
 
     def Get_Im_Process_state(self):
@@ -379,7 +382,10 @@ class Vectorization(threading.Thread):
         """
         if epsilon is None:
             epsilon=EPSILON
-        vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
+        if self.progress_callback:
+            vect=Vectorizer(None,0,100,self.progress_callback)
+        else:
+            vect=Vectorizer(self.Set_Progress_Percentage,pini=0,pend=100)
         color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength,do_sort=do_sort)
         self.last_color_joined_pieces=color_joined_pieces
         svg = self.write_color_joined_pieces_to_svg_contiguous(im, color_joined_pieces)
@@ -945,7 +951,10 @@ class Vectorization(threading.Thread):
         self.Pbarend = 100
         if epsilon is None:
             epsilon=EPSILON
-        vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
+        if self.progress_callback:
+            vect=Vectorizer(None,self.Pbarini,self.Pbarend,self.progress_callback)
+        else:
+            vect=Vectorizer(self.Set_Progress_Percentage,self.Pbarini,self.Pbarend)
         color_joined_pieces=vect.vectorize(im,16,epsilon,merge_strength,do_sort=do_sort)
         self.last_color_joined_pieces=color_joined_pieces
       
@@ -1687,17 +1696,23 @@ class Vectorization(threading.Thread):
         return color_joined_pieces
 
 class Vectorizer:
-    def __init__(self, progress_function=None,pini=None,pend=None):
+    def __init__(self, progress_function=None,pini=None,pend=None,progress_callback=None):
         self.pini=pini
         self.pend=pend
         self.progress=progress_function
+        self.progress_callback=progress_callback
     
-    def set_progress(self,val,total):
-        if self.progress:
-            try:
-                _=self.progress(val,total,self.pini,self.pend)
-            except:
-                pass
+    def set_progress(self, val, total):
+        if total <= 0:
+            percent = self.pini
+        else:
+            percent = self.pini + (val / total) * (self.pend - self.pini)
+
+        if self.progress_callback:
+            self.progress_callback(int(percent))
+        elif self.progress:
+            self.progress(val, total, self.pini, self.pend)
+
         
     # --- STEP 1: Quantize image to reduce colors ---
     def quantize_image(self, im, colors=16):
@@ -1741,25 +1756,36 @@ class Vectorizer:
 
     # --- STEP 5: RDP simplification ---
     def rdp(self, points, epsilon):
-        if len(points) < 3:
+        pts = np.asarray(points)
+        if pts.shape[0] < 3:
             return points
-        (x1, y1) = points[0]
-        (x2, y2) = points[-1]
-        dx, dy = x2 - x1, y2 - y1
-        denom = (dx*dx + dy*dy)**0.5 or 1.0
-        max_dist, index = -1, -1
-        for i in range(1, len(points)-1):
-            (x0, y0) = points[i]
-            num = abs(dy*x0 - dx*y0 + x2*y1 - y2*x1)
-            dist = num / denom
-            if dist > max_dist:
-                max_dist, index = dist, i
+
+        # Line endpoints
+        p1 = pts[0]
+        p2 = pts[-1]
+
+        # Vector from p1 to p2
+        line_vec = p2 - p1
+        line_len = np.hypot(line_vec[0], line_vec[1]) or 1.0
+
+        # Vector from p1 to all points
+        vecs = pts - p1
+
+        # Cross product magnitude gives perpendicular distance * line_len
+        cross = np.abs(line_vec[0] * vecs[:,1] - line_vec[1] * vecs[:,0])
+        dists = cross / line_len
+
+        # Find index of max distance
+        idx = np.argmax(dists)
+        max_dist = dists[idx]
+
         if max_dist > epsilon:
-            left = self.rdp(points[:index+1], epsilon)
-            right = self.rdp(points[index:], epsilon)
+            left = self.rdp(pts[:idx+1], epsilon)
+            right = self.rdp(pts[idx:], epsilon)
             return left[:-1] + right
         else:
-            return [points[0], points[-1]]
+            return [tuple(p1), tuple(p2)]
+
 
     def simplify_shapes(self, shapes, epsilon=1.0):
         new_shapes = []
@@ -1786,22 +1812,38 @@ class Vectorizer:
 
     # --- STEP 6: Sort shapes by nearest neighbor ---
     def sort_shapes(self, shapes):
-        def start(shape): return shape[0][0][0]
-        def end(shape): return shape[-1][-1][1]
+        # Filter out empty shapes
         shapes = [s for s in shapes if s and s[0]]
-        if not shapes: return []
-        ordered = [shapes.pop(0)]
-        while shapes:
-            last_end = end(ordered[-1])
-            best_idx, best_dist = None, float("inf")
-            for i, s in enumerate(shapes):
-                sx, sy = start(s)
-                lx, ly = last_end
-                d2 = (sx-lx)**2 + (sy-ly)**2
-                if d2 < best_dist:
-                    best_dist, best_idx = d2, i
-            ordered.append(shapes.pop(best_idx))
-        return ordered
+        if not shapes:
+            return []
+
+        # Convert start/end points to NumPy arrays
+        starts = np.array([[s[0][0][0], s[0][0][1]] for s in shapes])
+        ends   = np.array([[s[-1][-1][0], s[-1][-1][1]] for s in shapes])
+
+        # Keep track of which shapes are still available
+        remaining = list(range(len(shapes)))
+
+        # Start with the first shape
+        ordered = [remaining.pop(0)]
+        last_end = ends[ordered[-1]]
+
+        while remaining:
+            # Compute squared distances from last_end to all remaining starts
+            rem_starts = starts[remaining]
+            diff = rem_starts - last_end
+            d2 = np.einsum('ij,ij->i', diff, diff)  # fast dot product per row
+
+            # Pick nearest neighbor
+            best_idx = np.argmin(d2)
+            next_shape = remaining.pop(best_idx)
+
+            ordered.append(next_shape)
+            last_end = ends[next_shape]
+
+        # Return shapes in the new order
+        return [shapes[i] for i in ordered]
+
 
     # --- MAIN ENTRY ---
     def vectorize(self, im, colors=16, epsilon=1.0, merge_strength=1.0, clockwise=False, do_sort=True):

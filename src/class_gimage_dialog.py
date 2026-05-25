@@ -33,6 +33,7 @@ from class_struct_conditioner import ConditionEngine
 from class_LSTD import LayerSelectionToolDialog
 from thread_gimage_plugin_handler import GImagePluginHandler
 from class_CH import Command_Handler
+from thread_Vectorize import Vectorizer,Vectorization
 
 ap=get_appPath()
 img_path=os.path.join(ap,"img")
@@ -230,8 +231,9 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
 
         self.zoom_controller = SyncedZoomController()
 
-        self.original_view = SyncedGraphicsView(self.zoom_controller)
-        self.processed_view = SyncedGraphicsView(self.zoom_controller)
+        self.original_view = SyncedGraphicsView(self.zoom_controller,file_dialog_owner=self.file_dialog)
+        self.processed_view = SyncedGraphicsView(self.zoom_controller,file_dialog_owner=self.file_dialog)
+
         self.original_view.set_has_image(False)
         self.processed_view.set_has_image(False)
 
@@ -493,6 +495,56 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         self.st.gimage_status.connect(self.on_gimage_status)
         self.st.gimage_finished.connect(self.on_gimage_finished)
         self.st.gimage_error.connect(self.on_gimage_error)
+        
+        # Svg export
+        self.original_view.request_svg_export.connect(self.export_svg)
+        self.processed_view.request_svg_export.connect(self.export_svg)
+    
+    def export_svg(self, qimage):
+        filename = self.file_dialog.saveFileDialog(8, "Save SVG Image")
+        if not filename:
+            return
+
+        pil_img = self.qimage_to_pil(qimage)
+
+        self.progress = FloatingProgressDialog("Vectorizing image…", parent=self)
+        self.progress.show()
+
+        # MUST keep references
+        self.export_kill_event = threading.Event()
+        self.export_svg_thread = QtCore.QThread(self)   # <-- parented to self, prevents GC
+        self.worker = VectorizerWorker(pil_img, self.export_kill_event)
+
+        # Worker MUST have no parent
+        self.worker.moveToThread(self.export_svg_thread)
+
+        # Connect BEFORE starting
+        self.export_svg_thread.started.connect(self.worker.run)
+
+        self.worker.progress.connect(self.progress.update_progress)
+        self.worker.finished.connect(lambda svg: self._finish_svg_export(svg, filename))
+        self.worker.aborted.connect(self._abort_svg_export)
+
+        self.progress.cancel_requested.connect(self.export_kill_event.set)
+
+        # Cleanup
+        self.worker.finished.connect(self.export_svg_thread.quit)
+        self.worker.aborted.connect(self.export_svg_thread.quit)
+        self.export_svg_thread.finished.connect(self.worker.deleteLater)
+        self.export_svg_thread.finished.connect(self.export_svg_thread.deleteLater)
+
+        # Start AFTER everything is connected
+        self.export_svg_thread.start()
+
+
+    def _finish_svg_export(self, svg_text, filename):
+        self.worker.v.Save_svg_text_file(svg_text, filename)
+        self.progress.close()
+        QtWidgets.QMessageBox.information(self, "Done", "SVG export completed.")
+
+    def _abort_svg_export(self):
+        self.progress.close()
+        QtWidgets.QMessageBox.warning(self, "Cancelled", "SVG export was cancelled.")
     
     def on_gimage_progress(self, percent, stat):
         self.gimage_progressbar.setValue(percent)
@@ -960,6 +1012,13 @@ class GimageGcodeGenerator(QtWidgets.QMainWindow):
         arr = bytes(ptr)
         pil_img = Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
         return pil_img
+    
+    def qimage_to_pil(self,image:QImage)->Image.Image:
+        if isinstance(image, QtGui.QImage):
+            pix = QtGui.QPixmap.fromImage(image)
+        else:
+            return None
+        return self.qpixmap_to_pil(pix)
 
     @staticmethod
     def svg_to_qpixmap(svg_path, width=None, height=None):
@@ -1281,11 +1340,15 @@ class SyncedZoomController(QtCore.QObject):
 
 
 class SyncedGraphicsView(QtWidgets.QGraphicsView):
-    def __init__(self, controller: SyncedZoomController, *args, **kwargs):
+    request_svg_export = QtCore.pyqtSignal(QtGui.QImage)
+
+    def __init__(self, controller: SyncedZoomController, file_dialog_owner=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.controller = controller
         self.controller.register_view(self)
+
+        self.file_dialog_owner = file_dialog_owner
 
         self._ignore_wheel = False
         self._ignore_scroll = False
@@ -1301,6 +1364,67 @@ class SyncedGraphicsView(QtWidgets.QGraphicsView):
         self.verticalScrollBar().valueChanged.connect(self.sync_scroll_y)
 
         self.setTransformationAnchor(QtWidgets.QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
+        # Right click menu
+        self.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.open_context_menu)
+    
+    # ---------------------------------------------------------
+    # Context Menu
+    # ---------------------------------------------------------
+    def open_context_menu(self, pos):
+        if not self._has_image:
+            return
+
+        menu = QtWidgets.QMenu(self)
+        save_action = menu.addAction("Save Gimage…")
+        save_svg = menu.addAction("Save SVG…")
+        action = menu.exec(self.mapToGlobal(pos))
+
+        if action == save_action:
+            self.save_image()
+        if action == save_svg:
+            self.prepare_svg_export()
+    
+    # ---------------------------------------------------------
+    # Save Image
+    # ---------------------------------------------------------
+    def prepare_svg_export(self):
+        rect = self.scene().sceneRect()
+        image = QtGui.QImage(rect.size().toSize(), QtGui.QImage.Format.Format_ARGB32)
+        image.fill(QtCore.Qt.GlobalColor.transparent)
+
+        painter = QtGui.QPainter(image)
+        self.scene().render(painter)
+        painter.end()
+
+        self.request_svg_export.emit(image)
+
+    def save_image(self):
+        rect = self.scene().sceneRect()
+        image = QtGui.QImage(
+            rect.size().toSize(),
+            QtGui.QImage.Format.Format_ARGB32
+        )
+        image.fill(QtCore.Qt.GlobalColor.transparent)
+
+        painter = QtGui.QPainter(image)
+        self.scene().render(painter)
+        painter.end()
+
+        # Use custom dialog
+        if self.file_dialog_owner is not None:
+            filename = self.file_dialog_owner.saveFileDialog(1, "Save Gimage")
+        else:
+            filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self,
+                "Save Image",
+                "",
+                "PNG Files (*.png);;JPEG Files (*.jpg);;BMP Files (*.bmp)"
+            )
+
+        if filename:
+            image.save(filename)
 
     def set_has_image(self, value: bool):
         self._has_image = value
@@ -1771,4 +1895,81 @@ class SvgGraphicsView(QGraphicsView):
         item = QGraphicsSvgItem(filename)
         self.scene.addItem(item)
         self.fitInView(item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+class FloatingProgressDialog(QtWidgets.QDialog):
+    cancel_requested = QtCore.pyqtSignal()
+
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Processing…")
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.label = QtWidgets.QLabel(text)
+        layout.addWidget(self.label)
+
+        self.progress = QtWidgets.QProgressBar()
+        self.progress.setRange(0, 0)  # busy indicator
+        layout.addWidget(self.progress)
+
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.cancel_requested)
+        layout.addWidget(cancel_btn)
+        self.last_val=0
+
+    def SetStatus(self,val):
+        if self.last_val != int(val):
+            self.update_progress(val)
+            self.last_val=int(val)
+
+    @QtCore.pyqtSlot(int)
+    def update_progress(self, value):
+        self.progress.setRange(0, 100)
+        self.progress.setValue(value)
+
+class VectorizerWorker(QtCore.QObject):
+    finished = QtCore.pyqtSignal(str)
+    progress = QtCore.pyqtSignal(int)
+    aborted = QtCore.pyqtSignal()
+
+    def __init__(self, pil_img, kill_event:threading.Event):
+        super().__init__()
+        self.pil_img = pil_img
+        self.kill_event = kill_event
+        self.v=None
+        print("Worker thread:", QtCore.QThread.currentThread())
+        print("GUI thread:", QtWidgets.QApplication.instance().thread())
     
+    def save_to_file(self,svg,filename):
+        self.v.Save_svg_text_file(svg,filename)
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        try:
+            # Create vectorizer thread object
+            self.v = Vectorization(self.pil_img, self.kill_event,
+                progress_callback=lambda val: self.progress.emit(val)
+            )
+
+            # Redirect progress to Qt
+            # Override BOTH progress mechanisms
+            # V.Pbarupdate = type("Proxy", (), {"SetStatus": lambda _, val: self.progress.emit(val)})()
+            # V.Pbar_Set_Status = lambda val: self.progress.emit(val)
+
+
+            # Run the heavy function (blocking)
+            svg = self.v.vectorizer_rgba_image_to_svg_contiguous(
+                im=self.pil_img,
+                epsilon=0,
+                merge_strength=0
+            )
+
+            if self.kill_event.is_set():
+                self.aborted.emit()
+            else:
+                self.finished.emit(svg)
+
+        except Exception as e:
+            print("Vectorizer error:", e)
+            self.aborted.emit()
