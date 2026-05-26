@@ -926,7 +926,7 @@ class Image_Gcode_Stream(threading.Thread):
     
     def Set_xyz_thread(self,xyz_thread,stoping_event):
         self.xyz_thread=xyz_thread  
-        self.holding_event=self.xyz_thread.grbl_event_hold     
+        self.holding_event=self.xyz_thread.machine_event_hold     
         self.stoping_event=stoping_event
         self.Isxyz_thread=True
 
@@ -992,7 +992,7 @@ class Image_Gcode_Stream(threading.Thread):
      
     def stream_one_line(self,line2stream):
         if self.istext2stream==True:
-            self.xyz_thread.grbl_gcode_cmd(line2stream)
+            self.xyz_thread.machine_gcode_cmd(line2stream)
     
     def Transform_pixel_coordinates_to_image_coordinates(self,x,y,Resolution=1):
         # (0,0) is the upper left corner

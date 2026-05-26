@@ -1134,7 +1134,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     
     def PB_StopGcode(self):
         self.stream_event_stop.set()
-        self.xyz_thread.grbl_stop()
+        self.xyz_thread.machine_stop()
         try:
             self.xyz_gcodestream_thread.stoping_event.set()                      
             self.xyz_thread.ser_read_thread.Streamwriting=False                                                                          
@@ -1455,7 +1455,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     def PB_Gcodesend(self):
         gcodeline=self.ui.lineEdit_Gcode.text()
         log.info("Sending Gcode: "+gcodeline)
-        self.xyz_thread.grbl_gcode_cmd(gcodeline)
+        self.xyz_thread.machine_gcode_cmd(gcodeline)
 
     def PB_XLeft(self):
         self.Set_DeltaXYZ_Values()
@@ -1522,7 +1522,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
 
     def Start_Image_Thread(self):
         try:            
-            #self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop)
+            #self.xyz_gimagestream_thread=Image_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.machine_event_hold,self.stream_event_stop)
             self.xyz_gimagestream_thread=Image_Gcode_Stream(self.killer_event,self.plaintextEdit_GcodeScript) 
             self.xyz_gimagestream_thread.name = "Gimage Stream" 
             self.xyz_gimagestream_thread.start()
@@ -1545,7 +1545,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.xyz_thread.start()                        
             self.stream_event_stop= threading.Event()
             self.stream_event_stop.clear()
-            self.xyz_gcodestream_thread=thread_Gcode_Stream.XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.grbl_event_hold,self.stream_event_stop,self.IsRunning_event)
+            self.xyz_gcodestream_thread=thread_Gcode_Stream.XYZ_Gcode_Stream(self.xyz_thread,self.killer_event,self.xyz_thread.machine_event_hold,self.stream_event_stop,self.IsRunning_event)
             self.xyz_gcodestream_thread.name = "XYZ Gcode Stream" 
             self.xyz_gcodestream_thread.start()
             self.xyz_update_thread=thread_XYZ_Update.XYZ_Update(self.ST,self.xyz_thread,self.xyz_gcodestream_thread,self.killer_event)
@@ -1668,9 +1668,9 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         if self.XYZRobot_found==1:       
             self.ui.comboBox_ConfigItem.clear()  
             if self.Is_Config_Table_Empty()==True:
-                config=self.xyz_thread.read_grbl_config(True,False)
+                config=self.xyz_thread.read_machine_config(True,False)
             else:
-                config=self.xyz_thread.read_grbl_config(False,False)   
+                config=self.xyz_thread.read_machine_config(False,False)   
             for ccc in config:
                 if not '_Info' in ccc and not '_Type' in ccc:
                     self.ui.comboBox_ConfigItem.addItem(ccc) 
@@ -1707,7 +1707,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     def Fill_Config_Table(self):
         if self.XYZRobot_found==1:       
             self.ui.tableWidget_Config.clear()
-            config=self.xyz_thread.read_grbl_config(True,False)   
+            config=self.xyz_thread.read_machine_config(True,False)   
             Num_Items=0
             for ccc in config:
                 if not '_Info' in ccc and not '_Type' in ccc:
@@ -1748,7 +1748,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
 
     def Combo_config_Select(self):
         self.Combo_Config_Selected=self.ui.comboBox_ConfigItem.currentText()        
-        config=self.xyz_thread.read_grbl_config(False,False)   
+        config=self.xyz_thread.read_machine_config(False,False)   
         for ccc in config:
             if not '_Info' in ccc and not '_Type' in ccc:
                 if ccc == self.Combo_Config_Selected:
@@ -1758,7 +1758,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
                     break
     
     def Is_Config_Table_diff_to_device(self):
-        config=self.xyz_thread.read_grbl_config(True,False)
+        config=self.xyz_thread.read_machine_config(True,False)
         is_different=False
         for row in range(self.Config_Table_NumRows):                        
             hhh=self.ui.tableWidget_Config.item(row, 0).text()
@@ -1770,7 +1770,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         return is_different        
             
     def write_Config_to_device(self):
-        config=self.xyz_thread.read_grbl_config(False,False)
+        config=self.xyz_thread.read_machine_config(False,False)
         changed=False
         for row in range(self.Config_Table_NumRows):                        
             hhh=self.ui.tableWidget_Config.item(row, 0).text()                                 
@@ -1780,7 +1780,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             if hhh in list(config):                
                 if str(config[hhh])!=hhhval:                        
                     Value=self.xyz_thread.set_correct_type(hhhval,False)            
-                    isaccepted=self.xyz_thread.change_grbl_config_parameter(hhh,Value)
+                    isaccepted=self.xyz_thread.change_machine_config_parameter(hhh,Value)
                     if isaccepted==False:
                         log.error('Parameter '+ hhh + ' was not accepted as '+str(Value)) 
                         changed=True
@@ -1791,7 +1791,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
                         log.info("Stuck here?")
         #No need is done in fill                
         #if changed==True:
-        #    config=self.xyz_thread.read_grbl_config(True,False)
+        #    config=self.xyz_thread.read_machine_config(True,False)
 
     def Get_data_from_Image_Config_Table(self):   
         data={}             
@@ -2013,7 +2013,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.StatusConnected=True                  
             log.info("Waiting for XYZ Robot Setup to finish")
             #log.info('-------------Reading device configuration-----------------------')
-            #config=self.xyz_thread.read_grbl_config(True,True)
+            #config=self.xyz_thread.read_machine_config(True,True)
             #log.info('----------------------------------------------------------------')
             """
             count=1
@@ -2047,7 +2047,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.Show_inbutton_pause()
             self.ui.pushButton_Pause_Resume.setEnabled(False) 
             self.ui.pushButton_Hold_Start_Gcode.setEnabled(False)
-            self.xyz_thread.grbl_stop()
+            self.xyz_thread.machine_stop()
 
     def PB_Pause_Resume(self):
         if self.XYZRobot_found==1:
@@ -2059,7 +2059,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             else:    
                 log.info("Pausing XYZRobot")
                 self.Show_inbutton_play()                
-                self.xyz_thread.grbl_feed_hold()
+                self.xyz_thread.machine_feed_hold()
                 #time.sleep(2)
                 self.x_pos=self.data_LastPos['XPOS']
                 self.y_pos=self.data_LastPos['YPOS']
@@ -2086,7 +2086,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             #log.info("Starting XYZRobot--->" +str(Last_Data['STATE_XYZ']))
             if Last_Data['STATE_XYZ']==6:
                 log.info("Starting XYZRobot")
-                self.xyz_thread.grbl_feed_start()      
+                self.xyz_thread.machine_feed_start()      
             self.ui.pushButton_Pause_Resume.setEnabled(False) 
             self.ui.pushButton_Hold_Start_Gcode.setEnabled(False)   
             time.sleep(0.3)          
@@ -2158,7 +2158,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)   
             #Show new position         
             self.xyz_thread.status_Report()
-            self.xyz_thread.grbl_status()
+            self.xyz_thread.machine_status()
             self.ST.Signal_Data(self.xyz_update_thread.read())
         else:            
             log.info("XYZ Robot not Connected for setting Position")  

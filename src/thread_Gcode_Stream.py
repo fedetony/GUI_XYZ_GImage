@@ -141,8 +141,8 @@ class XYZ_Gcode_Stream(threading.Thread):
                                     self.isqstream=False
                                     self.sqkill_ev.set()                     
                                     break  
-                                grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
-                                self.xyz_thread.ser_read_thread.Process_Read_Data(grbl_out,showok=False)
+                                machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
+                                self.xyz_thread.ser_read_thread.Process_Read_Data(machine_out,showok=False)
                                 [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools()                                                                   
                                 self.data = self.xyz_thread.read()                
                                 self.get_state()                                              
@@ -192,14 +192,14 @@ class XYZ_Gcode_Stream(threading.Thread):
                                 self.isqstream=False
                                 self.sqkill_ev.set()                     
                                 break  
-                            grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
-                            self.xyz_thread.ser_read_thread.Process_Read_Data(grbl_out,showok=False)
+                            machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
+                            self.xyz_thread.ser_read_thread.Process_Read_Data(machine_out,showok=False)
                             [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools()                                                                   
                             self.data = self.xyz_thread.read()                
                             self.get_state()                                              
                             if is_error==True or is_alarm==True: 
                                 while self.xyz_thread.Is_command_running()==True:                                   
-                                    grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=5,loginfo=False,teaseini=26)                             
+                                    machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=5,loginfo=False,teaseini=26)                             
                                     if self.stoping_event.is_set()==True or self.killer_event.is_set()==True or self.sqkill_ev.is_set():                     
                                         break 
                                 if errorcount==0:
@@ -268,8 +268,8 @@ class XYZ_Gcode_Stream(threading.Thread):
                                     self.isqstream=False
                                     self.sqkill_ev.set()                     
                                     break  
-                                grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
-                                self.xyz_thread.ser_read_thread.Process_Read_Data(grbl_out,showok=False)
+                                machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
+                                self.xyz_thread.ser_read_thread.Process_Read_Data(machine_out,showok=False)
                                 [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools()                                                                   
                                 self.data = self.xyz_thread.read()                
                                 self.get_state()                                              
@@ -319,14 +319,14 @@ class XYZ_Gcode_Stream(threading.Thread):
                                 self.isqstream=False
                                 self.sqkill_ev.set()                     
                                 break  
-                            grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
-                            self.xyz_thread.ser_read_thread.Process_Read_Data(grbl_out,showok=False)
+                            machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=20,loginfo=False,teaseini=26)                             
+                            self.xyz_thread.ser_read_thread.Process_Read_Data(machine_out,showok=False)
                             [is_ack,is_ackcexecuted,is_ackcreceived,is_error,is_alarm]=self.xyz_thread.Get_reads_bools()                                                                   
                             self.data = self.xyz_thread.read()                
                             self.get_state()                                              
                             if is_error==True or is_alarm==True: 
                                 while self.xyz_thread.Is_command_running()==True:                                   
-                                    grbl_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=5,loginfo=False,teaseini=26)                             
+                                    machine_out=self.xyz_thread.ser_read_thread.Wait_for_serial_response(self.cycle_time,exitcount=5,loginfo=False,teaseini=26)                             
                                     if self.stoping_event.is_set()==True or self.killer_event.is_set()==True or self.sqkill_ev.is_set():                     
                                         break 
                                 if errorcount==0:
@@ -373,7 +373,7 @@ class XYZ_Gcode_Stream(threading.Thread):
             
                 # ask reports while waiting    
                 #if self.washasautoReport==False:
-                #self.xyz_thread.grbl_event_status.clear()
+                #self.xyz_thread.machine_event_status.clear()
                 #cmd='statusReport'            
                 #Gcode,isok=self.xyz_thread.ser_read_thread.CH.Get_Gcode_for_Action(cmd,{},True)
                 #self.xyz_thread.ser_read_thread.port_write(Gcode,isok)  
@@ -455,7 +455,7 @@ class XYZ_Gcode_Stream(threading.Thread):
                 self.Isneededtimeforcommand=self.xyz_thread.Is_time_needed_for_command()
             else:                   
                 #This analizes which action is
-                self.xyz_thread.grbl_gcode_cmd(line2stream)
+                self.xyz_thread.machine_gcode_cmd(line2stream)
                 self.Isneededtimeforcommand=None
             
 

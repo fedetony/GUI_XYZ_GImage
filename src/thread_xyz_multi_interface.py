@@ -27,13 +27,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                  baudrate, 
                  rx_queue:queue.Queue, 
                  kill_event:threading.Event,
-                 grbl_event_hold:threading.Event,
-                 grbl_event_resume:threading.Event,
-                 grbl_event_status:threading.Event,
-                 grbl_event_softreset:threading.Event,
-                 grbl_event_stop:threading.Event,
+                 machine_event_hold:threading.Event,
+                 machine_event_resume:threading.Event,
+                 machine_event_status:threading.Event,
+                 machine_event_softreset:threading.Event,
+                 machine_event_stop:threading.Event,
                  IsRunning_event:threading.Event,
-                 grbl_event_running_command,
+                 machine_event_running_command,
                  CH:class_CH.Command_Handler):
         threading.Thread.__init__(self, name="XYZ M thread")
         self.CH=CH
@@ -41,12 +41,12 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.read_queue = queue.Queue()     
         self.IsRunning_event=IsRunning_event
         self.killer_event = kill_event
-        self.grbl_event_running_command=grbl_event_running_command
-        self.grbl_event_hold=grbl_event_hold
-        self.grbl_event_resume=grbl_event_resume
-        self.grbl_event_status=grbl_event_status
-        self.grbl_event_softreset=grbl_event_softreset
-        self.grbl_event_stop=grbl_event_stop
+        self.machine_event_running_command=machine_event_running_command
+        self.machine_event_hold=machine_event_hold
+        self.machine_event_resume=machine_event_resume
+        self.machine_event_status=machine_event_status
+        self.machine_event_softreset=machine_event_softreset
+        self.machine_event_stop=machine_event_stop
         self.port = port
         self.baudrate=baudrate           
         self.Init_Configurations()    
@@ -240,7 +240,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.data['MXPOS'] = float(0)
         self.data['STATE_XYZ'] = int(0)
         self.data['STATUS'] = str('')
-        self.grbl_Config={}
+        self.machine_Config={}
         self.olddata={}
         self.LastPlannedPos={}
         self.LastPlannedPos['ZPOS'] = float(0)
@@ -280,19 +280,19 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         log.info("Thread Opening serial port")
         self.trytoopen_serial_port()
         # identify Interface
-        grbl_out=''
+        machine_out=''
         try:
             count=1
             selid=0
             interfaceidentified=False
             while count<100:
-                grbl_out = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=20)                                
+                machine_out = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=True,teaseini=20)                                
                 identifierlist=self.CH.InterfaceConfigallids['interfaceidentifyer']
                 namelist=self.CH.Configdata['interfaceName']
                 idlist=self.CH.Configdata['interfaceId']                                
                 for iii in range(len(identifierlist)):
-                    if identifierlist[iii] in grbl_out and grbl_out != '':
-                        #print(grbl_out,iii,identifierlist[iii],idlist[iii],namelist[iii])
+                    if identifierlist[iii] in machine_out and machine_out != '':
+                        #print(machine_out,iii,identifierlist[iii],idlist[iii],namelist[iii])
                         selid=idlist[iii]
                         log.info('Success: '+str(namelist[iii])+' interface identified! ID'+str(selid))
                         interfaceidentified=True
@@ -328,34 +328,34 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         wake=threading.Event()
         wake.clear()
         count=0
-        grbl_out=''        
+        machine_out=''        
         if loginfo==True:
             log.info('Waiting for any response...')
-        while not wake.wait(waittime) and not self.grbl_event_stop.is_set() and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
+        while not wake.wait(waittime) and not self.machine_event_stop.is_set() and not self.killer_event.is_set() and not self.machine_event_softreset.is_set():
             #log.info('wait')
             theread=self.ser_port.readline()            
-            grbl_out =self.serialread_to_str(theread)            
+            machine_out =self.serialread_to_str(theread)            
                         
             if count<teaseini and count>=teaseini-5:
                self.port_write('\n',True,logcmd=True) 
             if count>=teaseini and count<=teaseini+self.CH.Num_interfaces:
                 self.tease_serial(count)
-            if len(grbl_out)>0:
+            if len(machine_out)>0:
                 if loginfo==True:
-                    log.info("Machine response detected: "+grbl_out)
-                if teaseini<exitcount and 'ok' in grbl_out:
+                    log.info("Machine response detected: "+machine_out)
+                if teaseini<exitcount and 'ok' in machine_out:
                     self.tease_serial(count)
                 else:
                     wake.set()
             if count>exitcount:
-               grbl_out=None 
+               machine_out=None 
                wake.set()     
             count=count+1   
         if count>=exitcount:
             log.info('Wait Timeout exit...')    
-        if self.grbl_event_stop.is_set() or self.killer_event.is_set() or self.grbl_event_softreset.is_set():
+        if self.machine_event_stop.is_set() or self.killer_event.is_set() or self.machine_event_softreset.is_set():
             log.info('Wait exit by event...')        
-        return grbl_out
+        return machine_out
     
     def serialread_to_str(self,theread,coding=None):
         if type(theread)==bytes:
@@ -539,7 +539,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             if self.xyzsetupready==False:
                 log.info('Holding Run while setup or EEPROM read...')
                 countsetup=0
-                while self.xyzsetupready==False and countsetup<=1000 and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
+                while self.xyzsetupready==False and countsetup<=1000 and not self.killer_event.is_set() and not self.machine_event_softreset.is_set():
                     time.sleep(self.cycle_time)
                     countsetup=countsetup+1
                 self.xyzsetupready=True   
@@ -547,37 +547,37 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             # Hold meanwhile stream writes values
             if self.Streamwriting==True:                
                 countsetup=0
-                while self.Streamwriting==True and countsetup<=1000 and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
+                while self.Streamwriting==True and countsetup<=1000 and not self.killer_event.is_set() and not self.machine_event_softreset.is_set():
                     time.sleep(self.cycle_time)
                     countsetup=countsetup+1
                 self.Streamwriting=False   
                 
 
-            if  self.grbl_event_hold.is_set():
+            if  self.machine_event_hold.is_set():
                 self.Send_Hold(1) #clears start flag
                 log.info("Holding !!")
-                while not self.grbl_event_resume.is_set() and not self.killer_event.is_set() and not self.grbl_event_softreset.is_set():
+                while not self.machine_event_resume.is_set() and not self.killer_event.is_set() and not self.machine_event_softreset.is_set():
                     self.Run_Read_Values()
                     time.sleep(self.cycle_time)
                     
-                if self.grbl_event_resume.is_set():
+                if self.machine_event_resume.is_set():
                     self.Send_Resume(1) #clears hold flag   
                     log.info("Run Started!")
-                    self.grbl_event_resume.clear() #clear start flag
+                    self.machine_event_resume.clear() #clear start flag
 
-            if  self.grbl_event_softreset.is_set():
+            if  self.machine_event_softreset.is_set():
                 log.info("Reseting!!")
                 self.Send_SoftReset(1)
                 time.sleep(1.5)   #Marlin blocks incoming data for 1 sec after M410 stop                     
-                self.grbl_event_softreset.clear()
+                self.machine_event_softreset.clear()
                 #Clean queue
                 with self.rx_queue.mutex:
                     self.rx_queue.queue.clear()            
             
-            if  self.grbl_event_stop.is_set():
+            if  self.machine_event_stop.is_set():
                 log.info("Stopping!!")
                 self.Send_Stop(1)
-                self.grbl_event_stop.clear()
+                self.machine_event_stop.clear()
                 #Clean queue
                 with self.rx_queue.mutex:
                     self.rx_queue.queue.clear() 
@@ -595,12 +595,12 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.linesacknkowledged=self.linesacknkowledged+1   
                     self.hascounted=False
                     self.ser_port.write(str(new_cmd).encode())    
-                    self.grbl_event_running_command.set()                
-                    self.grbl_event_status.set()  #Set flag to read the values
+                    self.machine_event_running_command.set()                
+                    self.machine_event_status.set()  #Set flag to read the values
                     #self.Do_line_Counting(new_cmd)      
                     
                 except queue.Empty:
-                    #self.grbl_event_status.clear()
+                    #self.machine_event_status.clear()
                     pass                
                 self.Run_Read_Values()
                 self.Do_line_counting_()
@@ -714,15 +714,15 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.ser_port.write(str.encode(cmd+ending))
                 else:
                     self.ser_port.write(str.encode(cmd))    
-                self.grbl_event_running_command.set()
+                self.machine_event_running_command.set()
             
     def Is_system_ready(self):
         return self.xyzsetupready
 
     def Send_Hold(self,sendcmd):
-        #if not self.grbl_event_hold.is_set():
-        self.grbl_event_hold.set()
-        self.grbl_event_resume.clear()
+        #if not self.machine_event_hold.is_set():
+        self.machine_event_hold.set()
+        self.machine_event_resume.clear()
         if sendcmd==1:
             
             if self.data['STATE_XYZ']==3:
@@ -735,8 +735,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             log.info(str(interfacename)+" on hold!")                   
 
     def Send_Kill(self,sendcmd):        
-        if not self.grbl_event_softreset.is_set():
-            self.grbl_event_softreset.set()
+        if not self.machine_event_softreset.is_set():
+            self.machine_event_softreset.set()
 
         if sendcmd==1:
             interfacename=self.CH.getGformatforAction('interfaceName')
@@ -748,8 +748,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
            
     
     def Send_Stop(self,sendcmd):
-        if not self.grbl_event_stop.is_set():
-            self.grbl_event_stop.set()
+        if not self.machine_event_stop.is_set():
+            self.machine_event_stop.set()
         if sendcmd==1:
             cmd='quickStop'
             Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
@@ -758,8 +758,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             log.info(str(interfacename)+" Stop send!") 
 
     def Send_SoftReset(self,sendcmd):
-        if not self.grbl_event_softreset.is_set():
-            self.grbl_event_softreset.set()
+        if not self.machine_event_softreset.is_set():
+            self.machine_event_softreset.set()
         if sendcmd==1:
             cmd='softReset'
             Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
@@ -768,8 +768,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             log.info(str(interfacename)+" SoftReset send!") 
 
     def Send_Resume(self,sendcmd):         
-        self.grbl_event_resume.set()
-        self.grbl_event_hold.clear()
+        self.machine_event_resume.set()
+        self.machine_event_hold.clear()
         if sendcmd==1:    
             if self.wasrunningbeforepause==False:
                 cmd='userResume'        
@@ -823,13 +823,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             pass 
         return PRdata,astatus
     
-    def Read_one_data(self,grbl_out,Readaction):
+    def Read_one_data(self,machine_out,Readaction):
         PRdata={}     
         foundmatch=False           
         if Readaction in self.Read_Config:
             aFormat=self.Read_Config[Readaction]                                
             #print(aFormat)    
-            PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
+            PRead=self.CH.read_from_format(machine_out,aFormat,logerr=False)
             if PRead['__success__']>0:
                 for PR in PRead:
                     if PR != '__success__':
@@ -840,7 +840,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         return  PRdata,foundmatch  
 
 
-    def Read_all_data(self,grbl_out,FirstResponse=True):
+    def Read_all_data(self,machine_out,FirstResponse=True):
         PRdata={}
         foundmatch=False
         for aitem in self.data:
@@ -848,7 +848,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         for RC in self.Read_Config:
             aFormat=self.Read_Config[RC]                                
             #print(aFormat)    
-            PRead=self.CH.read_from_format(grbl_out,aFormat,logerr=False)
+            PRead=self.CH.read_from_format(machine_out,aFormat,logerr=False)
             if PRead['__success__']>0:
                 for PR in PRead:
                     if PR != '__success__':
@@ -866,20 +866,20 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''                
         return [self.is_ack,self.is_ackcexecuted,self.is_ackcreceived,self.is_error,self.is_alarm]
 
-    def Process_Read_Data(self,grbl_out,showok=False):
-        if (grbl_out):            
+    def Process_Read_Data(self,machine_out,showok=False):
+        if (machine_out):            
             
             if self.logAllReadData==True:
-                log.info(grbl_out)
-            PRdata,foundmatch=self.Read_all_data(grbl_out,self.QuitReadOnMatch)
+                log.info(machine_out)
+            PRdata,foundmatch=self.Read_all_data(machine_out,self.QuitReadOnMatch)
             if foundmatch==False:                
                 if self.logNoread==True:
-                    log.info("No read: "+ grbl_out)
-                if self.Streamwriting==True and self.grbl_event_running_command.is_set():
+                    log.info("No read: "+ machine_out)
+                if self.Streamwriting==True and self.machine_event_running_command.is_set():
                     #if serial command response is not recognized blocks the streaming until flag is cleared    
                     log.warning("No read cleared running flag!")
                     self.IsRunning_event.clear()
-                    self.grbl_event_running_command.clear() 
+                    self.machine_event_running_command.clear() 
             else:    
                 self.is_ack=False
                 self.is_ackcexecuted=False
@@ -895,7 +895,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.is_ack=True                    
                     self.is_ackcexecuted=True
                     self.IsRunning_event.clear()
-                    self.grbl_event_running_command.clear()
+                    self.machine_event_running_command.clear()
                 #acknowledgecommandreceivedRead    
                 PRdata,astatus=self.Read_key_Status(PRdata,'ACKCMD',showok)                
                 if astatus is not None:
@@ -908,18 +908,18 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.data['STATUS']=astatus                      
                     self.is_error=True    
                     self.IsRunning_event.clear()   
-                    self.grbl_event_running_command.clear()                                 
+                    self.machine_event_running_command.clear()                                 
                 PRdata,astatus=self.Read_key_Status(PRdata,'ALARM',True)
                 if astatus is not None:                    
                     self.data['STATUS']=astatus                                 
                     self.is_alarm=True          
                     self.IsRunning_event.clear()          
-                    self.grbl_event_running_command.clear()
+                    self.machine_event_running_command.clear()
                 PRdata,astatus=self.Read_key_Status(PRdata,'INFO',True)
                 if astatus is not None:
                     self.data['STATUS']=astatus 
                     self.IsRunning_event.clear()           
-                    self.grbl_event_running_command.clear()           
+                    self.machine_event_running_command.clear()           
                 for iii in self.data:
                     PRdata,astatus=self.Read_key_Status(PRdata,iii,False)
                     if astatus is not None:
@@ -933,11 +933,11 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     if self.logPosition==True:     
                         #print('Entered here log position')                   
                         if self.logpositionoutputFormat is None:
-                            log.info(grbl_out + ' ' + str(self.data['STATE_XYZ'])) 
+                            log.info(machine_out + ' ' + str(self.data['STATE_XYZ'])) 
                         else:                            
                             Gcode=self.CH.Get_code(self.logpositionoutputFormat,self.data)
                             if Gcode=='':
-                                log.info(grbl_out + ' ' + str(self.data['STATE_XYZ']))     
+                                log.info(machine_out + ' ' + str(self.data['STATE_XYZ']))     
                             else:
                                 log.info(Gcode)                                                                                                                     
                             
@@ -947,7 +947,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                             log.info('State change from: '+str(self.olddata['STATUS'])+' '+str(self.olddata['STATE_XYZ']) + ' to ' + str(self.data['STATUS']) + ' ' + str(self.data['STATE_XYZ'])) 
                         if (self.data['STATE_XYZ']<=4 or self.data['STATE_XYZ']==11): # state X-> 3
                             self.IsRunning_event.clear()    
-                            self.grbl_event_running_command.clear()
+                            self.machine_event_running_command.clear()
                             self.linesexecuted=self.linesexecuted+1
                         else:
                             self.IsRunning_event.set()   
@@ -1073,17 +1073,17 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         Returns position data only. All other info unprocessed in AllReaddata dict.
         '''         
         if self.hasautoReport == False:
-            if  self.grbl_event_status.is_set(): 
+            if  self.machine_event_status.is_set(): 
                 cmd='statusReport'            
                 Gcode,isok=self.CH.Get_Gcode_for_Action(cmd,{},True)
                 self.port_write(Gcode,isok)                 
         
-        if  self.grbl_event_status.is_set() and not self.grbl_event_softreset.is_set() and not self.grbl_event_stop.is_set():             
-            grbl_out = self.readline_fromserial(buff=4*256)                         
-            self.data=self.Process_Read_Data(grbl_out,self.show_ok)                
+        if  self.machine_event_status.is_set() and not self.machine_event_softreset.is_set() and not self.machine_event_stop.is_set():             
+            machine_out = self.readline_fromserial(buff=4*256)                         
+            self.data=self.Process_Read_Data(machine_out,self.show_ok)                
             self.read_queue.put(self.data.copy())
             time.sleep(waittime)  
-            #self.grbl_event_status.clear()              
+            #self.machine_event_status.clear()              
         return self.data
     
     # def Run_Read_Values(self):
@@ -1107,8 +1107,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         '''        
         try:
             if self.ser_port.in_waiting > 0:                
-                grbl_out = self.readline_fromserial(buff=4*256)
-                self.data=self.Process_Read_Data(grbl_out,self.show_ok) 
+                machine_out = self.readline_fromserial(buff=4*256)
+                self.data=self.Process_Read_Data(machine_out,self.show_ok) 
                 self.read_queue.put(self.data.copy())
             else:
                 self.Send_Multi_Read(0,self.show_ok)         # do not report ok-> False             
@@ -1119,16 +1119,16 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     
     def Read_Config_Parameter(self,Param,Showlog=True):
         '''
-        Reads Machine EEPROM configuration for Param information from the grbl_Config dictionary.
+        Reads Machine EEPROM configuration for Param information from the machine_Config dictionary.
         '''
         valread=''
         try:
-            for ccc in self.grbl_Config:
+            for ccc in self.machine_Config:
                 #log.info('Found->'+ccc)
                 if ccc==str(Param):                    
                     if Showlog==True:
-                        log.info(ccc + '=' + str(self.grbl_Config[ccc]) + ' for ' + self.grbl_Config[ccc+'_Info'])                           
-                    valread= self.grbl_Config[ccc]
+                        log.info(ccc + '=' + str(self.machine_Config[ccc]) + ' for ' + self.machine_Config[ccc+'_Info'])                           
+                    valread= self.machine_Config[ccc]
                     break
         except:
             if Showlog==True:
@@ -1143,14 +1143,14 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         if no ACKCMD (grbl)
         '''        
         if self.hasackcmdexecuteconfig==True:
-            return self.grbl_event_running_command.is_set()
+            return self.machine_event_running_command.is_set()
         else:
             if self.Isneededtimeforcommand==True:
                 # event will clear when state changes
                 if 4 in self.action_type_indexlist: #time blocking
                     return not self.is_ack
-                if self.grbl_event_running_command.is_set()==True:
-                    return self.grbl_event_running_command.is_set()
+                if self.machine_event_running_command.is_set()==True:
+                    return self.machine_event_running_command.is_set()
                 else:    
                     return self.Compare_Hasdatachanged(self.olddata,['CTL'])
             else:
@@ -1176,17 +1176,17 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             self.xyzsetupready=True
             # update configuration
             if isack==True: #"ok" in line:
-                for ccc in self.grbl_Config:
+                for ccc in self.machine_Config:
                     if ccc == str(Param):
-                        #atype=self.grbl_Config[ccc+'_Type']
+                        #atype=self.machine_Config[ccc+'_Type']
                         atype=self.set_correct_type(Value,returntypetxt=True)
                         isok,avalue=self.get_Format_type_to_value(atype,Value)
                         if isok==True:
-                            self.grbl_Config[ccc]=avalue
+                            self.machine_Config[ccc]=avalue
                             log.info(str(Param)+" Parameter Accepted!")
                             isaccepted=True
                         else:
-                            self.grbl_Config[ccc]=str(Value)        
+                            self.machine_Config[ccc]=str(Value)        
                             log.info(str(Param)+" not congruent type set as string!")
                             isaccepted=False
                         break
@@ -1197,7 +1197,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             isaccepted=False
         return isaccepted
 
-    def is_received_acknowledge(self,grbl_out):
+    def is_received_acknowledge(self,machine_out):
         '''
         Returns isack True if either command executed or command received are True
         Returns CE and CR responses if match found can be False or None
@@ -1205,10 +1205,10 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         None-> command does not exist
         '''
         isack=False 
-        PRdata,foundmatchce=self.Read_one_data(grbl_out,'acknowledgecommandexecutedRead')
+        PRdata,foundmatchce=self.Read_one_data(machine_out,'acknowledgecommandexecutedRead')
         if foundmatchce==True:
             isack=True        
-        PRdata,foundmatchcr=self.Read_one_data(grbl_out,'acknowledgecommandreceivedRead')
+        PRdata,foundmatchcr=self.Read_one_data(machine_out,'acknowledgecommandreceivedRead')
         if foundmatchcr==True:
             isack=True        
         return isack, foundmatchcr, foundmatchce   
@@ -1220,7 +1220,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         Reads the configuration of device following the configRead Format.
         Reads all parameters that contain conf in their name
         '''
-        #self.grbl_Config.clear()
+        #self.machine_Config.clear()
         self.xyzsetupready=False
         
         cmd='reportSettings'
@@ -1284,9 +1284,9 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                                  ConfInfo=ConfInfo+' ('+str(avalue)+')'
                 
                 if  ConfCMD!='':           
-                    self.grbl_Config.update({ConfCMD : ConfValue})
-                    self.grbl_Config.update({ConfCMD+'_Type' : ConfType})
-                    self.grbl_Config.update({ConfCMD+'_Info' : ConfInfo})                        
+                    self.machine_Config.update({ConfCMD : ConfValue})
+                    self.machine_Config.update({ConfCMD+'_Type' : ConfType})
+                    self.machine_Config.update({ConfCMD+'_Info' : ConfInfo})                        
                         
                 confignum=confignum+1
             else:
@@ -1374,7 +1374,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         if immediate==False and critical==True: #was not performed                                    
             wasperformed=False
             toqueue=False                         
-        #print('in grbl_gcode_cmd',immediate,actionparamsfound)        
+        #print('in machine_gcode_cmd',immediate,actionparamsfound)        
         atypeindexlist=self.Match_action_type(actionparamsfound)                
         self.Set_Type_of_action(atypeindexlist)            
         return immediate,toqueue,wasperformed
@@ -1383,19 +1383,19 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         #aclist=['quickPause','quickResume','quickStop','queueFlush','clearAlarm','unlockAlarm','softReset','emergencyKill']
         if action == 'quickPause':
             self.Send_Hold(1)
-            #self.grbl_event_hold.set()
+            #self.machine_event_hold.set()
             immediate=True
         elif action == 'quickResume':
             self.Send_Resume(1)
-            #self.grbl_event_resume.set()
+            #self.machine_event_resume.set()
             immediate=True
         elif action == 'quickStop':
             self.Send_Stop(1)
-            #self.grbl_event_stop.set()            
+            #self.machine_event_stop.set()            
             immediate=True
         elif action == 'softReset':
             self.Send_SoftReset(1)
-            #self.grbl_event_softreset.set()
+            #self.machine_event_softreset.set()
             immediate=True
         elif action == 'emergencyKill':
             self.Send_Kill(1)
@@ -1594,25 +1594,25 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
 
 
 class XYZMulti:
-    def __init__(self, grbl_port,grbl_baudrate,killer_event,IsRunning_event,selected_interface_id=0):
+    def __init__(self, machine_port,machine_baudrate,killer_event,IsRunning_event,selected_interface_id=0):
         self.__name__='XYZMulti'
         self.IsRunning_event=IsRunning_event
         self.srl_cmd_queue = queue.Queue()
-        self.grbl_event_hold= threading.Event()
-        self.grbl_event_resume= threading.Event()
-        self.grbl_event_status= threading.Event()
-        self.grbl_event_softreset= threading.Event()
-        self.grbl_event_stop= threading.Event()  
-        self.grbl_event_running_command=threading.Event()
-        self.grbl_event_hold.clear()
-        self.grbl_event_resume.clear()
-        self.grbl_event_status.clear()
-        self.grbl_event_softreset.clear()     
-        self.grbl_event_stop.clear()
-        self.grbl_event_running_command.clear()
+        self.machine_event_hold= threading.Event()
+        self.machine_event_resume= threading.Event()
+        self.machine_event_status= threading.Event()
+        self.machine_event_softreset= threading.Event()
+        self.machine_event_stop= threading.Event()  
+        self.machine_event_running_command=threading.Event()
+        self.machine_event_hold.clear()
+        self.machine_event_resume.clear()
+        self.machine_event_status.clear()
+        self.machine_event_softreset.clear()     
+        self.machine_event_stop.clear()
+        self.machine_event_running_command.clear()
         Required_actions=self.define_required_actions()
         self.CH=class_CH.Command_Handler(selected_interface_id,Required_actions=Required_actions)
-        self.ser_read_thread = InterfaceSerialReaderWriterThread(grbl_port,grbl_baudrate, self.srl_cmd_queue, killer_event,self.grbl_event_hold,self.grbl_event_resume,self.grbl_event_status,self.grbl_event_softreset,self.grbl_event_stop,self.IsRunning_event,self.grbl_event_running_command,self.CH)
+        self.ser_read_thread = InterfaceSerialReaderWriterThread(machine_port,machine_baudrate, self.srl_cmd_queue, killer_event,self.machine_event_hold,self.machine_event_resume,self.machine_event_status,self.machine_event_softreset,self.machine_event_stop,self.IsRunning_event,self.machine_event_running_command,self.CH)
         
 
     def join(self):
@@ -1737,12 +1737,12 @@ class XYZMulti:
         params=self.CH.fill_parameters(parnamelist,parvallist)                
         self.send_queue_command(cmd,params,True)
                         
-    def read_grbl_config(self,Refresh=False,Showlog=False):
+    def read_machine_config(self,Refresh=False,Showlog=False):
         if Refresh==True:
             self.ser_read_thread.Read_Actual_Config(Showlog)
-        return self.ser_read_thread.grbl_Config
+        return self.ser_read_thread.machine_Config
 
-    def change_grbl_config_parameter(self,Param,Value):
+    def change_machine_config_parameter(self,Param,Value):
         Showlog=False
         isaccepted=self.ser_read_thread.Change_Config_Parameter(Param,Value)
         return isaccepted
@@ -1752,7 +1752,7 @@ class XYZMulti:
     def read(self):
         return self.ser_read_thread.read()
         
-    def grbl_gcode_cmd(self,gcode_cmd,toqueue=True):                                
+    def machine_gcode_cmd(self,gcode_cmd,toqueue=True):                                
         #Here find out what action is, if critical performs it immediately.
         immediate,toqueue,wasperformed=self.ser_read_thread.Perform_immediate(gcode_cmd)    
         #print('Time need cmd -> ',self.Is_time_needed_for_command())    
@@ -1765,20 +1765,20 @@ class XYZMulti:
                 self.send_queue_gcode(gcode_cmd)                
 
     
-    def grbl_feed_hold(self):
-        self.grbl_event_hold.set()
+    def machine_feed_hold(self):
+        self.machine_event_hold.set()
 
-    def grbl_feed_start(self):
-        self.grbl_event_resume.set()
+    def machine_feed_start(self):
+        self.machine_event_resume.set()
 
-    def grbl_softreset(self):
-        self.grbl_event_softreset.set()    
+    def machine_softreset(self):
+        self.machine_event_softreset.set()    
     
-    def grbl_stop(self):
-        self.grbl_event_stop.set() # grbl makes hold -> soft reset 
+    def machine_stop(self):
+        self.machine_event_stop.set() # grbl makes hold -> soft reset 
     
-    def grbl_status(self):
-        self.grbl_event_status.set()
+    def machine_status(self):
+        self.machine_event_status.set()
         return self.ser_read_thread.Send_Multi_Read(0)
     
     def Is_system_ready(self):
