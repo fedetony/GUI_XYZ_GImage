@@ -6,6 +6,8 @@ import time
 import io
 # from common import *
 import thread_queueStream
+from class_gcode_streamer import *
+from thread_xyz_multi_interface import InterfaceSerialReaderWriterThread,XYZMulti
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -16,7 +18,13 @@ ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
 
 class XYZ_Gcode_Stream(threading.Thread):
-    def __init__(self,xyz_thread,killer_event,holding_event,stoping_event,IsRunning_event):
+    def __init__(self,
+                 xyz_thread:XYZMulti,
+                 killer_event:threading.Event,
+                 holding_event:threading.Event,
+                 stoping_event:threading.Event,
+                 IsRunning_event:threading.Event
+                 ):
         threading.Thread.__init__(self, name="Gcode thread")
         log.info("XYZ Gcode Stream Started")        
         self.IsRunning_event=IsRunning_event 
@@ -457,6 +465,11 @@ class XYZ_Gcode_Stream(threading.Thread):
                 #This analizes which action is
                 self.xyz_thread.machine_gcode_cmd(line2stream)
                 self.Isneededtimeforcommand=None
+    
+        
+
+
+
             
 
 

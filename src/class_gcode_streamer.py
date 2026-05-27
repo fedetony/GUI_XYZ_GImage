@@ -9,7 +9,8 @@ import time
 import serial
 import class_CH
 
-from thread_xyz_multi_interface import InterfaceSerialReaderWriterThread
+
+from class_machine_status import DataStatusTracker
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -20,7 +21,7 @@ ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
 
 class QueueDataTransport:
-    def __init__(self, ser_thread:InterfaceSerialReaderWriterThread):
+    def __init__(self, ser_thread):
         self.ser = ser_thread
         self.write_q = ser_thread.rx_queue
         self.read_q  = ser_thread.read_queue   # you already have this internally
@@ -100,6 +101,10 @@ class ProtocolEngine:
         self.in_flight   = 0
         self.buffer_used = 0
         self.last_poll   = 0.0
+        self.last_sent_line = ""
+        self.last_ack_time = time.time()
+        self.status_tracker = DataStatusTracker(None)
+        self.tracker = StreamTracker()
 
     def can_send(self, line: str) -> bool:
         """
@@ -143,9 +148,11 @@ class ProtocolEngine:
         line : str
             The line that was just transmitted.
         """
+        self.tracker.on_line_sent(line)
         self.in_flight += 1
         if self.cfg.maxBufferBytes > 0:
             self.buffer_used += len(line) + 1
+        self.last_sent_line = line
 
     def on_feedback(self, parsed: dict):
         """
@@ -173,6 +180,8 @@ class ProtocolEngine:
         """
         if parsed.get("is_ack"):
             self.in_flight = max(0, self.in_flight - 1)
+            self.last_ack_time = time.time()
+            self.tracker.on_ack(self.last_sent_line)
             if self.cfg.maxBufferBytes > 0:
                 self.buffer_used = max(0, self.buffer_used - 20)
 
@@ -244,13 +253,15 @@ class GCodeStreamer(threading.Thread):
     def __init__(self, transport:QueueDataTransport, 
                  protocol:ProtocolEngine, 
                  killer_event:threading.Event, 
-                 stop_event:threading.Event):
+                 stop_event:threading.Event,
+                 pause_event:threading.Event):
         super().__init__(name="GCodeStreamer")
 
         self.transport    = transport
         self.protocol     = protocol
         self.killer_event = killer_event
         self.stop_event   = stop_event
+        self.pause_event   = pause_event
 
         self.queue = queue.Queue()
         self.cycle = getattr(self.protocol.cfg, "cycleTime", 0.01)
@@ -264,7 +275,8 @@ class GCodeStreamer(threading.Thread):
     def run(self):
         while not self.killer_event.wait(self.cycle):
             now = time.time()
-
+            while self.pause_event.is_set():
+                time.sleep(self.cycle)
             # 1. Feed machine responses into protocol
             # for resp in self.transport.read_lines():
             #     self.protocol.on_response(resp)
@@ -285,3 +297,77 @@ class GCodeStreamer(threading.Thread):
                     self.queue.get()
                     self.transport.write_line(next_line)
                     self.protocol.on_line_sent(next_line)
+
+class StreamTracker:
+    """
+    Pure logic tracker for streaming progress.
+    No Qt, no threads, no UI dependencies.
+    """
+    def __init__(self):
+        self.sent = 0
+        self.ack = 0
+        self.finalized = 0
+        self.in_flight_bytes = 0
+        self.total_bytes = 0
+        self.last_finalized = 0
+
+    def on_line_sent(self, line: str):
+        self.sent += 1
+        self.in_flight_bytes += len(line) + 1
+        self.total_bytes += len(line) + 1
+
+    def on_ack(self, line: str):
+        self.ack += 1
+        self.in_flight_bytes -= len(line) + 1
+        if self.in_flight_bytes < 0:
+            self.in_flight_bytes = 0
+
+    def on_finalize(self):
+        self.finalized += 1
+
+    def snapshot(self):
+        delta = self.finalized - self.last_finalized
+        self.last_finalized = self.finalized
+        return {
+            "sent": self.sent,
+            "ack": self.ack,
+            "finalized": self.finalized,
+            "delta": delta,
+            "in_flight_bytes": self.in_flight_bytes,
+            "total_bytes": self.total_bytes
+        }
+
+class StreamCounters:
+    """
+    Pure logic aggregator for all stream counters.
+    No Qt, no UI, no threads.
+    """
+    def __init__(self, streamer, tracker, total_file_lines):
+        self.streamer = streamer
+        self.tracker = tracker
+        self.total_file_lines = total_file_lines
+
+    def get_all_nums(self, logprint=False):
+        # From streamer
+        buff = self.streamer.queue.qsize()
+        sent = self.streamer.protocol.tracker.sent
+        left = buff
+
+        # From tracker
+        consumed = self.tracker.ack
+        finalized = self.tracker.finalized
+
+        # Totals
+        tot = sent
+        totfile = self.total_file_lines
+
+        if logprint:
+            log.info("Stream Counters Snapshot:")
+            log.info(f"Lines in Buffer-----: {buff}")
+            log.info(f"Lines to be Buffered: {left}")
+            log.info(f"Lines Consumed------: {consumed}")
+            log.info(f"Lines Finalized-----: {finalized}")
+            log.info(f"Lines Sent----------: {sent}")
+            log.info(f"Lines in Total------: {totfile}")
+
+        return [buff, left, consumed, finalized, tot, totfile]

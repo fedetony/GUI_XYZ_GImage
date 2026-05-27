@@ -389,6 +389,29 @@ class queueStream(threading.Thread):
             pass
         return temppath+'__TempStream__.gcode'
 
+    def PB_RunGcodeScript_NEW(self):
+        from class_gcode_streamer import StreamMonitor
+        
+        # 1. Get G-code text (full or partial)
+        text2stream = self.Get_Text_to_Stream(self.Stream_Linefrom, self.Stream_Lineto)
+
+        # 2. Initialize new protocol engine
+        self.do_protocol_streaming()
+
+        # 3. Feed lines into the new streamer
+        for line in text2stream.splitlines():
+            self.streamer.enqueue(line)
+
+        # 4. Start UI monitor (Qt side)
+
+        self.stream_monitor = StreamMonitor(self.protocol, self.killer_event)
+        self.stream_monitor.start()
+
+        # 5. Start timer
+        self.xyz_update_thread.Start_Timer()
+
+        log.info("New streaming engine started.")
+
 
 def main():
     

@@ -8,6 +8,7 @@ import time
 # install pySerial NOT serial!!!
 import serial
 import class_CH
+from class_machine_status import DataStatusTracker
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -48,7 +49,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.machine_event_softreset=machine_event_softreset
         self.machine_event_stop=machine_event_stop
         self.port = port
-        self.baudrate=baudrate           
+        self.baudrate=baudrate
+        self.status_tracker= DataStatusTracker(self.CH)           
         self.Init_Configurations()    
         self.Init_Values() 
         if self.canIuseCH==True: 
@@ -257,6 +259,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.Streamwriting=False
         self.Isneededtimeforcommand=False               
         self.action_type_indexlist=[]
+        for key,value in self.data.items():
+            self.status_tracker.add_param(key,value)
 
 
     def Default_Interface_Config(self):
@@ -952,7 +956,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                         else:
                             self.IsRunning_event.set()   
                 for aaa in self.data:         
-                    self.olddata[aaa]=self.data[aaa]                
+                    self.olddata[aaa]=self.data[aaa] 
+                self.status_tracker.set_data(**self.data)               
         return self.data
  
     

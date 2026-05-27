@@ -970,7 +970,7 @@ class CommandConfigurationDialog(QWidget,GuiXYZ_CCD.Ui_Dialog_CCD):
                 if basesia==reqia :
                     isreq=True 
                     try:
-                        reqtypelist=self.CH.Required_interface[requia]
+                        reqtypelist=self.CH.Required_interface[reqia]
                     except:
                         pass
                     break

@@ -28,6 +28,9 @@ class SignalTracker(QWidget):
     gimage_finished = QtCore.pyqtSignal(str)         # final gcode or path
     gimage_error = QtCore.pyqtSignal(str)
 
+    # status
+    eta_change = QtCore.pyqtSignal(object)
+
     def __init__(self, *args, **kwargs):        
         super(SignalTracker, self).__init__(*args, **kwargs)    
         self.__name__="ST"
@@ -63,7 +66,10 @@ class SignalTracker(QWidget):
         self.enable_isSTREAMING.emit(isEnable)                      
     
     def S_isONHOLDSTREAM(self,isonhold):
-        self.is_hold_state.emit(isonhold) 
+        self.is_hold_state.emit(isonhold)
+
+    def S_eta_change(self,eta):
+        self.eta_change.emit(eta) 
 
     def GImage_Progress(self,percent:int,stat:dict=None):
         if not isinstance(stat,dict):

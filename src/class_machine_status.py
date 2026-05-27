@@ -6,8 +6,8 @@ import logging
 import datetime
 
 from class_ST import SignalTracker
-from thread_xyz_multi_interface import XYZMulti,InterfaceSerialReaderWriterThread
-from class_gcode_streamer import GCodeStreamer
+#from thread_xyz_multi_interface import XYZMulti,InterfaceSerialReaderWriterThread
+#from class_gcode_streamer import GCodeStreamer
 from class_CH import *
 
 log = logging.getLogger(__name__)
@@ -17,14 +17,38 @@ ahandler=logging.StreamHandler()
 ahandler.setLevel(logging.INFO)
 ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
+# ┌──────────────────────────────┐
+# │ Serial Thread (raw parsing)  │
+# └───────────────┬──────────────┘
+#                 │ set_data(**raw)
+#                 ▼
+# ┌──────────────────────────────┐
+# │     DataStatusTracker        │
+# │  (maps raw → MachineStatus)  │
+# └───────────────┬──────────────┘
+#                 │ statusChanged(dict)
+#                 ▼
+# ┌──────────────────────────────┐
+# │       MachineStatus          │
+# │ (central normalized state)   │
+# └───────────────┬──────────────┘
+#                 │
+#                 ▼
+# ┌──────────────────────────────┐
+# │             UI               │
+# │ visualizer, dialogs, panels  │
+# └──────────────────────────────┘
 
 class DataStatusTracker:
-    def __init__(self, CH:Command_Handler):
+    def __init__(self, CH:Command_Handler=None):
         super().__init__()
-        self.CH=CH
         self.data={}
         self.machine_status=None
-        self.init_data()
+        if CH:
+            self.CH=CH
+            self.init_data()
+        else:
+            self.machine_status=MachineStatus([])
     
     def init_data(self):
         an_id=self.CH.id #actual interface id
@@ -234,7 +258,7 @@ class MachineStatus(QtCore.QObject):
 
 class MachineStatusUpdater(threading.Thread):
     def __init__(self, machine_status:MachineStatus, 
-                 xyz_thread:XYZMulti, 
+                 xyz_thread,#:XYZMulti, 
                  killer_event:threading.Event):
         super().__init__(name="MachineStatusUpdater")
         self.machine_status = machine_status
@@ -253,73 +277,121 @@ class MachineStatusUpdater(threading.Thread):
                 STATUS=data.get('STATUS')
             )
 
-from thread_Gcode_Stream import XYZ_Gcode_Stream 
-class StreamMonitor(threading.Thread):
-    def __init__(self, 
-                 ST:SignalTracker, 
-                 stream_thread:XYZ_Gcode_Stream, 
-                 killer_event:threading.Event
-                 ):
-        super().__init__(name="StreamMonitor")
-        self.ST = ST
-        self.stream = stream_thread
-        self.killer_event = killer_event
-        self.cycle_time = 0.1
+from class_gcode_streamer import ProtocolEngine
+class StreamMonitor(QtCore.QObject):
+    streamChanged = QtCore.pyqtSignal(dict)
 
-    def run(self):
-        while not self.killer_event.wait(self.cycle_time):
-            try:
-                q = self.stream.qstream
-                info = [
-                    q.get_num_of_commands_buff(),
-                    q.get_num_of_commands_consumed(),
-                    q.get_num_of_total_commands_onFile(),
-                    self.stream.linesacknowledged_count,
-                    self.stream.linesfinalized_count,
-                    self.stream.linesfinalized_count - self.stream.lastlinesfinalized_count + 1
-                ]
-                self.ST.stream_info_change.emit(info)
-            except Exception as e:
-                log.error(e)
+    def __init__(self, 
+                 protocol_engine: ProtocolEngine,
+                 killer_event: threading.Event, 
+                 cycle:float =0.1
+                 ):
+        super().__init__()
+        self.engine = protocol_engine
+        self.killer_event = killer_event
+        self.cycle = cycle
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while not self.killer_event.wait(self.cycle):
+            snap = self.engine.tracker.snapshot()
+            self.streamChanged.emit(snap)
 
 
 class UIStateController(QtCore.QObject):
     def __init__(self, 
                  ST:SignalTracker, 
-                 machine_status:MachineStatus
-                 ):
+                 machine_status:MachineStatus,
+                 stream_monitor:StreamMonitor = None):
         super().__init__()
+
         self.ST = ST
         self.machine_status = machine_status
+        self.stream_monitor = stream_monitor
+
         self.tt = TimeTracker()
         self.timer_running = False
-        
+        self.start_time = None
+
+        # Connect machine status
         machine_status.statusChanged.connect(self.on_status_changed)
 
+        # Connect stream progress (optional)
+        if stream_monitor:
+            stream_monitor.streamChanged.connect(self.on_stream_changed)
+
+    # -------------------------------
+    # MACHINE STATUS HANDLING
+    # -------------------------------
     def on_status_changed(self, data):
         state = data.get("state")
 
-        # STOP button logic
-        self.ST.enable_bSTOP.emit(state in [5,6,7,8,9,10])
+        # Enable/disable buttons
+        running_states = [5,6,7,8,9,10]
+        self.ST.enable_bSTOP.emit(state in running_states)
+        self.ST.enable_bHOLD.emit(state in running_states)
 
-        # HOLD button logic
-        self.ST.enable_bHOLD.emit(state in [5,6,7,8,9,10])
-
-        # Timer logic
+        # Timer update
         if self.timer_running:
             elapsed = datetime.datetime.now() - self.start_time
             self.ST.timer_change.emit(str(elapsed))
-    
-    def set_start(self,start_time:datetime.datetime=None):
+
+        # State text
+        self.ST.state_text.emit(str(state))
+
+        # Start/stop timer based on state
+        if state == 5:  # running
+            if not self.timer_running:
+                self.start_timer()
+        elif state in [0,1,2]:  # idle, disconnected, ready
+            self.stop_timer()
+
+    # -------------------------------
+    # STREAM PROGRESS HANDLING
+    # -------------------------------
+    def on_stream_changed(self, info:dict):
+        # Forward raw info
+        self.ST.stream_info_change.emit(info)
+
+        sent = info["sent"]
+        ack = info["ack"]
+        finalized = info["finalized"]
+        in_flight = info["in_flight_bytes"]
+        total = info["total_bytes"]
+
+        # Progress %
+        if sent > 0:
+            progress = (finalized / sent) * 100
+            self.ST.progress_change.emit(progress)
+
+        # Throughput (bytes/sec)
+        dt = self.tt.delta().total_seconds()
+        if dt > 0:
+            throughput = info["delta"] / dt
+            self.ST.throughput_change.emit(throughput)
+
+        # ETA
+        if finalized > 0 and sent > finalized:
+            remaining = sent - finalized
+            eta = remaining / max(throughput, 1e-6)
+            self.ST.eta_change.emit(eta)
+
+    # -------------------------------
+    # TIMER CONTROL
+    # -------------------------------
+    def set_start(self, start_time=None):
         if start_time:
             self.tt.set_last(start_time)
             self.start_time = start_time
 
     def start_timer(self):
         self.timer_running = True
+        self.start_time = datetime.datetime.now()
         self.tt.start()
 
     def stop_timer(self):
-        self.tt.stop()
         self.timer_running = False
+        self.tt.stop()
 

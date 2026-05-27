@@ -1142,6 +1142,20 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         except:
             pass
 
+    def PB_RunGcodeScript_NEW(self):
+        text = self.Get_Text_to_Stream(self.Stream_Linefrom, self.Stream_Lineto)
+        import thread_protocol_stream
+        self.protocol_stream = thread_protocol_stream.Protocol_Stream(
+            xyz_thread=self.xyz_thread,
+            killer_event=self.killer_event,
+            stop_event=self.stoping_event,
+            hold_event=self.holding_event
+        )
+
+        self.protocol_stream.start_stream(text)
+
+        log.info("New protocol streaming started.")
+
     def PB_RunGcodeScript(self):        
         if self.ui.checkBox_Gcode.isChecked()==True or self.isoncheckedstate_checkbox==True:
             self.isoncheckedstate_checkbox=not self.isoncheckedstate_checkbox # Case was not terminated correctly last time
