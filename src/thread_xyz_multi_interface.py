@@ -259,8 +259,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.Streamwriting=False
         self.Isneededtimeforcommand=False               
         self.action_type_indexlist=[]
-        for key,value in self.data.items():
-            self.status_tracker.add_param(key,value)
+        # for key,value in self.data.items():
+        #     self.status_tracker.add_param(key,value)
 
 
     def Default_Interface_Config(self):
@@ -1619,6 +1619,8 @@ class XYZMulti:
         self.CH=class_CH.Command_Handler(selected_interface_id,Required_actions=Required_actions)
         self.ser_read_thread = InterfaceSerialReaderWriterThread(machine_port,machine_baudrate, self.srl_cmd_queue, killer_event,self.machine_event_hold,self.machine_event_resume,self.machine_event_status,self.machine_event_softreset,self.machine_event_stop,self.IsRunning_event,self.machine_event_running_command,self.CH)
         
+    def is_alive(self):
+        return self.ser_read_thread.is_alive()
 
     def join(self):
         self.ser_read_thread.join()

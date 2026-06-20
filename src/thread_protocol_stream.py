@@ -128,7 +128,8 @@ class Protocol_Stream(threading.Thread):
     def run(self):
         self.streamer.start()
 
-        while not self.killer_event.wait(0.05):
+        # while not self.killer_event.wait(0.05):
+        while not self.killer_event.is_set():
 
             # 1. Detect disconnect
             if not self.machine_is_alive():
@@ -159,7 +160,8 @@ class Protocol_Stream(threading.Thread):
             # 5. Resume logging
             if self.xyz_thread.machine_event_resume.is_set():
                 self.log_stream_position("RESUME")
-
+        if self.killer_event.is_set():
+            log.warning("Stream Kill Event Detected")
         log.info("Protocol Stream ended.")
 
 

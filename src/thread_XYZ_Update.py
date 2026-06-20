@@ -40,7 +40,7 @@ class XYZ_Update(threading.Thread):
         self.Stream_info_list=[0,0,0,0,0,0]
         self.LastStream_info_list=[0,0,0,0,0,0]
         self.Stream_info_changed=False
-        self.sim_params=self.get_sim_parameters()
+        #self.sim_params=self.get_sim_parameters()
 
 
     def Initialize_Tracking_events(self):

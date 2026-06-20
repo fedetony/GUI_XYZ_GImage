@@ -844,7 +844,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         #self.ui.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo_and_Table)
         self.ui.pushButton_LoadGcode.clicked.connect(self.PB_LoadGcode)
         self.ui.pushButton_SaveGcode.clicked.connect(self.PB_SaveGcode_)
-        self.ui.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript)
+        self.ui.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript_NEW)
         
         self.ui.pushButton_Emergency.clicked.connect(self.PB_Emergency)
         self.emergencystopDialog.pressed.connect(self.PB_Emergency)
@@ -1145,11 +1145,12 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     def PB_RunGcodeScript_NEW(self):
         text = self.Get_Text_to_Stream(self.Stream_Linefrom, self.Stream_Lineto)
         import thread_protocol_stream
+        self.stream_kill=threading.Event()
         self.protocol_stream = thread_protocol_stream.Protocol_Stream(
             xyz_thread=self.xyz_thread,
-            killer_event=self.killer_event,
-            stop_event=self.stoping_event,
-            hold_event=self.holding_event
+            stream_killer_event=self.stream_kill,
+            stream_stop_event=self.xyz_thread.machine_event_stop,
+            stream_hold_event=self.xyz_thread.machine_event_hold
         )
 
         self.protocol_stream.start_stream(text)

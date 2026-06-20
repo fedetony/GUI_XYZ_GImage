@@ -146,6 +146,10 @@ class MachineStatus(QtCore.QObject):
                 if k in self._data and self._data[k] != v:
                     self._data[k] = v
                     changed = True
+                # Add it if it does not exist
+                if k not in self._data:
+                    self._data[k] = v
+                    changed = True
         if changed:
             self.statusChanged.emit(self.snapshot())
 
