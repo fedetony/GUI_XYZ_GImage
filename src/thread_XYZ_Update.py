@@ -7,6 +7,9 @@ import logging
 import time
 # from common import *
 import datetime
+from class_ST import SignalTracker
+from class_gcode_streamer import GCodeStreamer
+from thread_xyz_multi_interface import XYZMulti
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -18,7 +21,11 @@ log.addHandler(ahandler)
 
 class XYZ_Update(threading.Thread):
 
-    def __init__(self,ST,xyz_thread,xyz_gcodestream_thread,killer_event):
+    def __init__(self,
+                 ST:SignalTracker,
+                 xyz_thread:XYZMulti,
+                 xyz_gcodestream_thread:GCodeStreamer,
+                 killer_event:threading.Event):
         threading.Thread.__init__(self, name="XYZ Update")
         log.info("XYZ Update Started")
         self.killer_event=killer_event
@@ -97,11 +104,33 @@ class XYZ_Update(threading.Thread):
             log.info('Time elapsed: '+ txttime)    
         return txttime
 
+    def _drain_monitor_queue(self):
+        events = []
+        q = self.xyz_thread.ser_read_thread.monitor_queue
+        while True:
+            try:
+                events.append(q.get_nowait())
+            except queue.Empty:
+                break
+        return events
+
     def run(self):                
         count=0
         timer_count=0
         while not self.killer_event.wait(self.cycle_time):   
             #self.ST.Log_Update()
+            try:
+                monitor_events = self._drain_monitor_queue()
+                for ts, direction, text in monitor_events:
+                    if direction == "TX":
+                        self.ST.Monitor_tx_raw(ts, text)
+                    elif direction == "RX":
+                        self.ST.Monitor_rx_raw(ts, text)
+                    else:
+                        log.warning(f"Unknown monitor direction: {direction} -> {text}")
+            except Exception as e:                
+                if count==0:
+                    log.error(f"XYZ Update issues with monitor:{e}")
             try:
                 self.set_olddata()
                 self.data = self.xyz_thread.read()
@@ -130,6 +159,7 @@ class XYZ_Update(threading.Thread):
         log.info("XYZ Update killed")          
     
     def Get_Streaming_Info(self):   
+        #self.xyz_gcodestream_thread.protocol.tracker
         if self.IsStreaming==True:     
             self.linesacknowledged_count=self.xyz_thread.Get_linesacknowledgedCount()
             self.linesfinalized_count=self.xyz_gcodestream_thread.linesfinalized_count

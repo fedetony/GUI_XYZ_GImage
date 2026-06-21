@@ -90,8 +90,13 @@ log.info("Application starting...")
 
 #from thread_xyz_grbl import XYZGrbl
 from thread_xyz_multi_interface import XYZMulti
+# Old streaming
 import thread_Gcode_Stream
 import thread_XYZ_Update
+# New streamer replacing old
+from class_gcode_streamer import *
+import thread_protocol_stream
+
 from Gimage_V1 import Image_Gcode_Stream 
 from Gimage_V1 import GImage 
 import guixyz_v3 #GuiXYZ_V1
@@ -106,6 +111,7 @@ import class_File_Dialogs
 import class_ST
 import class_helper_dialogs
 import class_serial_terminal
+import class_stream_monitor
 import class_visualizer
 import class_gimage_dialog
 
@@ -320,6 +326,9 @@ class MyWindow(QtWidgets.QMainWindow):
         # Set serial terminal
         self.serialterminalDialog = class_serial_terminal.SerialTerminalDialog(self)
 
+        # Set stream monitor
+        self.streammonitorDialog = class_stream_monitor.StreamMonitorDialog(self)
+
         # Set Visualizer dialog
         self.visualizerDialog = class_visualizer.GCodeVisualizerDialog(self)
    
@@ -382,6 +391,10 @@ class MyWindow(QtWidgets.QMainWindow):
             except Exception as e:
                 pass
             try:
+                self.streammonitorDialog.close()
+            except Exception as e:
+                pass
+            try:
                 self.visualizerDialog.close()
             except Exception as e:
                 pass
@@ -439,9 +452,22 @@ class MyWindow(QtWidgets.QMainWindow):
         self.menuView.addAction(self.action_terminal)
         # Connect the close event to uncheck in view menu
         self.serialterminalDialog.closed.connect(lambda: self.action_terminal.setChecked(False))
+        # ------------- Stream Monitor -------------
+        self.action_streammonitor = QtGui.QAction("Stream Monitor", self, checkable=True)
+        self.action_streammonitor.setShortcut("F9")
+        def toggle_stream_monitor(checked):
+            if checked:
+                self.streammonitorDialog.show()
+            else:
+                self.streammonitorDialog.hide()
+
+        self.action_streammonitor.toggled.connect(toggle_stream_monitor)
+        self.menuView.addAction(self.action_streammonitor)
+        # Connect the close event to uncheck in view menu
+        self.streammonitorDialog.closed.connect(lambda: self.action_streammonitor.setChecked(False))
         # ------------- Visualizer -------------
         self.action_visualize = QtGui.QAction("Visualizer", self, checkable=True)
-        self.action_visualize.setShortcut("F9")
+        # self.action_visualize.setShortcut("F9")
         def toggle_visualizer(checked):
             if checked:
                 self.visualizerDialog.show()
@@ -454,7 +480,7 @@ class MyWindow(QtWidgets.QMainWindow):
         self.visualizerDialog.closed.connect(lambda: self.action_visualize.setChecked(False))
         # ------------- Gimage -------------
         self.action_gimage = QtGui.QAction("Gimage Gcode-Generator", self, checkable=True)
-        self.action_gimage.setShortcut("F8")
+        #self.action_gimage.setShortcut("F8")
         def toggle_gimage(checked):
             if checked:
                 self.gimageDialog.show()
@@ -606,11 +632,14 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         """    
         self.ST.enable_bHOLD.connect(self.Enable_HOLD_Button)
         self.ST.enable_bSTOP.connect(self.Enable_STOP_Button)
-        self.ST.timer_change[str].connect(self.ui.label_time.setText)
+        self.ST.timer_change.connect(self.ui.label_time.setText)
         self.ST.enable_isSTREAMING.connect(self.Enable_STREAMING)
-        self.ST.data_change[dict].connect(self.Data_Change_Actualize)
+        self.ST.data_change.connect(self.Data_Change_Actualize)
         self.ST.is_hold_state.connect(self.Pause_Messagebox_Stream)
-        self.ST.stream_info_change.connect(self.Stream_Info_Update)  
+        self.ST.stream_info_change.connect(self.Stream_Info_Update)
+
+        self.ST.rx_raw.connect(self.monitor_rx_update)
+        self.ST.tx_raw.connect(self.monitor_tx_update)
 
     @QtCore.pyqtSlot(object)
     def on_log_from_anywhere(self, record: logging.LogRecord):
@@ -696,8 +725,13 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     # def setLineFormat(self, textEdit,lineNumber, charformat):
     #     cursor = QTextCursor(textEdit.document().findBlockByNumber(lineNumber))
     #     cursor.setBlockCharFormat(charformat)
-    #     #cursor.setBlockFormat(format)             
-        
+    #     #cursor.setBlockFormat(format)   
+          
+    def monitor_rx_update(self,ts,text): 
+        self.streammonitorDialog.append_rx(text,ts)
+    
+    def monitor_tx_update(self,ts,text): 
+        self.streammonitorDialog.append_tx(text,ts)
 
     def Stream_Info_Update(self,streaminfolist):
         atxt="Line "+str(streaminfolist[1])+ " of "+ str(streaminfolist[2])
@@ -844,7 +878,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         #self.ui.tabWidget.tabs.tabBarClicked(2).connect(self.Fill_Config_Combo_and_Table)
         self.ui.pushButton_LoadGcode.clicked.connect(self.PB_LoadGcode)
         self.ui.pushButton_SaveGcode.clicked.connect(self.PB_SaveGcode_)
-        self.ui.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript_NEW)
+        self.ui.PushButton_RunGcodeScript.clicked.connect(self.PB_RunGcodeScript)#self.PB_RunGcodeScript_NEW)
         
         self.ui.pushButton_Emergency.clicked.connect(self.PB_Emergency)
         self.emergencystopDialog.pressed.connect(self.PB_Emergency)
@@ -1091,7 +1125,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
     def Configuration_Changed_Refresh(self,afilename):
         #print(self.XYZRobot_found)
         if self.XYZRobot_found==1:
-            if self.xyz_thread.CH.filename==afilename:   
+            if self.xyz_thread.CH.yaml_filename==afilename:   
                 log.info("Close connection to Machine refresh Threads using "+afilename+' configurations.')             
         else:            
             log.info("Event filename changed!"+afilename)
@@ -1144,9 +1178,8 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
 
     def PB_RunGcodeScript_NEW(self):
         text = self.Get_Text_to_Stream(self.Stream_Linefrom, self.Stream_Lineto)
-        import thread_protocol_stream
         self.stream_kill=threading.Event()
-        self.protocol_stream = thread_protocol_stream.Protocol_Stream(
+        self.protocol_stream = thread_protocol_stream.ProtocolStream(
             xyz_thread=self.xyz_thread,
             stream_killer_event=self.stream_kill,
             stream_stop_event=self.xyz_thread.machine_event_stop,
@@ -1576,6 +1609,9 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.XYZRobot_found=1
             
             log.info("SUCCESS: XYZ Initialized :)")   
+            if self.streammonitorDialog.isHidden():
+                self.streammonitorDialog.show()
+                self.action_streammonitor.setChecked(True)
             
         except Exception as e:   
             self.XYZRobot_found=0
@@ -1588,47 +1624,63 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
         #    self.App_Close_Event()
         
     # def Start_XYZ_Thread(self):
-    #     XYZRobot_port = self.COMPort
-    #     Baudrate = int(self.COMBaudRate)
+    #     try:
+    #         XYZRobot_port = self.COMPort
+    #         Baudrate = int(self.COMBaudRate)
 
-    #     # 1. Start machine wrapper (unchanged)
-    #     self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate,
-    #                             self.killer_event, self.IsRunning_event)
-    #     self.xyz_thread.start()
+    #         # 1. Start machine wrapper (unchanged)
+    #         self.xyz_thread = XYZMulti(XYZRobot_port, Baudrate,
+    #                                 self.killer_event, self.IsRunning_event)
+    #         self.xyz_thread.start()
 
-    #     # 2. Create SerialTransport
-    #     self.transport = SerialTransport(self.xyz_thread.ser_read_thread)
+    #         # 2. Create SerialTransport
+    #         self.transport = QueueDataTransport(self.xyz_thread.ser_read_thread)
 
-    #     # 3. Load protocol config from CH
-    #     behavior = self.xyz_thread.ser_read_thread.Int_Config["Behavior"]
-    #     self.protocol = ProtocolEngine(ProtocolConfig(behavior))
+    #         # 3. Load protocol config from CH
+    #         behavior = self.xyz_thread.ser_read_thread.Int_Config
+    #         self.protocol = ProtocolEngine(ProtocolConfig(behavior))
 
-    #     # 4. Create new GCodeStreamer
-    #     self.stream_event_stop = threading.Event()
-    #     self.stream_event_stop.clear()
+    #         # 4. Create new GCodeStreamer
+    #         self.stream_event_stop = threading.Event()
+    #         self.stream_event_stop.clear()
+            
+    #         self.xyz_gcodestream_thread = GCodeStreamer(
+    #             self.transport,
+    #             self.protocol,
+    #             self.killer_event,
+    #             self.stream_event_stop,
+    #             self.xyz_thread.machine_event_hold
+    #         )
+    #         self.xyz_gcodestream_thread.start()
 
-    #     self.xyz_gcodestream_thread = GCodeStreamer(
-    #         self.transport,
-    #         self.protocol,
-    #         self.killer_event,
-    #         self.stream_event_stop
-    #     )
-    #     self.xyz_gcodestream_thread.start()
+    #         # 5. Start XYZ_Update with protocol instead of xyz_thread
+    #         self.xyz_update_thread = thread_XYZ_Update.XYZ_Update(
+    #             self.ST,
+    #             self.xyz_thread, #self.protocol,# <── NEW: pass protocol, not xyz_thread
+    #             self.xyz_gcodestream_thread,
+    #             self.killer_event
+    #         )
+    #         self.xyz_update_thread.start()
 
-    #     # 5. Start XYZ_Update with protocol instead of xyz_thread
-    #     self.xyz_update_thread = XYZ_Update(
-    #         self.ST,
-    #         self.protocol,                 # <── NEW: pass protocol, not xyz_thread
-    #         self.xyz_gcodestream_thread,
-    #         self.killer_event
-    #     )
-    #     self.xyz_update_thread.start()
+    #         # 6. Image thread unchanged
+    #         if self.IsImageThread==False:
+    #             self.Start_Image_Thread()
+    #         if self.IsImageThread==True:                    
+    #             self.xyz_gimagestream_thread.Set_xyz_thread(self.xyz_thread,self.stream_event_stop)
 
-    #     # 6. Image thread unchanged
-    #     ...
+    #         # 7. Home machine (unchanged)     
+    #         log.info("First Run Calibrating to: X = " + str(self.x_pos) + ", Y = " + str(self.y_pos) + ", Z = " + str(self.z_pos))
+    #         self.xyz_thread.home_offset_xyz(self.x_pos,self.y_pos,self.z_pos)
+    #         self.XYZRobot_found=1
+            
+    #         log.info("SUCCESS: XYZ Initialized :)")  
 
-    #     # 7. Home machine (unchanged)
-    #     self.xyz_thread.home_offset_xyz(self.x_pos, self.y_pos, self.z_pos)
+    #     except Exception as eee:   
+    #         self.XYZRobot_found=0
+    #         #log.error("failed to initialise xyz_thread: ", sys.exc_info()[0])
+    #         log.error(eee)
+    #         log.error("Failed to initialise protocol streamer :(")
+    #         self.Show_Message("Error","Failed to Initialize XYZ Robot with protocol :( (Check Port)")
 
 
     def Show_Message(self,title,text):

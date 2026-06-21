@@ -31,6 +31,10 @@ class SignalTracker(QWidget):
     # status
     eta_change = QtCore.pyqtSignal(object)
 
+    # Monitor data
+    tx_raw = QtCore.pyqtSignal(float, str)
+    rx_raw = QtCore.pyqtSignal(float, str)
+
     def __init__(self, *args, **kwargs):        
         super(SignalTracker, self).__init__(*args, **kwargs)    
         self.__name__="ST"
@@ -83,7 +87,14 @@ class SignalTracker(QWidget):
         self.gimage_finished.emit(result) 
 
     def GImage_Error(self,result:str):
-        self.gimage_error.emit(result)    
+        self.gimage_error.emit(result) 
+
+    def Monitor_tx_raw(self,timestamp:float,raw:str):
+        self.tx_raw.emit(timestamp,raw)    
+    
+    def Monitor_rx_raw(self,timestamp:float,raw:str):
+        self.rx_raw.emit(timestamp,raw)    
+    
 
 
     

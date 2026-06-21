@@ -3,6 +3,7 @@ import queue
 import re
 import logging
 import time
+from datetime import datetime 
 #from common import *
 
 # install pySerial NOT serial!!!
@@ -40,6 +41,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         self.CH=CH
         self.rx_queue = rx_queue   
         self.read_queue = queue.Queue()     
+        self.monitor_queue = queue.Queue(maxsize=5000)
         self.IsRunning_event=IsRunning_event
         self.killer_event = kill_event
         self.machine_event_running_command=machine_event_running_command
@@ -338,7 +340,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         while not wake.wait(waittime) and not self.machine_event_stop.is_set() and not self.killer_event.is_set() and not self.machine_event_softreset.is_set():
             #log.info('wait')
             theread=self.ser_port.readline()            
-            machine_out =self.serialread_to_str(theread)            
+            machine_out =self.serialread_to_str(theread)      
+            self._tap_monitor("RX",machine_out)      
                         
             if count<teaseini and count>=teaseini-5:
                self.port_write('\n',True,logcmd=True) 
@@ -361,16 +364,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
             log.info('Wait exit by event...')        
         return machine_out
     
-    def serialread_to_str(self,theread,coding=None):
-        if type(theread)==bytes:
+    def serialread_to_str(self, data, coding="utf-8"):
+        if isinstance(data, bytes):
             try:
-                if coding!= None:
-                    return str(theread.decode(coding))
-                return str(theread.decode())
-            except:
-                return str(theread)    
-        else:    
-            return str(theread)
+                return data.decode(coding, errors="replace")
+            except Exception:
+                return repr(data)
+        return str(data)
 
     def get_config_value(self,configaction,anid):
         aFormat=self.CH.get_action_format_from_id(self.CH.InterfaceConfigallids,configaction,anid)
@@ -601,6 +601,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                     self.ser_port.write(str(new_cmd).encode())    
                     self.machine_event_running_command.set()                
                     self.machine_event_status.set()  #Set flag to read the values
+                    self._tap_monitor("TX",str(new_cmd).encode())
                     #self.Do_line_Counting(new_cmd)      
                     
                 except queue.Empty:
@@ -710,14 +711,15 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 if logcmd==True:
                     log.info('Queued')      
 
-
     def port_write(self,cmd,isok,ending='\n',logcmd=False):
         if isok==True:
             if cmd != '' and cmd is not None:
                 if ending is not None:
                     self.ser_port.write(str.encode(cmd+ending))
+                    self._tap_monitor("TX",str.encode(cmd+ending))
                 else:
                     self.ser_port.write(str.encode(cmd))    
+                    self._tap_monitor("TX",str.encode(cmd))
                 self.machine_event_running_command.set()
             
     def Is_system_ready(self):
@@ -933,7 +935,13 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                         if iii == 'STATE_XYZ':
                             self.Set_Status_from_StateXYZ()   
 
-                if self.Compare_Hasdatachanged(self.olddata,['CTL'])==True:                    
+                if self.Compare_Hasdatachanged(self.olddata,
+                                               ['CTL',
+                                                'is_ack',
+                                                'is_error',
+                                                'is_alarm',
+                                                'is_ackcexecuted',
+                                                'is_ackcreceived'])==True:                    
                     if self.logPosition==True:     
                         #print('Entered here log position')                   
                         if self.logpositionoutputFormat is None:
@@ -954,13 +962,40 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                             self.machine_event_running_command.clear()
                             self.linesexecuted=self.linesexecuted+1
                         else:
-                            self.IsRunning_event.set()   
+                            self.IsRunning_event.set()
+                self.data['is_ack']=self.is_ack   
+                self.data['is_error']=self.is_error
+                self.data['is_alarm']=self.is_alarm
+                self.data['is_ackcexecuted']=self.is_ackcexecuted
+                self.data['is_ackcreceived']=self.is_ackcreceived
+
                 for aaa in self.data:         
                     self.olddata[aaa]=self.data[aaa] 
+                
                 self.status_tracker.set_data(**self.data)               
         return self.data
  
-    
+    def _tap_monitor(self, direction, text):
+        
+        # normalize early
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", errors="replace")
+        
+        q = self.monitor_queue
+        ts = self._now_ts()
+
+        try:
+            q.put_nowait((ts, direction, text))
+
+        except queue.Full:
+            try:
+                q.get_nowait()
+                q.put_nowait((ts, direction, text))
+            except queue.Empty:
+                pass
+
+    def _now_ts(self):
+        return datetime.now().timestamp()
     
     def Compare_Hasdatachanged(self,olddata,exceptlist=[]):
         is_different=False
@@ -1084,7 +1119,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
                 self.port_write(Gcode,isok)                 
         
         if  self.machine_event_status.is_set() and not self.machine_event_softreset.is_set() and not self.machine_event_stop.is_set():             
-            machine_out = self.readline_fromserial(buff=4*256)                         
+            machine_out = self.readline_fromserial(buff=4*256)  
+            self._tap_monitor("RX",machine_out)                       
             self.data=self.Process_Read_Data(machine_out,self.show_ok)                
             self.read_queue.put(self.data.copy())
             time.sleep(waittime)  
@@ -1100,6 +1136,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
     #     try:
     #         if self.ser_port.in_waiting > 0:
     #             raw = self.ser_port.readline()
+    #             raw = self.serialread_to_str(raw,'utf-8')
     #             if raw:
     #                 self.read_queue.put(raw)
     #     except Exception as e:
@@ -1113,6 +1150,7 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         try:
             if self.ser_port.in_waiting > 0:                
                 machine_out = self.readline_fromserial(buff=4*256)
+                self._tap_monitor("RX",machine_out)
                 self.data=self.Process_Read_Data(machine_out,self.show_ok) 
                 self.read_queue.put(self.data.copy())
             else:
@@ -1244,7 +1282,8 @@ class InterfaceSerialReaderWriterThread(threading.Thread):
         alllines='' 
         # catch all info first
         while okrcv is None:       
-            line_r=self.readline_fromserial(buff=4*256)                                                         
+            line_r=self.readline_fromserial(buff=4*256)   
+            self._tap_monitor("RX",line_r)                                                      
             #line_r = self.Wait_for_serial_response(0.1,exitcount=1000,loginfo=False,teaseini=2000) 
             isack, iscr, isce=self.is_received_acknowledge(line_r)              
             if isack==True:

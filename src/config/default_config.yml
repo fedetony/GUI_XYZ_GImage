@@ -760,25 +760,25 @@ actions:
     - ''
     - ''
     laserspindleCWON:
-    - 'Turns laser on, or Spindle in Clockwise Direction'
+    - Turns laser on, or Spindle in Clockwise Direction
     - '*(0)'
     - '*(0)'
     - '*(0)'
     - '*(0)'
     laserspindleCWOFF:
-    - 'Turns laser or spindle off'
+    - Turns laser or spindle off
     - '*(0)'
     - '*(0)'
     - '*(0)'
     - '*(0)'
     laserspindleCCWON:
-    - 'Turns laser on, or Spindle in Counter-Clockwise Direction'
+    - Turns laser on, or Spindle in Counter-Clockwise Direction
     - '*(0)'
     - '*(0)'
     - '*(0)'
     - '*(0)'
     laserspindleCCWOFF:
-    - 'Turns laser or spindle off'
+    - Turns laser or spindle off
     - '*(0)'
     - '*(0)'
     - '*(0)'
@@ -1217,7 +1217,7 @@ behavior:
     - ''
     - '0'
     logNoread:
-    - 'True'
+    - 'False'
     - 'True'
     - 'True'
     - ''
@@ -1283,7 +1283,7 @@ behavior:
     - '1'
     - '1'
     statusRate:
-    - '0.2'
+    - '0.5'
     - '0.2'
     - '0.2'
     - '0.2'

@@ -12,6 +12,7 @@ import class_CH
 
 from class_machine_status import DataStatusTracker
 
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 formatter=logging.Formatter('[%(levelname)s] (%(threadName)-10s) %(message)s')
@@ -262,9 +263,16 @@ class GCodeStreamer(threading.Thread):
         self.killer_event = killer_event
         self.stop_event   = stop_event
         self.pause_event   = pause_event
+        # For file streaming mode
+        self.file = None
+        self.next_line = None
 
         self.queue = queue.Queue()
         self.cycle = getattr(self.protocol.cfg, "cycleTime", 0.01)
+    
+    def open_file(self, path):
+        self.file = open(path, "r", encoding="utf-8", errors="ignore")
+        self.next_line = None
 
     def enqueue(self, text: str):
         for raw in text.splitlines():
@@ -290,13 +298,49 @@ class GCodeStreamer(threading.Thread):
                     self.transport.write_line(cmd)
                     self.protocol.on_line_sent(cmd)
 
-            # 3. Send next G-code line
+            # # 3. Send next G-code line
+            # if not self.stop_event.is_set() and not self.queue.empty():
+            #     next_line = self.queue.queue[0]
+            #     if self.protocol.can_send(next_line):
+            #         self.queue.get()
+            #         self.transport.write_line(next_line)
+            #         self.protocol.on_line_sent(next_line)
+
+            # 3. Send next G-code line (memory mode)
             if not self.stop_event.is_set() and not self.queue.empty():
                 next_line = self.queue.queue[0]
                 if self.protocol.can_send(next_line):
                     self.queue.get()
                     self.transport.write_line(next_line)
                     self.protocol.on_line_sent(next_line)
+
+            # 4. File-streaming mode
+            elif not self.stop_event.is_set() and self.file:
+
+                # Load next line if needed
+                if self.next_line is None:
+                    raw = self.file.readline()
+                    if raw == "":
+                        # EOF reached
+                        self.file.close()
+                        self.file = None
+                        continue
+
+                    line = raw.strip()
+                    is_comment = line.startswith(";") or line.startswith("(")
+                    if line and not is_comment:
+                        self.next_line = line
+                    else:
+                        self.next_line = None
+                        continue
+
+                # Try sending it
+                if self.protocol.can_send(self.next_line):
+                    self.transport.write_line(self.next_line)
+                    self.protocol.on_line_sent(self.next_line)
+                    self.next_line = None
+                
+                
 
 class StreamTracker:
     """
@@ -315,12 +359,16 @@ class StreamTracker:
         self.sent += 1
         self.in_flight_bytes += len(line) + 1
         self.total_bytes += len(line) + 1
+        if len(line)>0:
+            print(f"----> sent: {line} in_flight_bytes: {self.in_flight_bytes}")
 
     def on_ack(self, line: str):
         self.ack += 1
         self.in_flight_bytes -= len(line) + 1
         if self.in_flight_bytes < 0:
             self.in_flight_bytes = 0
+        if len(line)>0:
+            print(f"<---- ack: {line} in_flight_bytes: {self.in_flight_bytes}")
 
     def on_finalize(self):
         self.finalized += 1

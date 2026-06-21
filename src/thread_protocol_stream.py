@@ -13,8 +13,9 @@ ahandler.setFormatter(formatter)
 log.addHandler(ahandler)
 
 RESPONSE_TIME_ABORT = 5.0
+STATUS_REPORT_TIME = 1.0
 
-class Protocol_Stream(threading.Thread):
+class ProtocolStream(threading.Thread):
     def __init__(self, 
                  xyz_thread:XYZMulti, 
                  stream_killer_event:threading.Event, 
@@ -71,6 +72,7 @@ class Protocol_Stream(threading.Thread):
             stop_event=self.stop_event,
             pause_event=self.hold_event
         )
+        self.last_nums=(0, "", 0, 0, 0, 0)
 
     # -----------------------------
     # Public API
@@ -83,8 +85,11 @@ class Protocol_Stream(threading.Thread):
         self.enqueue_text(text)
 
     def enqueue_text(self, text:str):
+        count=0
         for line in text.splitlines():
             self.streamer.enqueue(line)
+            count+=1
+        log.info(f"Enqueued {count} lines to stream!")
 
     def stop_stream(self):
         self.killer_event.set()
@@ -95,12 +100,13 @@ class Protocol_Stream(threading.Thread):
         return None
 
     def append_counters(self, number_total_lines:int):
+        #self.protocol.tracker = self.xyz_thread.ser_read_thread.status_tracker
         self.counters = StreamCounters(
             streamer=self.streamer,
             tracker=self.protocol.tracker,
             total_file_lines=number_total_lines
         )
-    def machine_is_alive(self):
+    def machine_is_alive(self,use_timeout=False):
         # Layer 1: serial thread alive
         if not self.xyz_thread.is_alive():
             return False
@@ -110,7 +116,7 @@ class Protocol_Stream(threading.Thread):
             return False
 
         # Layer 3: protocol timeout (optional)
-        if self.protocol.tracker.in_flight_bytes > 0:
+        if self.protocol.tracker.in_flight_bytes > 0 and use_timeout:
             if time.time() - self.protocol.last_ack_time > RESPONSE_TIME_ABORT:
                 return False
 
@@ -120,17 +126,23 @@ class Protocol_Stream(threading.Thread):
         if self.counters:
             nums = self.counters.get_all_nums()
             buff, txt, consumed, left, tot, totfile = nums
-            log.info(f"{reason}: ack={consumed}, sent={tot}, left={left}, buff={buff}")
+            for item, old_item in zip(nums,self.last_nums):
+                if item != old_item:
+                    log.info(f"{reason}: ack={consumed}, sent={tot}, left={left}, buff={buff}")
+                    break
+            self.last_nums=nums
 
     # -----------------------------
     # Thread loop
     # -----------------------------
     def run(self):
         self.streamer.start()
-
+        tstart=time.time()
         # while not self.killer_event.wait(0.05):
         while not self.killer_event.is_set():
-
+            tnow=time.time()
+            if (tnow-tstart) > STATUS_REPORT_TIME:
+                self.log_stream_position("STATUS")
             # 1. Detect disconnect
             if not self.machine_is_alive():
                 self.log_stream_position("DISCONNECT")
