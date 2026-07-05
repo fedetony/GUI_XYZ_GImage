@@ -1784,7 +1784,7 @@ typeofstream=5 No command interpretation. Send a number of lines and count the r
             self.ui.tableWidget_Config.setRowCount(self.Config_Table_NumRows)
             self.ui.tableWidget_Config.setColumnCount(self.Config_Table_NumCols)
             self.ui.tableWidget_Config.setHorizontalHeaderLabels(["Id", "Value", "Info", "Type"])
-            self.ui.tableWidget_Config.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)            
+            self.ui.tableWidget_Config.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)            
             iii=0
             for ccc in config:
                 if not '_Info' in ccc and not '_Type' in ccc:                

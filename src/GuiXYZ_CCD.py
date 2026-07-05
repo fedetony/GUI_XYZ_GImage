@@ -7,7 +7,7 @@
 
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-
+import resources_rc
 
 class Ui_Dialog_CCD(object):
     def setupUi(self, Dialog_CCD):
@@ -41,7 +41,7 @@ class Ui_Dialog_CCD(object):
         self.pushButton_CCD_Force_Interface.setMaximumSize(QtCore.QSize(25, 25))
         self.pushButton_CCD_Force_Interface.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("img/Actions-arrow-up-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon.addPixmap(QtGui.QPixmap(":img/Actions-arrow-up-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_Force_Interface.setIcon(icon)
         self.pushButton_CCD_Force_Interface.setObjectName("pushButton_CCD_Force_Interface")
         self.horizontalLayout.addWidget(self.pushButton_CCD_Force_Interface)
@@ -53,7 +53,7 @@ class Ui_Dialog_CCD(object):
         self.pushButton_CCD_AddInterface.setMaximumSize(QtCore.QSize(25, 16777215))
         self.pushButton_CCD_AddInterface.setText("")
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("img/Plus-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon1.addPixmap(QtGui.QPixmap(":img/Plus-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_AddInterface.setIcon(icon1)
         self.pushButton_CCD_AddInterface.setObjectName("pushButton_CCD_AddInterface")
         self.horizontalLayout.addWidget(self.pushButton_CCD_AddInterface)
@@ -61,7 +61,7 @@ class Ui_Dialog_CCD(object):
         self.pushButton_CCD_DelInterface.setMaximumSize(QtCore.QSize(25, 16777215))
         self.pushButton_CCD_DelInterface.setText("")
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap("img/Actions-process-stop-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon2.addPixmap(QtGui.QPixmap(":img/Actions-process-stop-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_DelInterface.setIcon(icon2)
         self.pushButton_CCD_DelInterface.setObjectName("pushButton_CCD_DelInterface")
         self.horizontalLayout.addWidget(self.pushButton_CCD_DelInterface)
@@ -75,18 +75,21 @@ class Ui_Dialog_CCD(object):
         self.gridLayout_2.addWidget(self.label_CCD_Command_Filestatus, 0, 1, 1, 1)
         self.pushButton_CCD_Load_Commands = QtWidgets.QPushButton(parent=self.groupBox_CCD_actionFiles)
         icon3 = QtGui.QIcon()
-        icon3.addPixmap(QtGui.QPixmap("img/open-file-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon3.addPixmap(QtGui.QPixmap(":img/open-file-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_Load_Commands.setIcon(icon3)
         self.pushButton_CCD_Load_Commands.setObjectName("pushButton_CCD_Load_Commands")
         self.gridLayout_2.addWidget(self.pushButton_CCD_Load_Commands, 1, 0, 1, 1)
         self.pushButton_CCD_Save_Commands = QtWidgets.QPushButton(parent=self.groupBox_CCD_actionFiles)
         icon4 = QtGui.QIcon()
-        icon4.addPixmap(QtGui.QPixmap("img/Save-as-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon4.addPixmap(QtGui.QPixmap(":img/Save-as-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon7 = QtGui.QIcon()
+        icon7.addPixmap(QtGui.QPixmap(":img/Actions-view-refresh-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_Save_Commands.setIcon(icon4)
         self.pushButton_CCD_Save_Commands.setObjectName("pushButton_CCD_Save_Commands")
         self.gridLayout_2.addWidget(self.pushButton_CCD_Save_Commands, 1, 1, 1, 1)
         self.pushButton_CCD_Refresh_Commands_File = QtWidgets.QPushButton(parent=self.groupBox_CCD_actionFiles)
         self.pushButton_CCD_Refresh_Commands_File.setObjectName("pushButton_CCD_Refresh_Commands_File")
+        self.pushButton_CCD_Refresh_Commands_File.setIcon(icon7)
         self.gridLayout_2.addWidget(self.pushButton_CCD_Refresh_Commands_File, 0, 0, 1, 1)
         self.verticalLayout_2.addWidget(self.groupBox_CCD_actionFiles)
         self.tabWidget_CCD_configs = QtWidgets.QTabWidget(parent=self.frame_CCD)
@@ -113,7 +116,7 @@ class Ui_Dialog_CCD(object):
         self.pushButton_CCD_actionAdd.setMaximumSize(QtCore.QSize(25, 25))
         self.pushButton_CCD_actionAdd.setText("")
         icon5 = QtGui.QIcon()
-        icon5.addPixmap(QtGui.QPixmap("img/add-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon5.addPixmap(QtGui.QPixmap(":img/add-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_actionAdd.setIcon(icon5)
         self.pushButton_CCD_actionAdd.setObjectName("pushButton_CCD_actionAdd")
         self.horizontalLayout_2.addWidget(self.pushButton_CCD_actionAdd)
@@ -121,7 +124,7 @@ class Ui_Dialog_CCD(object):
         self.pushButton_CCD_actionDel.setMaximumSize(QtCore.QSize(25, 25))
         self.pushButton_CCD_actionDel.setText("")
         icon6 = QtGui.QIcon()
-        icon6.addPixmap(QtGui.QPixmap("img/math-minus-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon6.addPixmap(QtGui.QPixmap(":img/math-minus-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_CCD_actionDel.setIcon(icon6)
         self.pushButton_CCD_actionDel.setObjectName("pushButton_CCD_actionDel")
         self.horizontalLayout_2.addWidget(self.pushButton_CCD_actionDel)

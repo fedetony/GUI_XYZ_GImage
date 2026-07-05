@@ -7,7 +7,7 @@
 
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-
+import resources_rc
 
 class Ui_Dialog_TTD(object):
     def setupUi(self, Dialog_TTD):
@@ -21,7 +21,7 @@ class Ui_Dialog_TTD(object):
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.pushButton_TTD_Load_Code = QtWidgets.QPushButton(parent=self.groupBox_TTD_from)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("img/open-file-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon.addPixmap(QtGui.QPixmap(":img/open-file-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_TTD_Load_Code.setIcon(icon)
         self.pushButton_TTD_Load_Code.setObjectName("pushButton_TTD_Load_Code")
         self.gridLayout_2.addWidget(self.pushButton_TTD_Load_Code, 1, 2, 1, 1)
@@ -48,7 +48,7 @@ class Ui_Dialog_TTD(object):
         self.gridLayout.addWidget(self.comboBox_TTD_ID_Code, 0, 1, 1, 1)
         self.pushButton_TTD_Save_Code = QtWidgets.QPushButton(parent=self.groupBox_TTD_to)
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("img/Floppy-Small-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon1.addPixmap(QtGui.QPixmap(":img/Floppy-Small-icon.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_TTD_Save_Code.setIcon(icon1)
         self.pushButton_TTD_Save_Code.setObjectName("pushButton_TTD_Save_Code")
         self.gridLayout.addWidget(self.pushButton_TTD_Save_Code, 2, 1, 1, 1)
@@ -72,7 +72,7 @@ class Ui_Dialog_TTD(object):
         self.verticalLayout.addWidget(self.progressBar_TTD_State)
         self.pushButton_TTD_Translate = QtWidgets.QPushButton(parent=Dialog_TTD)
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap("img/move-icon (1).png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+        icon2.addPixmap(QtGui.QPixmap(":img/move-icon (1).png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.pushButton_TTD_Translate.setIcon(icon2)
         self.pushButton_TTD_Translate.setIconSize(QtCore.QSize(50, 50))
         self.pushButton_TTD_Translate.setObjectName("pushButton_TTD_Translate")
